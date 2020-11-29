@@ -26,10 +26,10 @@ struct WAVLTree<V> {
     }
     class Node {
         let value: V
-        var end: Int
-        var left: SubNode? = nil
-        var right: SubNode? = nil
-        var parent: Node? = nil
+        private(set) var end: Int
+        private var left: SubNode? = nil
+        private var right: SubNode? = nil
+        private(set) var parent: Node? = nil
         init(value: V, length: Int) {
             self.value = value
             self.end = length
@@ -56,6 +56,12 @@ struct WAVLTree<V> {
             if case .Left = dir {
                 end += length
             }
+        }
+        func copyEnd(other: Node) {
+            end = other.end
+        }
+        func detach() {
+            parent = nil
         }
         func getChildInfo() -> (Node, Dir, Bool)? {
             return parent.map {p in
@@ -119,12 +125,11 @@ struct WAVLTree<V> {
     mutating func replace(node: Node, with: Node?) {
         if let (parent, dir, isDeep) = node.getChildInfo() {
             parent[dir] = with?.mkSubNode(deep: isDeep)
-            with?.parent = parent
         } else {
             if root === node {
                 root = with
             }
-            with?.parent = nil
+            with?.detach()
         }
     }
     func advanceRecurse(node: Node, length: Int) {
@@ -192,7 +197,7 @@ struct WAVLTree<V> {
         defer {
             node[.Left] = nil
             node[.Right] = nil
-            node.parent = nil
+            node.detach()
         }
         if let leftSubNode = node[.Left] {
             var target = leftSubNode.node
@@ -216,13 +221,13 @@ struct WAVLTree<V> {
                 target[.Left] = node[.Left]
             }
             target[.Right] = node[.Right]
-            target.end = node.end
+            target.copyEnd(other: node)
             replace(node: node, with: target)
         } else {
             guard let childInfo = node.getChildInfo() else {
                 if root === node {
                     root = node[.Right]?.node
-                    root?.parent = nil
+                    root?.detach()
                 }
                 return
             }
