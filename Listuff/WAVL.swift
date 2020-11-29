@@ -7,18 +7,17 @@
 
 import Foundation
 
-enum WAVLDir {
-    case Left
-    case Right
-    var other: WAVLDir {
-        switch self {
-        case .Left: return .Right
-        case .Right: return .Left
+struct WAVLTree<V> {
+    enum Dir {
+        case Left
+        case Right
+        var other: Dir {
+            switch self {
+            case .Left: return .Right
+            case .Right: return .Left
+            }
         }
     }
-}
-struct WAVLTree<V> {
-    typealias Dir = WAVLDir
     typealias Value = V
     struct SubNode {
         var deep: Bool
@@ -73,7 +72,7 @@ struct WAVLTree<V> {
             return self[dir]?.deep ?? (self[dir.other] != nil)
         }
     }
-    var root: Node? = nil
+    private(set) var root: Node? = nil
     init() {}
     func search(pos: Int) -> ((Int, Int), Node)? {
         var shift = 0
