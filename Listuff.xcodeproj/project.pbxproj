@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B53348822573156D0008FB49 /* WAVL.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53348812573156D0008FB49 /* WAVL.swift */; };
+		B533488725732B820008FB49 /* WAVLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B533488625732B820008FB49 /* WAVLTests.swift */; };
+		B533488C2573D1570008FB49 /* ObservableProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B533488B2573D1570008FB49 /* ObservableProxy.swift */; };
 		B56B368625515B1B006C1FA6 /* ListuffApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B56B368525515B1B006C1FA6 /* ListuffApp.swift */; };
 		B56B368825515B1B006C1FA6 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B56B368725515B1B006C1FA6 /* ContentView.swift */; };
 		B56B368A25515B1C006C1FA6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B56B368925515B1C006C1FA6 /* Assets.xcassets */; };
@@ -35,6 +38,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B53348812573156D0008FB49 /* WAVL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WAVL.swift; sourceTree = "<group>"; };
+		B533488625732B820008FB49 /* WAVLTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WAVLTests.swift; sourceTree = "<group>"; };
+		B533488B2573D1570008FB49 /* ObservableProxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableProxy.swift; sourceTree = "<group>"; };
 		B56B368225515B1B006C1FA6 /* Listuff.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Listuff.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B56B368525515B1B006C1FA6 /* ListuffApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListuffApp.swift; sourceTree = "<group>"; };
 		B56B368725515B1B006C1FA6 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -106,6 +112,8 @@
 				B56B369325515B1C006C1FA6 /* Info.plist */,
 				B56B369025515B1C006C1FA6 /* Listuff.xcdatamodeld */,
 				B56B368B25515B1C006C1FA6 /* Preview Content */,
+				B53348812573156D0008FB49 /* WAVL.swift */,
+				B533488B2573D1570008FB49 /* ObservableProxy.swift */,
 			);
 			path = Listuff;
 			sourceTree = "<group>";
@@ -123,6 +131,7 @@
 			children = (
 				B56B369C25515B1C006C1FA6 /* ListuffTests.swift */,
 				B56B369E25515B1C006C1FA6 /* Info.plist */,
+				B533488625732B820008FB49 /* WAVLTests.swift */,
 			);
 			path = ListuffTests;
 			sourceTree = "<group>";
@@ -267,8 +276,10 @@
 			files = (
 				B56B368F25515B1C006C1FA6 /* Persistence.swift in Sources */,
 				B56B369225515B1C006C1FA6 /* Listuff.xcdatamodeld in Sources */,
+				B53348822573156D0008FB49 /* WAVL.swift in Sources */,
 				B56B368825515B1B006C1FA6 /* ContentView.swift in Sources */,
 				B56B368625515B1B006C1FA6 /* ListuffApp.swift in Sources */,
+				B533488C2573D1570008FB49 /* ObservableProxy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -277,6 +288,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B56B369D25515B1C006C1FA6 /* ListuffTests.swift in Sources */,
+				B533488725732B820008FB49 /* WAVLTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -438,7 +450,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = info.migmit.Listuff;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 2;
 			};
 			name = Debug;
 		};
@@ -460,7 +472,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = info.migmit.Listuff;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 2;
 			};
 			name = Release;
 		};
