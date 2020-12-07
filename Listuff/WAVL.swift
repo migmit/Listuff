@@ -74,7 +74,7 @@ struct WAVLTree<V> {
     }
     private(set) var root: Node? = nil
     init() {}
-    func search(pos: Int) -> ((Int, Int), Node)? {
+    private func searchNode(pos: Int) -> ((Int, Int), Node)? {
         var shift = 0
         var found: (Int, Node)? = nil
         var current = root
@@ -90,37 +90,68 @@ struct WAVLTree<V> {
         }
         return found.map {return ((shift, $0.0), $0.1)}
     }
+    func search(pos: Int) -> ((Int, Int), V)? {
+        return searchNode(pos: pos).map {($0.0, $0.1.value)}
+    }
+    private func leftmostChild(node: Node) -> Node {
+        var current = node
+        while let child = current[.Left]?.node {current = child}
+        return current
+    }
     func foldLeft<T>(_ initial: T, op: (T, V) -> T) -> T {
-        var cameFrom: Dir? = nil
-        var result: T = initial
-        var current = root
-        while let node = current {
-            switch cameFrom {
-            case .Left:
-                result = op(result, node.value)
-                if let child = node[.Right]?.node {
-                    current = child
-                    cameFrom = nil
-                } else {
-                    cameFrom = .Right
-                }
-            case .Right:
-                if let (parent, dir, _) = node.getChildInfo() {
+        guard let r = root else {return initial}
+        var result = initial
+        var current = leftmostChild(node: r)
+        var cameFromLeft = true
+        repeat {
+            result = op(result, current.value)
+            if let child = current[.Right]?.node {
+                current = leftmostChild(node: child)
+            } else {
+                cameFromLeft = false
+                while let (parent, dir, _) = current.getChildInfo() {
                     current = parent
-                    cameFrom = dir
-                } else {
-                    current = nil
-                }
-            case nil:
-                if let child = node[.Left]?.node {
-                    current = child
-                } else {
-                    cameFrom = .Left
+                    if dir == .Left {
+                        cameFromLeft = true
+                        break
+                    }
                 }
             }
-        }
+        } while cameFromLeft
         return result
     }
+//    func foldFromTo<T>(_ bounds: (Int?, Int?), _ initial: T, op: (T, (Int, Int), (Int, Int), V) -> T) -> T {
+//        var result = initial
+//        var leftPos = bounds.0 ?? 0
+//        var rightPos = bounds.1
+//        guard let (startBounds, startNode) = searchNode(pos: leftPos) else {return initial}
+//        var comesFrom: Dir? = .Left
+//        var current = startNode
+//        var curBounds = startBounds
+//        var currentLeft = leftPos
+//        repeat {
+//            var boundRight = curBounds.1
+//            var currentRight = rightPos.map{min($0, boundRight)} ?? boundRight
+//            switch comesFrom {
+//            case .Left:
+//                result = op(result, curBounds, (currentLeft, currentRight), current.value)
+//                if let child = current[.Right]?.node {
+//                    current = child
+//                    comesFrom = nil
+//                    currentLeft = currentRight
+//
+//                } else {
+//                    comesFrom = .Right
+//                }
+//                break
+//            case .Right:
+//                break
+//            case nil:
+//                break
+//            }
+//        } while true
+//        return result
+//    }
     mutating func replace(node: Node, with: Node?) {
         if let (parent, dir, isDeep) = node.getChildInfo() {
             parent[dir] = with?.mkSubNode(deep: isDeep)
@@ -138,11 +169,11 @@ struct WAVLTree<V> {
             current = parent
         }
     }
-    mutating func insert(value: V, length: Int, dir: Dir, near: Node? = nil) {
+    mutating func insert(value: V, length: Int, dir: Dir = .Right, near: Node? = nil) -> Node {
         let newNode = Node(value: value, length: length)
         guard let r = root else {
             root = newNode
-            return
+            return newNode
         }
         var (current, side) = near.map {n in (n[dir]?.node).map{($0, dir.other)} ?? (n, dir)} ?? (r, dir.other)
         while let subNode = current[side]?.node {current = subNode}
@@ -154,7 +185,7 @@ struct WAVLTree<V> {
             child = current
             current[side.other]?.deep = true
             current.advance(dir: side, length: length)
-            guard let childInfo = current.getChildInfo() else {return}
+            guard let childInfo = current.getChildInfo() else {return newNode}
             (current, side, isDeep) = childInfo
             isOtherDeep = current.deep(dir: side.other)
         }
@@ -187,6 +218,7 @@ struct WAVLTree<V> {
                 advanceRecurse(node: child, length: length)
             }
         }
+        return newNode
     }
     mutating func remove(node: Node) {
         var current: Node

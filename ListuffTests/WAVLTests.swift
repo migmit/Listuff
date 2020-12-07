@@ -11,19 +11,15 @@ import XCTest
 protocol Sequence {
     associatedtype Value
     associatedtype Node
-    func search(pos: Int) -> ((Int, Int), Node)?
-    mutating func insert(value: Value, length: Int, dir: WAVLTree<Value>.Dir, near: Node?)
+    func search(pos: Int) -> ((Int, Int), Value)?
+    mutating func insert(value: Value, length: Int, dir: WAVLTree<Value>.Dir, near: Node?) -> Node
     mutating func remove(node: Node)
-    static func get(node: Node) -> Value
     static func same(node1: Node, node2: Node) -> Bool
     func foldLeft<T>(_ initial: T, op: (T, Value) -> T) -> T
     func checkBalanced() -> Bool
 }
 
 extension WAVLTree: Sequence {
-    static func get(node: Node) -> V {
-        return node.value
-    }
     static func same(node1: Node, node2: Node) -> Bool {
         return node1 === node2
     }
@@ -56,22 +52,21 @@ class SimpleSequence<V>: Sequence {
     }
     var nodes: [Node] = []
     var autoinc: Int = 0
-    func search(pos: Int) -> ((Int, Int), Node)? {
+    func search(pos: Int) -> ((Int, Int), V)? {
         var shift = 0
         for node in nodes {
             let newShift = shift + node.length
             if pos < newShift {
-                return ((shift, newShift), node)
+                return ((shift, newShift), node.value)
             } else {
                 shift = newShift
             }
         }
         return nil
     }
-    func insert(value: V, length: Int, dir: WAVLTree<V>.Dir, near: Node?) {
+    func insert(value: V, length: Int, dir: WAVLTree<V>.Dir, near: Node?) -> Node {
         var pos: Int
-        if let n = near {
-            guard let p = (nodes.firstIndex{$0.index == n.index}) else {return}
+        if let n = near, let p = (nodes.firstIndex{$0.index == n.index}) {
             switch dir {
             case .Left: pos = p
             case .Right: pos = p+1
@@ -82,14 +77,13 @@ class SimpleSequence<V>: Sequence {
             case .Right: pos = 0
             }
         }
-        nodes.insert(Node(index: autoinc, length: length, value: value), at: pos)
+        let newNode = Node(index: autoinc, length: length, value: value)
+        nodes.insert(newNode, at: pos)
         autoinc += 1
+        return newNode
     }
     func remove(node: Node) {
         nodes.removeAll{$0.index == node.index}
-    }
-    static func get(node: Node) -> V {
-        return node.value
     }
     static func same(node1: Node, node2: Node) -> Bool {
         return node1.index == node2.index
@@ -120,14 +114,13 @@ class WAVLTester<S: Sequence> where S.Value == Int {
     func executeCommand(cmd: WAVLCommand) -> ((Int, Int), Int)? {
         switch cmd {
         case .Search(let pos):
-            guard let (bounds, node) = tree.search(pos: pos) else {return nil}
-            nodes.append(node)
-            return (bounds, S.get(node: node))
+            return tree.search(pos: pos)
         case .Insert(let value, let length, let dir, let near):
             let realLength = length >= 1 ? length : 1 - length
             let index = near % (1 + nodes.count)
             let node = index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]
-            tree.insert(value: value, length: realLength, dir: dir, near: node)
+            let newNode = tree.insert(value: value, length: realLength, dir: dir, near: node)
+            nodes.append(newNode)
             return nil
         case .Remove(let node):
             let index = node % (1 + nodes.count)
