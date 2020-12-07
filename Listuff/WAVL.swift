@@ -74,7 +74,7 @@ struct WAVLTree<V> {
     }
     private(set) var root: Node? = nil
     init() {}
-    private func searchNode(pos: Int) -> ((Int, Int), Node)? {
+    private func searchNode(pos: Int) -> (NSRange, Node)? {
         var shift = 0
         var found: (Int, Node)? = nil
         var current = root
@@ -85,12 +85,12 @@ struct WAVLTree<V> {
                 current = node[.Right]?.node
             } else {
                 current = node[.Left]?.node
-                found = (shift + node.end, node)
+                found = (absoluteEnd, node)
             }
         }
-        return found.map {return ((shift, $0.0), $0.1)}
+        return found.map {return (NSMakeRange(shift, $0.0 - shift), $0.1)}
     }
-    func search(pos: Int) -> ((Int, Int), V)? {
+    func search(pos: Int) -> (NSRange, V)? {
         return searchNode(pos: pos).map {($0.0, $0.1.value)}
     }
     private func leftmostChild(node: Node) -> Node {
@@ -99,59 +99,34 @@ struct WAVLTree<V> {
         return current
     }
     func foldLeft<T>(_ initial: T, op: (T, V) -> T) -> T {
-        guard let r = root else {return initial}
+        return foldLeftBounds(initial) {op($0, $2)}
+    }
+    func foldLeftBounds<T>(_ initial: T, from: Int = 0, to: Int? = nil, op: (T, NSRange, V) -> T) -> T {
+        guard let (startBounds, startNode) = searchNode(pos: from) else {return initial}
         var result = initial
-        var current = leftmostChild(node: r)
+        var currentNode = startNode
+        var currentLeft = startBounds.location
+        var currentLength = startBounds.length
         var cameFromLeft = true
-        repeat {
-            result = op(result, current.value)
-            if let child = current[.Right]?.node {
-                current = leftmostChild(node: child)
+        while cameFromLeft && (to.map {$0 > currentLeft} ?? true) {
+            result = op(result, NSMakeRange(currentLeft, currentLength), currentNode.value)
+            currentLeft += currentLength
+            if let child = currentNode[.Right]?.node {
+                currentNode = leftmostChild(node: child)
+                currentLength = currentNode.end
             } else {
+                currentLength = 0
                 cameFromLeft = false
-                while let (parent, dir, _) = current.getChildInfo() {
-                    current = parent
-                    if dir == .Left {
-                        cameFromLeft = true
-                        break
-                    }
+                while !cameFromLeft, let (parent, dir, _) = currentNode.getChildInfo() {
+                    currentLength -= currentNode.end
+                    currentNode = parent
+                    cameFromLeft = dir == .Left
                 }
+                currentLength += currentNode.end
             }
-        } while cameFromLeft
+        }
         return result
     }
-//    func foldFromTo<T>(_ bounds: (Int?, Int?), _ initial: T, op: (T, (Int, Int), (Int, Int), V) -> T) -> T {
-//        var result = initial
-//        var leftPos = bounds.0 ?? 0
-//        var rightPos = bounds.1
-//        guard let (startBounds, startNode) = searchNode(pos: leftPos) else {return initial}
-//        var comesFrom: Dir? = .Left
-//        var current = startNode
-//        var curBounds = startBounds
-//        var currentLeft = leftPos
-//        repeat {
-//            var boundRight = curBounds.1
-//            var currentRight = rightPos.map{min($0, boundRight)} ?? boundRight
-//            switch comesFrom {
-//            case .Left:
-//                result = op(result, curBounds, (currentLeft, currentRight), current.value)
-//                if let child = current[.Right]?.node {
-//                    current = child
-//                    comesFrom = nil
-//                    currentLeft = currentRight
-//
-//                } else {
-//                    comesFrom = .Right
-//                }
-//                break
-//            case .Right:
-//                break
-//            case nil:
-//                break
-//            }
-//        } while true
-//        return result
-//    }
     mutating func replace(node: Node, with: Node?) {
         if let (parent, dir, isDeep) = node.getChildInfo() {
             parent[dir] = with?.mkSubNode(deep: isDeep)

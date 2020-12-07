@@ -11,11 +11,12 @@ import XCTest
 protocol Sequence {
     associatedtype Value
     associatedtype Node
-    func search(pos: Int) -> ((Int, Int), Value)?
+    func search(pos: Int) -> (NSRange, Value)?
     mutating func insert(value: Value, length: Int, dir: WAVLTree<Value>.Dir, near: Node?) -> Node
     mutating func remove(node: Node)
     static func same(node1: Node, node2: Node) -> Bool
     func foldLeft<T>(_ initial: T, op: (T, Value) -> T) -> T
+    func foldLeftBounds<T>(_ initial: T, from: Int, to: Int?, op: (T, NSRange, Value) -> T) -> T
     func checkBalanced() -> Bool
 }
 
@@ -52,12 +53,12 @@ class SimpleSequence<V>: Sequence {
     }
     var nodes: [Node] = []
     var autoinc: Int = 0
-    func search(pos: Int) -> ((Int, Int), V)? {
+    func search(pos: Int) -> (NSRange, V)? {
         var shift = 0
         for node in nodes {
             let newShift = shift + node.length
             if pos < newShift {
-                return ((shift, newShift), node.value)
+                return (NSMakeRange(shift, node.length), node.value)
             } else {
                 shift = newShift
             }
@@ -95,6 +96,18 @@ class SimpleSequence<V>: Sequence {
         }
         return result
     }
+    func foldLeftBounds<T>(_ initial: T, from: Int, to: Int?, op: (T, NSRange, Value) -> T) -> T {
+        var result = initial
+        var pos = 0
+        for node in nodes {
+            let newPos = pos + node.length
+            if newPos > from && (to.map {pos < $0} ?? true) {
+                result = op(result, NSMakeRange(pos, node.length), node.value)
+            }
+            pos = newPos
+        }
+        return result
+    }
     func checkBalanced() -> Bool {
         return true
     }
@@ -104,6 +117,7 @@ enum WAVLCommand {
     case Search(pos: Int)
     case Insert(value: Int, length: Int, dir: WAVLTree<Int>.Dir, near: Int) // length >= 1; near modulo (number of active nodes + 1); near = 0 means root
     case Remove(node: Int) // node module (number of active nodes + 1); node = 0 means no-op
+    case FoldPart(start: Int, length: Int?)
 }
 class WAVLTester<S: Sequence> where S.Value == Int {
     var tree: S
@@ -111,7 +125,7 @@ class WAVLTester<S: Sequence> where S.Value == Int {
     init(tree: S) {
         self.tree = tree
     }
-    func executeCommand(cmd: WAVLCommand) -> ((Int, Int), Int)? {
+    func executeCommand(cmd: WAVLCommand) -> (NSRange, Int)? {
         switch cmd {
         case .Search(let pos):
             return tree.search(pos: pos)
@@ -129,13 +143,20 @@ class WAVLTester<S: Sequence> where S.Value == Int {
                 nodes.removeAll{S.same(node1: $0, node2: toRemove)}
             }
             return nil
+        case .FoldPart(let start, let length):
+            return tree.foldLeftBounds((NSMakeRange(1, 1), 0), from: start, to: length.map {start &+ $0}) {acc, bounds, value in
+                let (range, sum) = acc
+                let newStart = range.location &* bounds.location
+                let newLength = range.length &* bounds.length
+                return (NSMakeRange(newStart, newLength), sum &+ value)
+            }
         }
     }
 }
-func checkSame(t1: ((Int, Int), Int)?, t2: ((Int, Int), Int)?) -> Bool {
-    if let ((s1, e1), v1) = t1 {
-        guard let ((s2, e2), v2) = t2 else {return false}
-        return s1 == s2 && e1 == e2 && v1 == v2
+func checkSame(t1: (NSRange, Int)?, t2: (NSRange, Int)?) -> Bool {
+    if let (r1, v1) = t1 {
+        guard let (r2, v2) = t2 else {return false}
+        return NSEqualRanges(r1, r2) && v1 == v2
     } else {
         return t2 == nil
     }
@@ -149,34 +170,43 @@ func testCommands(cmds: [WAVLCommand]) throws {
         XCTAssert(tester1.tree.checkBalanced())
         XCTAssertEqual(tester1.tree.foldLeft([]){$0 + [$1]}, tester2.tree.nodes.map {$0.value})
         XCTAssert(checkSame(t1: val1, t2: val2))
+        if case WAVLCommand.FoldPart(_, _) = cmd {
+            let _ = tester1.executeCommand(cmd: cmd)
+            let _ = tester2.executeCommand(cmd: cmd)
+        }
+    }
+}
+func generatePos() -> Int {
+    switch Int.random(in: 0...10) {
+    case 0: return 0
+    case 1: return Int.random(in: 1...100)
+    case 2: return Int.random(in: 101...1000)
+    case 3: return Int.random(in: 1001...10000)
+    case 4: return Int.random(in: 10001...100000)
+    case 5: return Int.random(in: 100001...1000000)
+    case 6: return Int.random(in: 1000001...10000000)
+    case 7: return Int.random(in: 10000001...100000000)
+    case 8: return Int.random(in: 100000001...1000000000)
+    case 9: return Int.random(in: 1000000001...10000000000)
+    default: return Int.random(in: 10000000001...Int.max)
     }
 }
 func generateCmd() -> WAVLCommand {
-    switch Int.random(in: 0...2) {
+    switch Int.random(in: 0...3) {
     case 0:
-        var pos: Int
-        switch Int.random(in: 0...10) {
-        case 0: pos = 0
-        case 1: pos = Int.random(in: 1...100)
-        case 2: pos = Int.random(in: 101...1000)
-        case 3: pos = Int.random(in: 1001...10000)
-        case 4: pos = Int.random(in: 10001...100000)
-        case 5: pos = Int.random(in: 100001...1000000)
-        case 6: pos = Int.random(in: 1000001...10000000)
-        case 7: pos = Int.random(in: 10000001...100000000)
-        case 8: pos = Int.random(in: 100000001...1000000000)
-        case 9: pos = Int.random(in: 1000000001...10000000000)
-        default: pos = Int.random(in: 10000000001...Int.max)
-        }
-        return .Search(pos: pos)
+        return .Search(pos: generatePos())
     case 1:
         let value = Int.random(in: Int.min...Int.max)
         let length = Int.random(in: 1...1000)
         let dir: WAVLTree<Int>.Dir = Bool.random() ? .Left : .Right
         let near = Int.random(in: 0...Int.max)
         return .Insert(value: value, length: length, dir: dir, near: near)
-    default:
+    case 2:
         return .Remove(node: Int.random(in: Int.min...Int.max))
+    default:
+        let start = generatePos()
+        let length = Bool.random() ? generatePos() : nil
+        return .FoldPart(start: start, length: length)
     }
 }
 func generateCmds() -> [WAVLCommand] {
