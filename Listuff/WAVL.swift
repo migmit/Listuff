@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct WAVLTree<V> {
+struct WAVLTree<V>: Sequence {
     enum Dir {
         case Left
         case Right
@@ -71,6 +71,11 @@ struct WAVLTree<V> {
         func deep(dir: Dir) -> Bool { // non-encoded invariant: if self[dir] = nil, then either self is a leaf or self[dir.other] is not deep
             return self[dir]?.deep ?? (self[dir.other] != nil)
         }
+        func leftmostChild() -> Node {
+            var current = self
+            while let child = current[.Left]?.node {current = child}
+            return current
+        }
     }
     private(set) var root: Node? = nil
     init() {}
@@ -90,42 +95,42 @@ struct WAVLTree<V> {
         }
         return found.map {return (NSMakeRange(shift, $0.0 - shift), $0.1)}
     }
+    struct Iterator: Sequence, IteratorProtocol {
+        var nextInfo: (NSRange, Node)?
+        let to: Int?
+        init(nextInfo: (NSRange, Node)?, to: Int?) {
+            self.nextInfo = nextInfo
+            self.to = to
+        }
+        mutating func next() -> (NSRange, V)? {
+            guard let (nextRange, nextNode) = nextInfo, (to.map{$0 > nextRange.location} ?? true) else {return nil}
+            let result = (nextRange, nextNode.value)
+            let rangeEnd = nextRange.location + nextRange.length
+            if let child = nextNode[.Right]?.node {
+                let newNode = child.leftmostChild()
+                nextInfo = (NSMakeRange(rangeEnd, newNode.end), newNode)
+            } else {
+                var shift = 0
+                var cameFromRight = true
+                var newNode = nextNode
+                while cameFromRight, let (parent, dir, _) = newNode.getChildInfo() {
+                    shift += newNode.end
+                    newNode = parent
+                    cameFromRight = dir == .Right
+                }
+                nextInfo = cameFromRight ? nil : (NSMakeRange(rangeEnd, newNode.end - shift), newNode)
+            }
+            return result
+        }
+    }
+    func covering(from: Int = 0, to: Int? = nil) -> Iterator {
+        return Iterator(nextInfo: searchNode(pos: from), to: to)
+    }
+    func makeIterator() -> Iterator {
+        return covering()
+    }
     func search(pos: Int) -> (NSRange, V)? {
         return searchNode(pos: pos).map {($0.0, $0.1.value)}
-    }
-    private func leftmostChild(node: Node) -> Node {
-        var current = node
-        while let child = current[.Left]?.node {current = child}
-        return current
-    }
-    func foldLeft<T>(_ initial: T, op: (T, V) -> T) -> T {
-        return foldLeftBounds(initial) {op($0, $2)}
-    }
-    func foldLeftBounds<T>(_ initial: T, from: Int = 0, to: Int? = nil, op: (T, NSRange, V) -> T) -> T {
-        guard let (startBounds, startNode) = searchNode(pos: from) else {return initial}
-        var result = initial
-        var currentNode = startNode
-        var currentLeft = startBounds.location
-        var currentLength = startBounds.length
-        var cameFromLeft = true
-        while cameFromLeft && (to.map {$0 > currentLeft} ?? true) {
-            result = op(result, NSMakeRange(currentLeft, currentLength), currentNode.value)
-            currentLeft += currentLength
-            if let child = currentNode[.Right]?.node {
-                currentNode = leftmostChild(node: child)
-                currentLength = currentNode.end
-            } else {
-                currentLength = 0
-                cameFromLeft = false
-                while !cameFromLeft, let (parent, dir, _) = currentNode.getChildInfo() {
-                    currentLength -= currentNode.end
-                    currentNode = parent
-                    cameFromLeft = dir == .Left
-                }
-                currentLength += currentNode.end
-            }
-        }
-        return result
     }
     mutating func replace(node: Node, with: Node?) {
         if let (parent, dir, isDeep) = node.getChildInfo() {

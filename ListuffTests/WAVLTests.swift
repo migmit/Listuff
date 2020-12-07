@@ -24,6 +24,20 @@ extension WAVLTree: Sequence {
     static func same(node1: Node, node2: Node) -> Bool {
         return node1 === node2
     }
+    func foldLeft<T>(_ initial: T, op: (T, Value) -> T) -> T {
+        var result = initial
+        for (_, v) in self {
+            result = op(result, v)
+        }
+        return result
+    }
+    func foldLeftBounds<T>(_ initial: T, from: Int = 0, to: Int? = nil, op: (T, NSRange, Value) -> T) -> T {
+        var result = initial
+        for (r, v) in covering(from: from, to: to) {
+            result = op(result, r, v)
+        }
+        return result
+    }
     func checkBalanced() -> Bool {
         func checkBalance(node: Node?, level: Int?) -> Int? {
             if let current = node {
@@ -146,7 +160,7 @@ class WAVLTester<S: Sequence> where S.Value == Int {
         case .FoldPart(let start, let length):
             return tree.foldLeftBounds((NSMakeRange(1, 1), 0), from: start, to: length.map {start &+ $0}) {acc, bounds, value in
                 let (range, sum) = acc
-                let newStart = range.location &* bounds.location
+                let newStart = range.location &* (1 + bounds.location)
                 let newLength = range.length &* bounds.length
                 return (NSMakeRange(newStart, newLength), sum &+ value)
             }
