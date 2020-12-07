@@ -11,10 +11,14 @@ import SwiftUI
 struct Node {
     var id: Int
     var text: String
-    var children: [Node] = []
+    var children: WAVLTree<Node> = WAVLTree()
     
     func allNodes() -> [Node] {
-        return [self] + children.flatMap{$0.allNodes()}
+        var result = [self]
+        for (_, child) in children {
+            result = result + child.allNodes()
+        }
+        return result
     }
 }
 
@@ -29,14 +33,22 @@ class NodeStorage: NSTextStorage {
     }
 }
 
+func arrayToWAVL<V>(_ source: [V]) -> WAVLTree<V> {
+    var result = WAVLTree<V>()
+    for item in source {
+        let _ = result.insert(value: item, length: 1, dir: .Left)
+    }
+    return result
+}
+
 var testDocument = Node(
     id: 0,
     text: "First node",
-    children: [
+    children: arrayToWAVL([
         Node(
             id: 1,
             text: "Second node\n",
-            children: [
+            children: arrayToWAVL([
                 Node(
                     id: 2,
                     text: "Third node and some more awesome stuff"
@@ -45,13 +57,13 @@ var testDocument = Node(
                     id: 3,
                     text: "Fourth node"
                 )
-            ]
+            ])
         ),
         Node(
             id: 4,
             text: "Fifth node"
         )
-    ]
+    ])
 )
 
 struct Test {
