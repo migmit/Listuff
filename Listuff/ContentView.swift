@@ -39,8 +39,7 @@ struct Tree {
         var result: [(Int, Substring)] = []
         for (bounds, item) in chunks {
             if let r = Range(bounds, in: text) {
-                let value = text[r]
-                result.append((item.id, value))
+                result.append((item.id, text[r]))
             }
         }
         return result
