@@ -184,10 +184,6 @@ func testCommands(cmds: [WAVLCommand]) throws {
         XCTAssert(tester1.tree.checkBalanced())
         XCTAssertEqual(tester1.tree.foldLeft([]){$0 + [$1]}, tester2.tree.nodes.map {$0.value})
         XCTAssert(checkSame(t1: val1, t2: val2))
-        if case WAVLCommand.FoldPart(_, _) = cmd {
-            let _ = tester1.executeCommand(cmd: cmd)
-            let _ = tester2.executeCommand(cmd: cmd)
-        }
     }
 }
 func generatePos() -> Int {
