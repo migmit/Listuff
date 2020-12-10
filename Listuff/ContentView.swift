@@ -103,13 +103,52 @@ struct Test {
     mutating func update() {}
 }
 
-struct SubView: View {
-    @ObservedObject var test: ObservableProxy<Test>
-    var body: some View {
-        {() -> Text in
-            print("Updating")
-            return Text("\(test.value.text)")
-        }()
+struct HierarchyView: UIViewRepresentable {
+    typealias UIViewType = UITextView
+    
+    let textStorage: TextStorage
+    let layoutManager: NSLayoutManager
+    let textContainer: NSTextContainer
+
+    init() {
+        textStorage = TextStorage()
+        layoutManager = NSLayoutManager()
+        textContainer = NSTextContainer()
+        textStorage.addLayoutManager(layoutManager)
+        layoutManager.addTextContainer(textContainer)
+    }
+    
+    func makeUIView(context: Context) -> UITextView {
+        let view = UITextView(frame: .zero, textContainer: textContainer)
+        return view
+    }
+    
+    func updateUIView(_ uiView: UITextView, context: Context) {
+    }
+    
+    class TextStorage: NSTextStorage {
+        let stored: NSMutableAttributedString
+        override init() {
+            stored = NSMutableAttributedString(string: "")
+            super.init()
+        }
+        required init?(coder: NSCoder) {
+            return nil
+        }
+        override var string: String {
+            return stored.string
+        }
+        override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
+            return stored.attributes(at: location, effectiveRange: range)
+        }
+        override func replaceCharacters(in range: NSRange, with str: String) {
+            stored.replaceCharacters(in: range, with: str)
+            edited(.editedCharacters, range: range, changeInLength: str.utf16.count - range.length)
+        }
+        override func setAttributes(_ attrs: [NSAttributedString.Key : Any]?, range: NSRange) {
+            stored.setAttributes(attrs, range: range)
+            edited(.editedAttributes, range: range, changeInLength: 0)
+        }
     }
 }
 
@@ -137,29 +176,9 @@ struct ContentView: View {
             }
             .listStyle(PlainListStyle())
             .navigationBarTitle("Outline", displayMode: .inline)
-            List {
-                SubView(test: test)
-                Button("Update") {
-                    test.value.update()
-                }
-            }
-            .navigationBarTitle("", displayMode: .inline)
+            HierarchyView()
+                .navigationBarHidden(true)
         }
-//        List {
-//            ForEach(items) { item in
-//                Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-//            }
-//            .onDelete(perform: deleteItems)
-//        }
-//        .toolbar {
-//            #if os(iOS)
-//            EditButton()
-//            #endif
-//
-//            Button(action: addItem) {
-//                Label("Add Item", systemImage: "plus")
-//            }
-//        }
     }
 
 //    private func addItem() {
