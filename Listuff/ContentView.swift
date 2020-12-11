@@ -104,7 +104,7 @@ struct Test {
 }
 
 struct HierarchyView: UIViewRepresentable {
-    typealias UIViewType = UITextView
+    typealias UIViewType = TextView
     
     let textStorage: TextStorage
     let layoutManager: NSLayoutManager
@@ -118,12 +118,31 @@ struct HierarchyView: UIViewRepresentable {
         layoutManager.addTextContainer(textContainer)
     }
     
-    func makeUIView(context: Context) -> UITextView {
-        let view = UITextView(frame: .zero, textContainer: textContainer)
+    func makeUIView(context: Context) -> TextView {
+        let view = TextView(frame: .zero, textContainer: textContainer)
         return view
     }
     
-    func updateUIView(_ uiView: UITextView, context: Context) {
+    func updateUIView(_ uiView: TextView, context: Context) {
+    }
+    
+    class TextView: UITextView {
+        override init(frame: CGRect, textContainer: NSTextContainer?) {
+            super.init(frame: frame, textContainer: textContainer)
+        }
+        
+        required init?(coder: NSCoder) {
+            return nil
+        }
+        
+        override func copy(_ sender: Any?) {
+            print("Copy: \(self)")
+            super.copy(sender)
+        }
+        override func cut(_ sender: Any?) {
+            print("Cut")
+            super.cut(sender)
+        }
     }
     
     class TextStorage: NSTextStorage {
