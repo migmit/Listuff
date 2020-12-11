@@ -143,6 +143,10 @@ struct HierarchyView: UIViewRepresentable {
             print("Cut")
             super.cut(sender)
         }
+        override func paste(_ sender: Any?) {
+            print("Paste")
+            super.paste(sender)
+        }
     }
     
     class TextStorage: NSTextStorage {
