@@ -136,7 +136,7 @@ struct HierarchyView: UIViewRepresentable {
         }
         
         override func copy(_ sender: Any?) {
-            print("Copy: \(self)")
+            print("Copy")
             super.copy(sender)
         }
         override func cut(_ sender: Any?) {
@@ -145,6 +145,7 @@ struct HierarchyView: UIViewRepresentable {
         }
         override func paste(_ sender: Any?) {
             print("Paste")
+            debugPaste()
             super.paste(sender)
         }
     }
@@ -172,6 +173,13 @@ struct HierarchyView: UIViewRepresentable {
             stored.setAttributes(attrs, range: range)
             edited(.editedAttributes, range: range, changeInLength: 0)
         }
+    }
+}
+
+func debugPaste() {
+    let pb = UIPasteboard.general
+    if pb.hasStrings {
+        print("String: \(pb.string ?? "")")
     }
 }
 
