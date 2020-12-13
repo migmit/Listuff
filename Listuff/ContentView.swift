@@ -176,6 +176,130 @@ struct HierarchyView: UIViewRepresentable {
     }
 }
 
+enum ProtobufValue {
+    case varint(value: UInt)
+    case fixed64(int: UInt64, float: Double)
+    case string(string: String?, hex: String)
+    case message(value: [(UInt, ProtobufValue)])
+    case fixed32(int: UInt32, float: Float)
+    static func readVarint(data: Data, offset: Int, maxLen: Int) -> (UInt, Int)? {
+        var multiple: UInt = 1
+        var summand: UInt = 0
+        var currentOffset = offset
+        while (currentOffset < maxLen) {
+            let byte = data[currentOffset]
+            if (byte < 128) {
+                return (UInt(byte) * multiple + summand, currentOffset + 1)
+            } else {
+                summand += UInt(byte - 128) * multiple
+                multiple <<= 7
+                currentOffset += 1
+            }
+        }
+        return nil
+    }
+    static func readUInt32(data: Data, offset: Int) -> UInt32 {
+        var result: UInt32 = 0
+        var multiple: UInt32 = 1
+        for pos in 0..<4 {
+            result += UInt32(data[offset+pos]) * multiple
+            multiple <<= 8
+        }
+        return result
+    }
+    static func readUInt64(data: Data, offset: Int) -> UInt64 {
+        var result: UInt64 = 0
+        var multiple: UInt64 = 1
+        for pos in 0..<8 {
+            result += UInt64(data[offset+pos]) * multiple
+            multiple <<= 8
+        }
+        return result
+    }
+    static func from(data: Data, offset: Int, maxLen: Int) -> (UInt, ProtobufValue, Int)? {
+        if let (header, bodyOffset) = readVarint(data: data, offset: offset, maxLen: maxLen) {
+            let (fieldNum, wireType) = header.quotientAndRemainder(dividingBy: 8)
+            switch(wireType) {
+            case 0:
+                if let (value, newOffset) = readVarint(data: data, offset: bodyOffset, maxLen: maxLen) {
+                    return (fieldNum, .varint(value: value), newOffset)
+                } else {
+                    return nil
+                }
+            case 1:
+                guard offset + 8 <= maxLen else {return nil}
+                let uint64 = readUInt64(data: data, offset: offset)
+                return (fieldNum, .fixed64(int: uint64, float: Double(bitPattern: uint64)), offset + 8)
+            case 2:
+                if let (totalLength, messagesOffset) = readVarint(data: data, offset: bodyOffset, maxLen: maxLen) {
+                    let messagesEnd = messagesOffset + Int(totalLength)
+                    if let messages = arrayFrom(data: data, offset: messagesOffset, maxLen: messagesEnd) {
+                        return (fieldNum, .message(value: messages), messagesEnd)
+                    } else if messagesEnd <= maxLen {
+                        let dataSlice = data[messagesOffset..<messagesEnd]
+                        return (fieldNum, .string(string: String(data: dataSlice, encoding: .utf8), hex: dataSlice.map{String(format: "%02hhX", $0)}.joined(separator: ",")), messagesEnd)
+                    } else {
+                        return nil
+                    }
+                } else {
+                    return nil
+                }
+            case 5:
+                guard offset + 4 <= maxLen else {return nil}
+                let uint32 = readUInt32(data: data, offset: offset)
+                return (fieldNum, .fixed32(int: uint32, float: Float(bitPattern: uint32)), offset + 4)
+            default:
+                return nil
+            }
+        } else {
+            return nil
+        }
+    }
+    static func arrayFrom(data: Data, offset: Int, maxLen: Int) -> [(UInt, ProtobufValue)]? {
+        var messages: [(UInt, ProtobufValue)] = []
+        var nextOffset = offset
+        while nextOffset < maxLen {
+            if let (fieldNum, message, newOffset) = from(data: data, offset: nextOffset, maxLen: maxLen) {
+                messages.append((fieldNum, message))
+                nextOffset = newOffset
+            } else {
+                return nil
+            }
+        }
+        return messages
+    }
+    static func arrayFrom(data: Data) -> [(UInt, ProtobufValue)]? {
+        return arrayFrom(data: data, offset: 0, maxLen: data.count)
+    }
+    func printMessage(fieldNum: UInt, prefix: String) {
+        switch(self) {
+        case .varint(let value):
+            print("\(prefix)\(fieldNum) => \(value)")
+        case .fixed64(let int, let float):
+            print("\(prefix)\(fieldNum)[64] => \(int) or \(float)")
+        case .message(let value):
+            print("\(prefix)\(fieldNum) =>")
+            ProtobufValue.printArray(array: value, prefix: prefix + "  ")
+            print("\(prefix)<=")
+        case .string(let string, let hex):
+            if let str = string {
+                print("\(prefix)\(fieldNum) =>")
+                print(str)
+                print("<= or \(hex)")
+            } else {
+                print("\(prefix)\(fieldNum) => \(hex)")
+            }
+        case .fixed32(let int, let float):
+            print("\(prefix)\(fieldNum)[32] => \(int) or \(float)")
+        }
+    }
+    static func printArray(array: [(UInt, ProtobufValue)], prefix: String = "") {
+        for (fieldNum, value) in array {
+            value.printMessage(fieldNum: fieldNum, prefix: prefix)
+        }
+    }
+}
+
 class FakeNotesData: NSObject, NSCoding {
     var attributedStringData: Data?
     required init?(coder: NSCoder) {
@@ -191,8 +315,13 @@ func debugDecodeBPList(data: Data) -> String? {
     keyed.decodingFailurePolicy = .raiseException
     keyed.requiresSecureCoding = false
     keyed.setClass(FakeNotesData.self, forClassName: "ICNotePasteboardData")
-    if let obj = keyed.decodeObject(forKey: NSKeyedArchiveRootObjectKey) as? FakeNotesData {
-        return obj.attributedStringData.map{$0.map{String(format: "%02hhX", $0)}.joined(separator: ",")}
+    if let obj = keyed.decodeObject(forKey: NSKeyedArchiveRootObjectKey) as? FakeNotesData,
+       let attributedStringData = obj.attributedStringData
+    {
+        if let protobuf = ProtobufValue.arrayFrom(data: attributedStringData) {
+            ProtobufValue.printArray(array: protobuf)
+        }
+        return attributedStringData.map{String(format: "%02hhX", $0)}.joined(separator: ",")
     } else {
         return nil
     }
