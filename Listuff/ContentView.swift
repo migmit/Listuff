@@ -176,10 +176,35 @@ struct HierarchyView: UIViewRepresentable {
     }
 }
 
+class FakeNotesData: NSObject, NSCoding {
+    var attributedStringData: Data?
+    required init?(coder: NSCoder) {
+        attributedStringData = coder.decodeObject(forKey: "attributedStringData") as? Data
+    }
+    func encode(with coder: NSCoder) {
+        if let data = attributedStringData {coder.encode(data, forKey: "attributedStringData")}
+    }
+}
+
+func debugDecodeBPList(data: Data) -> String? {
+    let keyed = try! NSKeyedUnarchiver(forReadingFrom: data)
+    keyed.decodingFailurePolicy = .raiseException
+    keyed.requiresSecureCoding = false
+    keyed.setClass(FakeNotesData.self, forClassName: "ICNotePasteboardData")
+    if let obj = keyed.decodeObject(forKey: "root") as? FakeNotesData {
+        return obj.attributedStringData.map{$0.map{String(format: "%02hhX", $0)}.joined(separator: ",")}
+    } else {
+        return nil
+    }
+}
+
 func debugPaste() {
     let pb = UIPasteboard.general
     if pb.hasStrings {
         print("String: \(pb.string ?? "")")
+    }
+    if let data = pb.data(forPasteboardType: "com.apple.notes.richtext"), let decoded = debugDecodeBPList(data: data) {
+        print(decoded)
     }
 }
 
