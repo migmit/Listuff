@@ -191,7 +191,7 @@ func debugDecodeBPList(data: Data) -> String? {
     keyed.decodingFailurePolicy = .raiseException
     keyed.requiresSecureCoding = false
     keyed.setClass(FakeNotesData.self, forClassName: "ICNotePasteboardData")
-    if let obj = keyed.decodeObject(forKey: "root") as? FakeNotesData {
+    if let obj = keyed.decodeObject(forKey: NSKeyedArchiveRootObjectKey) as? FakeNotesData {
         return obj.attributedStringData.map{$0.map{String(format: "%02hhX", $0)}.joined(separator: ",")}
     } else {
         return nil
