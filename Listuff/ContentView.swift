@@ -176,6 +176,10 @@ struct HierarchyView: UIViewRepresentable {
     }
 }
 
+enum ProtobufType {
+    case enumeration(cases: [UInt:String])
+    case message(fields: [UInt:(String, String)])
+}
 enum ProtobufValue {
     case varint(value: UInt)
     case fixed64(int: UInt64, float: Double)
@@ -271,15 +275,28 @@ enum ProtobufValue {
     static func arrayFrom(data: Data) -> [(UInt, ProtobufValue)]? {
         return arrayFrom(data: data, offset: 0, maxLen: data.count)
     }
-    func printMessage(fieldNum: UInt, prefix: String) {
+    func printMessage(fieldNum: UInt, expecting: (String, ProtobufType?), context: [String:ProtobufType] = [:], prefix: String) {
+        let (fieldName, protobufType) = expecting
         switch(self) {
         case .varint(let value):
-            print("\(prefix)\(fieldNum) => \(value)")
+            var strVal = String(value)
+            if case .enumeration(let cases) = protobufType, let name = cases[value] {
+                strVal = name
+            }
+            print("\(prefix)\(fieldName) => \(strVal)")
         case .fixed64(let int, let float):
-            print("\(prefix)\(fieldNum)[64] => \(int) or \(float)")
+            var strVal = "\(int) or \(float)"
+            if case .enumeration(let cases) = protobufType, let name = cases[UInt(int)] {
+                strVal = name
+            }
+            print("\(prefix)\(fieldName)[64] => \(strVal)")
         case .message(let value):
-            print("\(prefix)\(fieldNum) =>")
-            ProtobufValue.printArray(array: value, prefix: prefix + "  ")
+            var messageType: [UInt:(String, String)] = [:]
+            if case .message(let fields) = protobufType {
+                messageType = fields
+            }
+            print("\(prefix)\(fieldName) =>")
+            ProtobufValue.printArray(array: value, expecting: messageType, context: context, prefix: prefix + "  ")
             print("\(prefix)<=")
         case .string(let string, let hex):
             if let str = string {
@@ -287,15 +304,23 @@ enum ProtobufValue {
                 print(str)
                 print("<= or \(hex)")
             } else {
-                print("\(prefix)\(fieldNum) => \(hex)")
+                print("\(prefix)\(fieldName) => \(hex)")
             }
         case .fixed32(let int, let float):
-            print("\(prefix)\(fieldNum)[32] => \(int) or \(float)")
+            var strVal = "\(int) or \(float)"
+            if case .enumeration(let cases) = protobufType, let name = cases[UInt(int)] {
+                strVal = name
+            }
+            print("\(prefix)\(fieldName)[32] => \(strVal)")
         }
     }
-    static func printArray(array: [(UInt, ProtobufValue)], prefix: String = "") {
+    static func searchType(fieldNum: UInt, expecting: [UInt:(String, String)], context: [String:ProtobufType]) -> (String, ProtobufType?) {
+        guard let (expectedName, expectedType) = expecting[fieldNum] else {return (String(fieldNum), nil)}
+        return (expectedName, context[expectedType])
+    }
+    static func printArray(array: [(UInt, ProtobufValue)], expecting: [UInt:(String, String)] = [:], context: [String:ProtobufType] = [:], prefix: String = "") {
         for (fieldNum, value) in array {
-            value.printMessage(fieldNum: fieldNum, prefix: prefix)
+            value.printMessage(fieldNum: fieldNum, expecting: searchType(fieldNum: fieldNum, expecting: expecting, context: context), context: context, prefix: prefix)
         }
     }
 }
@@ -310,6 +335,15 @@ class FakeNotesData: NSObject, NSCoding {
     }
 }
 
+let debugMessageContext: [String:ProtobufType] = [
+    "ChunkInfo": .message(fields: [1: ("Length", "Int"), 2: ("ParagraphStyle", "ParagraphStyle"), 5: ("TextStyle", "TextStyle")]),
+    "ParagraphStyle": .message(fields: [1: ("ListStyle", "ListStyle"), 3: ("UNKNOWN", ""), 4: ("ListDepth", "Int"), 5: ("CheckedListInfo", "CheckedListInfo"), 7: ("StartFrom", "Int")]),
+    "TextStyle": .enumeration(cases: [1: "Bold", 2: "Italic"]),
+    "ListStyle": .enumeration(cases: [0x65: "dashed", 0x66: "numbered", 0x67: "(un)checked"]),
+    "CheckedListInfo": .message(fields: [1: ("UNKNOWN", ""), 2: ("IsChecked", "Bool")]),
+    "Bool": .enumeration(cases: [0: "no", 1: "yes"])
+]
+
 func debugDecodeBPList(data: Data) -> String? {
     let keyed = try! NSKeyedUnarchiver(forReadingFrom: data)
     keyed.decodingFailurePolicy = .raiseException
@@ -319,11 +353,18 @@ func debugDecodeBPList(data: Data) -> String? {
        let attributedStringData = obj.attributedStringData
     {
         if let protobuf = ProtobufValue.arrayFrom(data: attributedStringData) {
-            ProtobufValue.printArray(array: protobuf)
+            ProtobufValue.printArray(array: protobuf, expecting: [2:("Text", "Text"), 5:("Chunk", "ChunkInfo")], context: debugMessageContext)
         }
         return attributedStringData.map{String(format: "%02hhX", $0)}.joined(separator: ",")
     } else {
         return nil
+    }
+}
+
+func debugPrintAttributedString(str: NSAttributedString) {
+    print("STRING: \(str.string)")
+    str.enumerateAttributes(in: NSMakeRange(0, str.length), options: []) {attrs, range, _ in
+        print("ATTRS for \(range): \(attrs)")
     }
 }
 
