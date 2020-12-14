@@ -181,7 +181,7 @@ enum ProtobufType {
     case message(fields: [UInt:(String, String)])
 }
 enum ProtobufValue {
-    case varint(value: UInt)
+    case varint(value: UInt, svalue: Int)
     case fixed64(int: UInt64, float: Double)
     case string(string: String?, hex: String)
     case message(value: [(UInt, ProtobufValue)])
@@ -226,7 +226,7 @@ enum ProtobufValue {
             switch(wireType) {
             case 0:
                 if let (value, newOffset) = readVarint(data: data, offset: bodyOffset, maxLen: maxLen) {
-                    return (fieldNum, .varint(value: value), newOffset)
+                    return (fieldNum, .varint(value: value, svalue: Int(bitPattern: value)), newOffset)
                 } else {
                     return nil
                 }
@@ -275,12 +275,12 @@ enum ProtobufValue {
     static func arrayFrom(data: Data) -> [(UInt, ProtobufValue)]? {
         return arrayFrom(data: data, offset: 0, maxLen: data.count)
     }
-    func printMessage(fieldNum: UInt, expecting: (String, String?), context: [String:ProtobufType] = [:], prefix: String) {
+    func printMessage(expecting: (String, String?), context: [String:ProtobufType] = [:], prefix: String) {
         let (fieldName, protobufTypeName) = expecting
         let protobufType = protobufTypeName.map{context[$0]}
         switch(self) {
-        case .varint(let value):
-            var strVal = String(value)
+        case .varint(let value, let svalue):
+            var strVal = svalue >= 0 ? String(value) : "\(String(value)) (\(String(svalue)))"
             if case .enumeration(let cases) = protobufType, let name = cases[value] {
                 strVal = name
             }
@@ -296,7 +296,7 @@ enum ProtobufValue {
             ProtobufValue.printArray(array: value, expecting: protobufTypeName, context: context, prefix: prefix + "  ")
         case .string(let string, let hex):
             if let str = string {
-                print("\(prefix)\(fieldNum) =>")
+                print("\(prefix)\(fieldName) =>")
                 print(str)
                 print("<= or \(hex)")
             } else {
@@ -322,7 +322,7 @@ enum ProtobufValue {
     }
     static func printArray(array: [(UInt, ProtobufValue)], expecting: String? = nil, context: [String:ProtobufType] = [:], prefix: String = "") {
         for (fieldNum, value) in array {
-            value.printMessage(fieldNum: fieldNum, expecting: searchType(fieldNum: fieldNum, expecting: expecting, context: context), context: context, prefix: prefix)
+            value.printMessage(expecting: searchType(fieldNum: fieldNum, expecting: expecting, context: context), context: context, prefix: prefix)
         }
     }
 }
@@ -338,9 +338,18 @@ class FakeNotesData: NSObject, NSCoding {
 }
 
 let debugMessageContext: [String:ProtobufType] = [
-    "Paste": .message(fields: [2: ("Text", "String"), 5: ("Chunk", "ChunkInfo")]),
-    "ChunkInfo": .message(fields: [1: ("Length", "Int"), 2: ("ParagraphInfo", "ParagraphInfo"), 5: ("TextStyle", "TextStyle"), 6: ("Underlined", "Bool"), 7: ("Strikethrough", "Bool")]),
-    "ParagraphInfo": .message(fields: [1: ("Style", "ParagraphStyle"), 3: ("UNKNOWN", ""), 4: ("ListDepth", "Int"), 5: ("CheckedListInfo", "CheckedListInfo"), 7: ("StartFrom", "Int")]),
+    "Paste": .message(fields: [2: ("Text", ""), 5: ("Chunk", "ChunkInfo")]),
+    "ChunkInfo": .message(
+        fields: [
+            1: ("Length", "Int"),
+            2: ("ParagraphInfo", "ParagraphInfo"),
+            3: ("TextSize", ""),
+            5: ("TextStyle", "TextStyle"),
+            6: ("Underlined", "Bool"),
+            7: ("Strikethrough", "Bool"),
+            8: ("BaselineOffset", "Int")
+        ]),
+    "ParagraphInfo": .message(fields: [1: ("Style", "ParagraphStyle"), 2: ("UNKNOWN_BASELINE", ""), 3: ("UNKNOWN", ""), 4: ("ListDepth", "Int"), 5: ("CheckedListInfo", "CheckedListInfo"), 7: ("StartFrom", "Int")]),
     "TextStyle": .enumeration(cases: [1: "Bold", 2: "Italic", 3: "BoldItalic"]),
     "ParagraphStyle": .enumeration(cases: [0: "Title", 1: "Heading", 2: "Subheading", 0x64: "bulleted", 0x65: "dashed", 0x66: "numbered", 0x67: "(un)checked"]),
     "CheckedListInfo": .message(fields: [1: ("UNKNOWN", ""), 2: ("IsChecked", "Bool")]),
