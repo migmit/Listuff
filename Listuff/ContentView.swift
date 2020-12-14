@@ -275,8 +275,9 @@ enum ProtobufValue {
     static func arrayFrom(data: Data) -> [(UInt, ProtobufValue)]? {
         return arrayFrom(data: data, offset: 0, maxLen: data.count)
     }
-    func printMessage(fieldNum: UInt, expecting: (String, ProtobufType?), context: [String:ProtobufType] = [:], prefix: String) {
-        let (fieldName, protobufType) = expecting
+    func printMessage(fieldNum: UInt, expecting: (String, String?), context: [String:ProtobufType] = [:], prefix: String) {
+        let (fieldName, protobufTypeName) = expecting
+        let protobufType = protobufTypeName.map{context[$0]}
         switch(self) {
         case .varint(let value):
             var strVal = String(value)
@@ -291,13 +292,8 @@ enum ProtobufValue {
             }
             print("\(prefix)\(fieldName)[64] => \(strVal)")
         case .message(let value):
-            var messageType: [UInt:(String, String)] = [:]
-            if case .message(let fields) = protobufType {
-                messageType = fields
-            }
             print("\(prefix)\(fieldName) =>")
-            ProtobufValue.printArray(array: value, expecting: messageType, context: context, prefix: prefix + "  ")
-            print("\(prefix)<=")
+            ProtobufValue.printArray(array: value, expecting: protobufTypeName, context: context, prefix: prefix + "  ")
         case .string(let string, let hex):
             if let str = string {
                 print("\(prefix)\(fieldNum) =>")
@@ -314,11 +310,17 @@ enum ProtobufValue {
             print("\(prefix)\(fieldName)[32] => \(strVal)")
         }
     }
-    static func searchType(fieldNum: UInt, expecting: [UInt:(String, String)], context: [String:ProtobufType]) -> (String, ProtobufType?) {
-        guard let (expectedName, expectedType) = expecting[fieldNum] else {return (String(fieldNum), nil)}
-        return (expectedName, context[expectedType])
+    static func searchType(fieldNum: UInt, expecting: String?, context: [String:ProtobufType]) -> (String, String?) {
+        if let e = expecting,
+           case .message(let expectingFields) = context[e],
+           let result = expectingFields[fieldNum]
+        {
+            return result
+        } else {
+            return (String(fieldNum), nil)
+        }
     }
-    static func printArray(array: [(UInt, ProtobufValue)], expecting: [UInt:(String, String)] = [:], context: [String:ProtobufType] = [:], prefix: String = "") {
+    static func printArray(array: [(UInt, ProtobufValue)], expecting: String? = nil, context: [String:ProtobufType] = [:], prefix: String = "") {
         for (fieldNum, value) in array {
             value.printMessage(fieldNum: fieldNum, expecting: searchType(fieldNum: fieldNum, expecting: expecting, context: context), context: context, prefix: prefix)
         }
@@ -336,10 +338,11 @@ class FakeNotesData: NSObject, NSCoding {
 }
 
 let debugMessageContext: [String:ProtobufType] = [
-    "ChunkInfo": .message(fields: [1: ("Length", "Int"), 2: ("ParagraphStyle", "ParagraphStyle"), 5: ("TextStyle", "TextStyle")]),
-    "ParagraphStyle": .message(fields: [1: ("ListStyle", "ListStyle"), 3: ("UNKNOWN", ""), 4: ("ListDepth", "Int"), 5: ("CheckedListInfo", "CheckedListInfo"), 7: ("StartFrom", "Int")]),
-    "TextStyle": .enumeration(cases: [1: "Bold", 2: "Italic"]),
-    "ListStyle": .enumeration(cases: [0x65: "dashed", 0x66: "numbered", 0x67: "(un)checked"]),
+    "Paste": .message(fields: [2: ("Text", "String"), 5: ("Chunk", "ChunkInfo")]),
+    "ChunkInfo": .message(fields: [1: ("Length", "Int"), 2: ("ParagraphInfo", "ParagraphInfo"), 5: ("TextStyle", "TextStyle")]),
+    "ParagraphInfo": .message(fields: [1: ("Style", "ParagraphStyle"), 3: ("UNKNOWN", ""), 4: ("ListDepth", "Int"), 5: ("CheckedListInfo", "CheckedListInfo"), 7: ("StartFrom", "Int")]),
+    "TextStyle": .enumeration(cases: [1: "Bold", 2: "Italic", 3: "BoldItalic"]),
+    "ParagraphStyle": .enumeration(cases: [0: "Title", 1: "Heading", 2: "Subheading", 0x65: "dashed", 0x66: "numbered", 0x67: "(un)checked"]),
     "CheckedListInfo": .message(fields: [1: ("UNKNOWN", ""), 2: ("IsChecked", "Bool")]),
     "Bool": .enumeration(cases: [0: "no", 1: "yes"])
 ]
@@ -353,7 +356,7 @@ func debugDecodeBPList(data: Data) -> String? {
        let attributedStringData = obj.attributedStringData
     {
         if let protobuf = ProtobufValue.arrayFrom(data: attributedStringData) {
-            ProtobufValue.printArray(array: protobuf, expecting: [2:("Text", "Text"), 5:("Chunk", "ChunkInfo")], context: debugMessageContext)
+            ProtobufValue.printArray(array: protobuf, expecting: "Paste", context: debugMessageContext)
         }
         return attributedStringData.map{String(format: "%02hhX", $0)}.joined(separator: ",")
     } else {
