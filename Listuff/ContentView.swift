@@ -357,7 +357,7 @@ let debugMessageContext: [String:ProtobufType] = [
 ]
 
 func debugDecodeBPList(data: Data) -> String? {
-    let keyed = try! NSKeyedUnarchiver(forReadingFrom: data)
+    guard let keyed = try? NSKeyedUnarchiver(forReadingFrom: data) else {return nil}
     keyed.decodingFailurePolicy = .raiseException
     keyed.requiresSecureCoding = false
     keyed.setClass(FakeNotesData.self, forClassName: "ICNotePasteboardData")
