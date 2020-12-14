@@ -339,10 +339,10 @@ class FakeNotesData: NSObject, NSCoding {
 
 let debugMessageContext: [String:ProtobufType] = [
     "Paste": .message(fields: [2: ("Text", "String"), 5: ("Chunk", "ChunkInfo")]),
-    "ChunkInfo": .message(fields: [1: ("Length", "Int"), 2: ("ParagraphInfo", "ParagraphInfo"), 5: ("TextStyle", "TextStyle")]),
+    "ChunkInfo": .message(fields: [1: ("Length", "Int"), 2: ("ParagraphInfo", "ParagraphInfo"), 5: ("TextStyle", "TextStyle"), 6: ("Underlined", "Bool")]),
     "ParagraphInfo": .message(fields: [1: ("Style", "ParagraphStyle"), 3: ("UNKNOWN", ""), 4: ("ListDepth", "Int"), 5: ("CheckedListInfo", "CheckedListInfo"), 7: ("StartFrom", "Int")]),
     "TextStyle": .enumeration(cases: [1: "Bold", 2: "Italic", 3: "BoldItalic"]),
-    "ParagraphStyle": .enumeration(cases: [0: "Title", 1: "Heading", 2: "Subheading", 0x65: "dashed", 0x66: "numbered", 0x67: "(un)checked"]),
+    "ParagraphStyle": .enumeration(cases: [0: "Title", 1: "Heading", 2: "Subheading", 0x64: "bulleted", 0x65: "dashed", 0x66: "numbered", 0x67: "(un)checked"]),
     "CheckedListInfo": .message(fields: [1: ("UNKNOWN", ""), 2: ("IsChecked", "Bool")]),
     "Bool": .enumeration(cases: [0: "no", 1: "yes"])
 ]
