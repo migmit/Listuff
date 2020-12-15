@@ -231,9 +231,9 @@ enum ProtobufValue {
                     return nil
                 }
             case 1:
-                guard offset + 8 <= maxLen else {return nil}
-                let uint64 = readUInt64(data: data, offset: offset)
-                return (fieldNum, .fixed64(int: uint64, float: Double(bitPattern: uint64)), offset + 8)
+                guard bodyOffset + 8 <= maxLen else {return nil}
+                let uint64 = readUInt64(data: data, offset: bodyOffset)
+                return (fieldNum, .fixed64(int: uint64, float: Double(bitPattern: uint64)), bodyOffset + 8)
             case 2:
                 if let (totalLength, messagesOffset) = readVarint(data: data, offset: bodyOffset, maxLen: maxLen) {
                     let messagesEnd = messagesOffset + Int(totalLength)
@@ -249,9 +249,9 @@ enum ProtobufValue {
                     return nil
                 }
             case 5:
-                guard offset + 4 <= maxLen else {return nil}
-                let uint32 = readUInt32(data: data, offset: offset)
-                return (fieldNum, .fixed32(int: uint32, float: Float(bitPattern: uint32)), offset + 4)
+                guard bodyOffset + 4 <= maxLen else {return nil}
+                let uint32 = readUInt32(data: data, offset: bodyOffset)
+                return (fieldNum, .fixed32(int: uint32, float: Float(bitPattern: uint32)), bodyOffset + 4)
             default:
                 return nil
             }
@@ -338,7 +338,7 @@ class FakeNotesData: NSObject, NSCoding {
 }
 
 let debugMessageContext: [String:ProtobufType] = [
-    "Paste": .message(fields: [2: ("Text", ""), 5: ("Chunk", "ChunkInfo")]),
+    "Paste": .message(fields: [2: ("Text", ""), 5: ("Chunk", "ChunkInfo"), 6: ("Attachment", "AttachmentData")]),
     "ChunkInfo": .message(
         fields: [
             1: ("Length", "Int"),
@@ -347,12 +347,27 @@ let debugMessageContext: [String:ProtobufType] = [
             5: ("TextStyle", "TextStyle"),
             6: ("Underlined", "Bool"),
             7: ("Strikethrough", "Bool"),
-            8: ("BaselineOffset", "Int")
+            8: ("BaselineOffset", "Int"),
+            10: ("Color", "Color"),
+            12: ("Attachment", "Attachment")
         ]),
-    "ParagraphInfo": .message(fields: [1: ("Style", "ParagraphStyle"), 2: ("UNKNOWN_BASELINE", ""), 3: ("UNKNOWN", ""), 4: ("ListDepth", "Int"), 5: ("CheckedListInfo", "CheckedListInfo"), 7: ("StartFrom", "Int")]),
+    "ParagraphInfo": .message(
+        fields: [
+            1: ("Style", "ParagraphStyle"),
+            2: ("Alignment", "Alignment"),
+            3: ("WritingDirection", "WritingDirection"),
+            4: ("ListDepth", "Int"),
+            5: ("CheckedListInfo", "CheckedListInfo"),
+            7: ("StartFrom", "Int")
+        ]),
     "TextStyle": .enumeration(cases: [1: "Bold", 2: "Italic", 3: "BoldItalic"]),
     "ParagraphStyle": .enumeration(cases: [0: "Title", 1: "Heading", 2: "Subheading", 0x64: "bulleted", 0x65: "dashed", 0x66: "numbered", 0x67: "(un)checked"]),
     "CheckedListInfo": .message(fields: [1: ("UNKNOWN", ""), 2: ("IsChecked", "Bool")]),
+    "Attachment": .message(fields: [1: ("GUID", ""), 2: ("Type", "")]),
+    "AttachmentData": .message(fields: [2: ("GUID", ""), 6: ("Content", ""), 8: ("Type", ""), 17: ("UNKNOWN_PTR", ""), 25: ("UNKNOWN_INT", "Int")]),
+    "Color": .message(fields: [1: ("Red", "Float"), 2: ("Green", "Float"), 3: ("Blue", "Float"), 4: ("Alpha", "Float")]),
+    "Alignment": .enumeration(cases: [0: "left", 1: "center", 2: "right", 3: "justify"]),
+    "WritingDirection": .enumeration(cases: [0: "ltr", 1: "default", 2: "rtl"]),
     "Bool": .enumeration(cases: [0: "no", 1: "yes"])
 ]
 
