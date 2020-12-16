@@ -237,13 +237,13 @@ enum ProtobufValue {
             case 2:
                 if let (totalLength, messagesOffset) = readVarint(data: data, offset: bodyOffset, maxLen: maxLen) {
                     let messagesEnd = messagesOffset + Int(totalLength)
-                    if let messages = arrayFrom(data: data, offset: messagesOffset, maxLen: messagesEnd) {
+                    if messagesEnd > maxLen {
+                        return nil
+                    } else if let messages = arrayFrom(data: data, offset: messagesOffset, maxLen: messagesEnd) {
                         return (fieldNum, .message(value: messages), messagesEnd)
-                    } else if messagesEnd <= maxLen {
+                    } else {
                         let dataSlice = data[messagesOffset..<messagesEnd]
                         return (fieldNum, .string(string: String(data: dataSlice, encoding: .utf8), hex: dataSlice.map{String(format: "%02hhX", $0)}.joined(separator: ",")), messagesEnd)
-                    } else {
-                        return nil
                     }
                 } else {
                     return nil
@@ -348,6 +348,7 @@ let debugMessageContext: [String:ProtobufType] = [
             6: ("Underlined", "Bool"),
             7: ("Strikethrough", "Bool"),
             8: ("BaselineOffset", "Int"),
+            9: ("URL", ""),
             10: ("Color", "Color"),
             12: ("Attachment", "Attachment")
         ]),
