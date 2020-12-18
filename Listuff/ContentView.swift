@@ -366,20 +366,21 @@ func debugDecodeBPList(data: Data) -> String? {
     if let obj = keyed.decodeObject(forKey: NSKeyedArchiveRootObjectKey) as? FakeNotesData,
        let attributedStringData = obj.attributedStringData
     {
+        let attachmentDict = obj.dataPersister?.identifierToDataDictionary as? [String: Data] ?? [:]
+        let tableDict = attachmentDict.compactMapValues{value -> [[String]]? in
+            guard let gunzipped = debugGunzip(gzipped: value) else {return nil}
+            guard let pv = ProtobufValue.arrayFrom(data: gunzipped) else {return nil}
+            guard let table = NotesTable(source: ProtobufValue.lengthLimited(value: pv, string: nil, hex: gunzipped).normalize()) else {return nil}
+            guard let decoded = DecodedTable(source: table) else {return nil}
+            return decoded.cells
+        }
         if let protobuf = ProtobufValue.arrayFrom(data: attributedStringData) {
             ProtobufValue.printArray(array: protobuf, expecting: "Paste", context: debugMessageContext)
         }
-        if let dict = obj.dataPersister?.identifierToDataDictionary {
-            for (k, v) in dict {
-                if let gzipped = v as? Data, let gunzipped = debugGunzip(gzipped: gzipped), let pv = ProtobufValue.arrayFrom(data: gunzipped) {
-                    print(k)
-                    if let table = NotesTable(source: ProtobufValue.lengthLimited(value: pv, string: nil, hex: gunzipped).normalize()),
-                       let decoded = DecodedTable(source: table) {
-                        for row in debugTranspose(source: decoded.cells) {
-                            print(row)
-                        }
-                    }
-                }
+        for (k, v) in tableDict {
+            print(k)
+            for row in debugTranspose(source: v) {
+                print(row)
             }
         }
         return attributedStringData.map{String(format: "%02hhX", $0)}.joined(separator: ",")
