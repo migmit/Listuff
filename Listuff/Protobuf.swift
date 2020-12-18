@@ -5,7 +5,7 @@
 //  Created by MigMit on 18.12.2020.
 //
 
-import Foundation
+import SwiftUI
 
 enum ProtobufValue {
     case varint(value: UInt, svalue: Int)
@@ -129,28 +129,230 @@ enum NormalizedProtobufValue {
     func getDouble() -> Double? {if case .fixed64(_, let float) = self {return float} else {return nil}}
     func getInt32() -> Int32? {if case .fixed32(let int, _) = self {return Int32(bitPattern: int)} else {return nil}}
     func getUInt32() -> UInt32? {if case .fixed32(let int, _) = self {return int} else {return nil}}
+    func getFloat() -> Float? {if case .fixed32(_, let float) = self {return float} else {return nil}}
     func getString() -> String? {if case .lengthLimited(_, let string, _) = self {return string} else {return nil}}
     func getBinaryData() -> Data? {if case .lengthLimited(_, _, let hex) = self {return hex} else {return nil}}
     func getField(_ field: UInt) -> [NormalizedProtobufValue]? {if case .lengthLimited(let value, _, _) = self {return value?[field]} else {return nil}}
 }
 
+class Note {
+    let content: String
+    let chunks: [NoteChunk]
+    init?(source: NormalizedProtobufValue, attachments: NSDictionary?) {
+        guard let content = source.getField(2)?.first?.getString() else {return nil}
+        self.content = content
+        let chunkInfo = source.getField(5)?.map{NoteChunk(source: $0, attachments: attachments)} ?? []
+        var chunks: [NoteChunk] = []
+        for chunk in chunkInfo {
+            guard let c = chunk else {return nil}
+            chunks.append(c)
+        }
+        self.chunks = chunks
+    }
+}
+
+class NoteChunk {
+    let length: Int
+    let textSize: Float?
+    let textStyle: NoteTextStyle
+    let paragraphStyle: ParagraphStyle?
+    let baselineOffset: Int
+    let linkUrl: String?
+    let color: Color?
+    let attachment: NoteAttachment?
+    init?(source: NormalizedProtobufValue, attachments: NSDictionary?) {
+        if let length = source.getField(1)?.first?.getInt() {
+            if let ps = source.getField(2)?.first {
+                var paragraphType = ParagraphType.normal
+                var alignment = Alignment.left
+                var writingDirection = WritingDirection.ltr
+                var listDepth: UInt = 0
+                if let pt = ps.getField(1)?.first?.getUInt() {
+                    switch(pt) {
+                    case 0: paragraphType = .title
+                    case 1: paragraphType = .heading
+                    case 2: paragraphType = .subheading
+                    case 0x64: paragraphType = .bullet
+                    case 0x65: paragraphType = .dash
+                    case 0x66: paragraphType = .number
+                    case 0x67:
+                        let checked = ps.getField(5)?.first?.getField(2)?.first?.getUInt()
+                        paragraphType = .check(isChecked: (checked ?? 0) != 0)
+                    default: break
+                    }
+                }
+                if let al = ps.getField(2)?.first?.getUInt() {
+                    switch(al) {
+                    case 0: alignment = .left
+                    case 1: alignment = .center
+                    case 2: alignment = .right
+                    case 3: alignment = .justify
+                    default: break
+                    }
+                }
+                if let wd = ps.getField(3)?.first?.getUInt() {
+                    switch(wd) {
+                    case 0: writingDirection = .ltr
+                    case 1: writingDirection = .dflt
+                    case 2: writingDirection = .rtl
+                    default: break
+                    }
+                }
+                if let ld = ps.getField(4)?.first?.getUInt() {
+                    listDepth = ld
+                }
+                self.paragraphStyle = ParagraphStyle(paragraphType: paragraphType, alignment: alignment, writingDirection: writingDirection, listDepth: listDepth)
+            } else {
+                self.paragraphStyle = nil
+            }
+            self.length = length
+            let textSize = source.getField(3)?.first?.getField(2)?.first?.getFloat()
+            self.textSize = textSize
+            var textStyle: NoteTextStyle = []
+            if let ts = source.getField(5)?.first?.getUInt() {
+                if ts & 0x1 != 0 {textStyle.insert(.bold)}
+                if ts & 0x2 != 0 {textStyle.insert(.italic)}
+            }
+            if let und = source.getField(6)?.first?.getUInt(), und != 0 {
+                textStyle.insert(.underlined)
+            }
+            if let stt = source.getField(7)?.first?.getUInt(), stt != 0 {
+                textStyle.insert(.strikethrough)
+            }
+            self.textStyle = textStyle
+            if let bo = source.getField(8)?.first?.getUInt() {
+                self.baselineOffset = Int(bitPattern: bo)
+            } else {
+                self.baselineOffset = 0
+            }
+            self.linkUrl = source.getField(9)?.first?.getString()
+            if let clr = source.getField(10)?.first,
+               let red = clr.getField(1)?.first?.getFloat(),
+               let green = clr.getField(2)?.first?.getFloat(),
+               let blue = clr.getField(3)?.first?.getFloat(),
+               let alpha = clr.getField(4)?.first?.getFloat() {
+                self.color = Color(red: Double(red), green: Double(green), blue: Double(blue), opacity: Double(alpha))
+            } else {
+                self.color = nil
+            }
+            if let attachment = source.getField(12)?.first,
+               let guid = attachment.getField(1)?.first?.getString(),
+               let atType = attachment.getField(2)?.first?.getString() {
+                switch(atType) {
+                case "com.apple.notes.table":
+                    if let attachmentData = attachments?[guid + "_mergeableData"] as? Data,
+                       let unarchived = gunzipFile(gzipped: attachmentData),
+                       let protobufArray = ProtobufValue.arrayFrom(data: unarchived),
+                       let notesTable = NotesTable(source: ProtobufValue.lengthLimited(value: protobufArray, string: nil, hex: unarchived).normalize()),
+                       let decoded = DecodedTable(source: notesTable) {
+                        self.attachment = .table(table: transpose(source: decoded.cells))
+                    } else {
+                        self.attachment = nil
+                    }
+                default:
+                    self.attachment = nil
+                }
+            } else {
+                self.attachment = nil
+            }
+        } else {
+            return nil
+        }
+    }
+}
+
+func gunzipFile(gzipped: Data) -> Data? {
+    var dataOffset = 10
+    guard dataOffset <= gzipped.count - 8 else {return nil}
+    let flags = GzipFlags(rawValue: gzipped[3])
+    if flags.contains(.extra) {
+        let xlen = Int(gzipped[dataOffset]) + Int(gzipped[dataOffset+1]) * 256
+        dataOffset += xlen + 2
+        guard dataOffset <= gzipped.count - 8 else {return nil}
+    }
+    if flags.contains(.name) {
+        while gzipped[dataOffset] != 0 && dataOffset < gzipped.count {dataOffset += 1}
+        dataOffset += 1
+        guard dataOffset <= gzipped.count - 8 else {return nil}
+    }
+    if flags.contains(.comment) {
+        while gzipped[dataOffset] != 0 && dataOffset < gzipped.count {dataOffset += 1}
+        dataOffset += 1
+        guard dataOffset <= gzipped.count - 8 else {return nil}
+    }
+    return (try? (gzipped[dataOffset..<gzipped.count-8] as NSData).decompressed(using: .zlib)) as Data?
+}
+
+func transpose<T>(source: [[T]]) -> [[T]] {
+    var result: [[T]] = []
+    if !source.isEmpty {
+        result = source[0].map{[$0]}
+        for row in source[1..<source.count] {
+            var temp: [[T]] = []
+            for (resultRow, elt) in zip(result, row) {
+                temp.append(resultRow + [elt])
+            }
+            result = temp
+        }
+    }
+    return result
+}
+
+struct NoteTextStyle: OptionSet {
+    let rawValue: UInt8
+    static let bold = NoteTextStyle(rawValue: 1 << 0)
+    static let italic = NoteTextStyle(rawValue: 1 << 1)
+    static let underlined = NoteTextStyle(rawValue: 1 << 2)
+    static let strikethrough = NoteTextStyle(rawValue: 1 << 3)
+}
+struct ParagraphStyle {
+    let paragraphType: ParagraphType
+    let alignment: Alignment
+    let writingDirection: WritingDirection
+    let listDepth: UInt
+}
+enum ParagraphType {
+    case title
+    case heading
+    case subheading
+    case normal
+    case bullet
+    case dash
+    case number
+    case check(isChecked: Bool)
+}
+enum Alignment {
+    case left
+    case center
+    case right
+    case justify
+}
+enum WritingDirection {
+    case ltr
+    case rtl
+    case dflt
+}
+enum NoteAttachment {
+    case table(table: [[Note?]])
+}
+
 class DecodedTable {
-    let cells: [[String]]
+    let cells: [[Note?]]
     init?(source: NotesTable) {
         guard let top = source.records.first(where: {($0 as? NotesObject)?.objType == "com.apple.notes.ICTable"}) as? NotesObject else {return nil}
         guard let rows = (top.fields["crColumns"] as? NotesPositions)?.positions else {return nil}
         guard let columns = (top.fields["crRows"] as? NotesPositions)?.positions else {return nil}
         guard let cellColumns = (top.fields["cellColumns"] as? NotesDict)?.fields else {return nil}
-        var full: [[String]] = []
+        var full: [[Note?]] = []
         for row in rows {
-            var current: [String] = []
+            var current: [Note?] = []
             let rowContent: [Data:NotesRecord] = row.flatMap{(cellColumns[$0] as? NotesDict)?.fields} ?? [:]
             for column in columns {
                 if let col = column,
                    let colContent = (rowContent[col] as? NotesCell)?.content {
                     current.append(colContent)
                 } else {
-                    current.append("")
+                    current.append(nil)
                 }
             }
             full.append(current)
@@ -245,14 +447,10 @@ class NotesObject: NotesRecord {
     }
 }
 class NotesCell: NotesRecord {
-    var content: String = ""
+    var content: Note? = nil
     override func fill(fields: [String?], types: [String?], records: [NotesRecord?]) -> Bool {
-        if let content = protobuf?.getField(2)?.first?.getString() {
-            self.content = content
-            return true
-        } else {
-            return false
-        }
+        self.content = protobuf.flatMap{Note(source: $0, attachments: nil)}
+        return true
     }
     override func finalize(GUIDs: [Data?]) -> Bool {
         return true

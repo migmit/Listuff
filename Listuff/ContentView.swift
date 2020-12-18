@@ -303,41 +303,40 @@ struct GzipFlags: OptionSet {
     static let comment = GzipFlags(rawValue: 1 << 4)
 }
 
-func debugGunzip(gzipped: Data) -> Data? {
-    var dataOffset = 10
-    guard dataOffset <= gzipped.count - 8 else {return nil}
-    let flags = GzipFlags(rawValue: gzipped[3])
-    if flags.contains(.extra) {
-        let xlen = Int(gzipped[dataOffset]) + Int(gzipped[dataOffset+1]) * 256
-        dataOffset += xlen + 2
-        guard dataOffset <= gzipped.count - 8 else {return nil}
-    }
-    if flags.contains(.name) {
-        while gzipped[dataOffset] != 0 && dataOffset < gzipped.count {dataOffset += 1}
-        dataOffset += 1
-        guard dataOffset <= gzipped.count - 8 else {return nil}
-    }
-    if flags.contains(.comment) {
-        while gzipped[dataOffset] != 0 && dataOffset < gzipped.count {dataOffset += 1}
-        dataOffset += 1
-        guard dataOffset <= gzipped.count - 8 else {return nil}
-    }
-    return (try? (gzipped[dataOffset..<gzipped.count-8] as NSData).decompressed(using: .zlib)) as Data?
-}
-
-func debugTranspose<T>(source: [[T]]) -> [[T]] {
-    var result: [[T]] = []
-    if !source.isEmpty {
-        result = source[0].map{[$0]}
-        for row in source[1..<source.count] {
-            var temp: [[T]] = []
-            for (resultRow, elt) in zip(result, row) {
-                temp.append(resultRow + [elt])
+func debugPrintNote(note: Note, prefix: String = "") -> String {
+    for chunk in note.chunks {
+        print("\(prefix)Chunk: \(chunk.length) characters")
+        if let ts = chunk.textSize {print("\(prefix)  Text size: \(ts)")}
+        var textStyle = ""
+        if chunk.textStyle.contains(.bold) {textStyle += " bold"}
+        if chunk.textStyle.contains(.italic) {textStyle += " italic"}
+        if chunk.textStyle.contains(.underlined) {textStyle += " underlined"}
+        if chunk.textStyle.contains(.strikethrough) {textStyle += " strikethrough"}
+        if !textStyle.isEmpty {print("\(prefix)  Text style:\(textStyle)")}
+        if let ps = chunk.paragraphStyle {
+            print("\(prefix)  Paragraph type: \(ps.paragraphType)")
+            print("\(prefix)  Alignment: \(ps.alignment)")
+            print("\(prefix)  Writing direction: \(ps.writingDirection)")
+            print("\(prefix)  List depth: \(ps.listDepth)")
+        }
+        if (chunk.baselineOffset != 0) {print("\(prefix)  Baseline offset: \(chunk.baselineOffset)")}
+        if let url = chunk.linkUrl {print("\(prefix)  Link: \(url)")}
+        if let color = chunk.color {print("\(prefix)  Color: \(color)")}
+        if let attachment = chunk.attachment {
+            switch(attachment) {
+            case .table(let table):
+                print("\(prefix)  Table:")
+                for row in table {
+                    print("\(prefix)    Row:")
+                    for cell in row {
+                        let content = cell.map{debugPrintNote(note: $0, prefix: prefix + "      ")} ?? ""
+                        print("\(prefix)      \(content)")
+                    }
+                }
             }
-            result = temp
         }
     }
-    return result
+    return note.content
 }
 
 func debugDecodeBPList(data: Data) -> String? {
@@ -347,26 +346,11 @@ func debugDecodeBPList(data: Data) -> String? {
     keyed.setClass(FakeNotesData.self, forClassName: "ICNotePasteboardData")
     keyed.setClass(FakeDataPersister.self, forClassName: "ICDataPersister")
     if let obj = keyed.decodeObject(forKey: NSKeyedArchiveRootObjectKey) as? FakeNotesData,
-       let attributedStringData = obj.attributedStringData
+       let attributedStringData = obj.attributedStringData,
+       let protobuf = ProtobufValue.arrayFrom(data: attributedStringData),
+       let note = Note(source: ProtobufValue.lengthLimited(value: protobuf, string: nil, hex: attributedStringData).normalize(), attachments: obj.dataPersister?.identifierToDataDictionary)
     {
-        let attachmentDict = obj.dataPersister?.identifierToDataDictionary as? [String: Data] ?? [:]
-        let tableDict = attachmentDict.compactMapValues{value -> [[String]]? in
-            guard let gunzipped = debugGunzip(gzipped: value) else {return nil}
-            guard let pv = ProtobufValue.arrayFrom(data: gunzipped) else {return nil}
-            guard let table = NotesTable(source: ProtobufValue.lengthLimited(value: pv, string: nil, hex: gunzipped).normalize()) else {return nil}
-            guard let decoded = DecodedTable(source: table) else {return nil}
-            return decoded.cells
-        }
-        if let protobuf = ProtobufValue.arrayFrom(data: attributedStringData) {
-            ProtobufValue.printArray(array: protobuf, expecting: "Paste", context: debugMessageContext)
-        }
-        for (k, v) in tableDict {
-            print(k)
-            for row in debugTranspose(source: v) {
-                print(row)
-            }
-        }
-        return attributedStringData.map{String(format: "%02hhX", $0)}.joined(separator: ",")
+        return debugPrintNote(note: note)
     } else {
         return nil
     }
