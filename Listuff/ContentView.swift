@@ -180,101 +180,7 @@ enum ProtobufType {
     case enumeration(cases: [UInt:String])
     case message(fields: [UInt:(String, String)])
 }
-enum ProtobufValue {
-    case varint(value: UInt, svalue: Int)
-    case fixed64(int: UInt64, float: Double)
-    case string(string: String?, hex: String)
-    case message(value: [(UInt, ProtobufValue)])
-    case fixed32(int: UInt32, float: Float)
-    static func readVarint(data: Data, offset: Int, maxLen: Int) -> (UInt, Int)? {
-        var multiple: UInt = 1
-        var summand: UInt = 0
-        var currentOffset = offset
-        while (currentOffset < maxLen) {
-            let byte = data[currentOffset]
-            if (byte < 128) {
-                return (UInt(byte) * multiple + summand, currentOffset + 1)
-            } else {
-                summand += UInt(byte - 128) * multiple
-                multiple <<= 7
-                currentOffset += 1
-            }
-        }
-        return nil
-    }
-    static func readUInt32(data: Data, offset: Int) -> UInt32 {
-        var result: UInt32 = 0
-        var multiple: UInt32 = 1
-        for pos in 0..<4 {
-            result += UInt32(data[offset+pos]) * multiple
-            multiple <<= 8
-        }
-        return result
-    }
-    static func readUInt64(data: Data, offset: Int) -> UInt64 {
-        var result: UInt64 = 0
-        var multiple: UInt64 = 1
-        for pos in 0..<8 {
-            result += UInt64(data[offset+pos]) * multiple
-            multiple <<= 8
-        }
-        return result
-    }
-    static func from(data: Data, offset: Int, maxLen: Int) -> (UInt, ProtobufValue, Int)? {
-        if let (header, bodyOffset) = readVarint(data: data, offset: offset, maxLen: maxLen) {
-            let (fieldNum, wireType) = header.quotientAndRemainder(dividingBy: 8)
-            switch(wireType) {
-            case 0:
-                if let (value, newOffset) = readVarint(data: data, offset: bodyOffset, maxLen: maxLen) {
-                    return (fieldNum, .varint(value: value, svalue: Int(bitPattern: value)), newOffset)
-                } else {
-                    return nil
-                }
-            case 1:
-                guard bodyOffset + 8 <= maxLen else {return nil}
-                let uint64 = readUInt64(data: data, offset: bodyOffset)
-                return (fieldNum, .fixed64(int: uint64, float: Double(bitPattern: uint64)), bodyOffset + 8)
-            case 2:
-                if let (totalLength, messagesOffset) = readVarint(data: data, offset: bodyOffset, maxLen: maxLen) {
-                    let messagesEnd = messagesOffset + Int(totalLength)
-                    if messagesEnd > maxLen {
-                        return nil
-                    } else if let messages = arrayFrom(data: data, offset: messagesOffset, maxLen: messagesEnd) {
-                        return (fieldNum, .message(value: messages), messagesEnd)
-                    } else {
-                        let dataSlice = data[messagesOffset..<messagesEnd]
-                        return (fieldNum, .string(string: String(data: dataSlice, encoding: .utf8), hex: dataSlice.map{String(format: "%02hhX", $0)}.joined(separator: ",")), messagesEnd)
-                    }
-                } else {
-                    return nil
-                }
-            case 5:
-                guard bodyOffset + 4 <= maxLen else {return nil}
-                let uint32 = readUInt32(data: data, offset: bodyOffset)
-                return (fieldNum, .fixed32(int: uint32, float: Float(bitPattern: uint32)), bodyOffset + 4)
-            default:
-                return nil
-            }
-        } else {
-            return nil
-        }
-    }
-    static func arrayFrom(data: Data, offset: Int, maxLen: Int) -> [(UInt, ProtobufValue)]? {
-        var messages: [(UInt, ProtobufValue)] = []
-        var nextOffset = offset
-        while nextOffset < maxLen {
-            if let (fieldNum, message, newOffset) = from(data: data, offset: nextOffset, maxLen: maxLen) {
-                messages.append((fieldNum, message))
-                nextOffset = newOffset
-            } else {
-                return nil
-            }
-        }
-        return messages
-    }
-    static func arrayFrom(data: Data) -> [(UInt, ProtobufValue)]? {
-        return arrayFrom(data: data, offset: 0, maxLen: data.count)
-    }
+extension ProtobufValue {
     func printMessage(expecting: (String, String?), context: [String:ProtobufType] = [:], prefix: String) {
         let (fieldName, protobufTypeName) = expecting
         let protobufType = protobufTypeName.map{context[$0]}
@@ -291,16 +197,19 @@ enum ProtobufValue {
                 strVal = name
             }
             print("\(prefix)\(fieldName)[64] => \(strVal)")
-        case .message(let value):
-            print("\(prefix)\(fieldName) =>")
-            ProtobufValue.printArray(array: value, expecting: protobufTypeName, context: context, prefix: prefix + "  ")
-        case .string(let string, let hex):
-            if let str = string {
+        case .lengthLimited(let value, let string, let hex):
+            if let v = value {
                 print("\(prefix)\(fieldName) =>")
-                print(str)
-                print("<= or \(hex)")
+                ProtobufValue.printArray(array: v, expecting: protobufTypeName, context: context, prefix: prefix + "  ")
             } else {
-                print("\(prefix)\(fieldName) => \(hex)")
+                let hexStr = hex.map{String(format: "%02X", $0)}.joined(separator: ",")
+                if let str = string {
+                    print("\(prefix)\(fieldName) =>")
+                    print(str)
+                    print("<= or \(hexStr)")
+                } else {
+                    print("\(prefix)\(fieldName) => \(hexStr)")
+                }
             }
         case .fixed32(let int, let float):
             var strVal = "\(int) or \(float)"
@@ -327,13 +236,26 @@ enum ProtobufValue {
     }
 }
 
+class FakeDataPersister: NSObject, NSCoding {
+    var identifierToDataDictionary: NSDictionary?
+    required init?(coder: NSCoder) {
+        identifierToDataDictionary = coder.decodeObject(forKey: "identifierToDataDictionary") as? NSDictionary
+    }
+    func encode(with coder: NSCoder) {
+        if let dict = identifierToDataDictionary {coder.encode(dict, forKey: "identifierToDataDictionary")}
+    }
+}
+
 class FakeNotesData: NSObject, NSCoding {
     var attributedStringData: Data?
+    var dataPersister: FakeDataPersister?
     required init?(coder: NSCoder) {
         attributedStringData = coder.decodeObject(forKey: "attributedStringData") as? Data
+        dataPersister = coder.decodeObject(forKey: "dataPersister") as? FakeDataPersister
     }
     func encode(with coder: NSCoder) {
         if let data = attributedStringData {coder.encode(data, forKey: "attributedStringData")}
+        if let persister = dataPersister {coder.encode(persister, forKey: "dataPersister")}
     }
 }
 
@@ -372,16 +294,93 @@ let debugMessageContext: [String:ProtobufType] = [
     "Bool": .enumeration(cases: [0: "no", 1: "yes"])
 ]
 
+let debugTableInfo: [String:ProtobufType] = [
+    "TableInfo": .message(fields: [1: ("UNKNOWN", "Int"), 2: ("Content", "TableInfo1")]),
+    "TableInfo1": .message(fields: [1: ("UNKNOWN", "Int"), 2: ("UNKNOWN", "Int"), 3: ("Content", "TableData")]),
+    "TableData": .message(fields: [1: ("UNKNOWN", "Message"), 2: ("UNKNOWN", "Message"), 3: ("Record", "TableRecord"), 4: ("Field", ""), 5: ("Type", ""), 6: ("GUID", ""), 7: ("UNKNOWN", "Message")]),
+    "TableRecord": .message(fields: [1: ("UNKNOWN", "Message"), 6: ("Dict", "Dictionary"), 10: ("Cell", "TableCell"), 13: ("Object", "TableObject"), 16: ("Positions", "PositionAssociation")]),
+    "TableObject": .message(fields: [1: ("TypeId", "Int"), 3: ("Field", "ObjectField")]),
+    "ObjectField": .message(fields: [1: ("Name", "Int"), 2: ("Value", "FieldValue")]),
+    "FieldValue": .message(fields: [2: ("Int", "Int"), 4: ("String", ""), 6: ("Object", "Int")]),
+    "TableCell": .message(fields: [2: ("Content", ""), 3: ("UNKNOWN", "Message")]),
+    "Dictionary": .message(fields: [1: ("Item", "DictItem")]),
+    "DictItem": .message(fields: [1: ("Key", "FieldValue"), 2: ("Value", "FieldValue"), 3: ("UNKNOWN", "Message")]),
+    "PositionAssociation": .message(fields: [1: ("Positions", "PosAssoc"), 2: ("Keys", "Dictionary")]),
+    "PosAssoc": .message(fields: [1: ("Positions", "PosData"), 2: ("RealIds", "Dictionary")]),
+    "PosData": .message(fields: [1: ("UNKNOWN", "Message"), 2: ("Position", "PositionInfo")]),
+    "PositionInfo": .message(fields: [1: ("Index", "Int"), 2: ("GUID", "")])
+]
+
+struct GzipFlags: OptionSet {
+    let rawValue: UInt8
+    static let text = GzipFlags(rawValue: 1 << 0)
+    static let hcrc = GzipFlags(rawValue: 1 << 1)
+    static let extra = GzipFlags(rawValue: 1 << 2)
+    static let name = GzipFlags(rawValue: 1 << 3)
+    static let comment = GzipFlags(rawValue: 1 << 4)
+}
+
+func debugGunzip(gzipped: Data) -> Data? {
+    var dataOffset = 10
+    guard dataOffset <= gzipped.count - 8 else {return nil}
+    let flags = GzipFlags(rawValue: gzipped[3])
+    if flags.contains(.extra) {
+        let xlen = Int(gzipped[dataOffset]) + Int(gzipped[dataOffset+1]) * 256
+        dataOffset += xlen + 2
+        guard dataOffset <= gzipped.count - 8 else {return nil}
+    }
+    if flags.contains(.name) {
+        while gzipped[dataOffset] != 0 && dataOffset < gzipped.count {dataOffset += 1}
+        dataOffset += 1
+        guard dataOffset <= gzipped.count - 8 else {return nil}
+    }
+    if flags.contains(.comment) {
+        while gzipped[dataOffset] != 0 && dataOffset < gzipped.count {dataOffset += 1}
+        dataOffset += 1
+        guard dataOffset <= gzipped.count - 8 else {return nil}
+    }
+    return (try? (gzipped[dataOffset..<gzipped.count-8] as NSData).decompressed(using: .zlib)) as Data?
+}
+
+func debugTranspose<T>(source: [[T]]) -> [[T]] {
+    var result: [[T]] = []
+    if !source.isEmpty {
+        result = source[0].map{[$0]}
+        for row in source[1..<source.count] {
+            var temp: [[T]] = []
+            for (resultRow, elt) in zip(result, row) {
+                temp.append(resultRow + [elt])
+            }
+            result = temp
+        }
+    }
+    return result
+}
+
 func debugDecodeBPList(data: Data) -> String? {
     guard let keyed = try? NSKeyedUnarchiver(forReadingFrom: data) else {return nil}
     keyed.decodingFailurePolicy = .raiseException
     keyed.requiresSecureCoding = false
     keyed.setClass(FakeNotesData.self, forClassName: "ICNotePasteboardData")
+    keyed.setClass(FakeDataPersister.self, forClassName: "ICDataPersister")
     if let obj = keyed.decodeObject(forKey: NSKeyedArchiveRootObjectKey) as? FakeNotesData,
        let attributedStringData = obj.attributedStringData
     {
         if let protobuf = ProtobufValue.arrayFrom(data: attributedStringData) {
             ProtobufValue.printArray(array: protobuf, expecting: "Paste", context: debugMessageContext)
+        }
+        if let dict = obj.dataPersister?.identifierToDataDictionary {
+            for (k, v) in dict {
+                if let gzipped = v as? Data, let gunzipped = debugGunzip(gzipped: gzipped), let pv = ProtobufValue.arrayFrom(data: gunzipped) {
+                    print(k)
+                    if let table = NotesTable(source: ProtobufValue.lengthLimited(value: pv, string: nil, hex: gunzipped).normalize()),
+                       let decoded = DecodedTable(source: table) {
+                        for row in debugTranspose(source: decoded.cells) {
+                            print(row)
+                        }
+                    }
+                }
+            }
         }
         return attributedStringData.map{String(format: "%02hhX", $0)}.joined(separator: ",")
     } else {

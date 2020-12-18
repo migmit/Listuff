@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B52D57F8258C346C0024FA43 /* Protobuf.swift in Sources */ = {isa = PBXBuildFile; fileRef = B52D57F7258C346C0024FA43 /* Protobuf.swift */; };
 		B53348822573156D0008FB49 /* WAVL.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53348812573156D0008FB49 /* WAVL.swift */; };
 		B533488725732B820008FB49 /* WAVLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B533488625732B820008FB49 /* WAVLTests.swift */; };
 		B533488C2573D1570008FB49 /* ObservableProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B533488B2573D1570008FB49 /* ObservableProxy.swift */; };
@@ -38,6 +39,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B52D57F7258C346C0024FA43 /* Protobuf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Protobuf.swift; sourceTree = "<group>"; };
 		B53348812573156D0008FB49 /* WAVL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WAVL.swift; sourceTree = "<group>"; };
 		B533488625732B820008FB49 /* WAVLTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WAVLTests.swift; sourceTree = "<group>"; };
 		B533488B2573D1570008FB49 /* ObservableProxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableProxy.swift; sourceTree = "<group>"; };
@@ -114,6 +116,7 @@
 				B56B368B25515B1C006C1FA6 /* Preview Content */,
 				B53348812573156D0008FB49 /* WAVL.swift */,
 				B533488B2573D1570008FB49 /* ObservableProxy.swift */,
+				B52D57F7258C346C0024FA43 /* Protobuf.swift */,
 			);
 			path = Listuff;
 			sourceTree = "<group>";
@@ -276,6 +279,7 @@
 			files = (
 				B56B368F25515B1C006C1FA6 /* Persistence.swift in Sources */,
 				B56B369225515B1C006C1FA6 /* Listuff.xcdatamodeld in Sources */,
+				B52D57F8258C346C0024FA43 /* Protobuf.swift in Sources */,
 				B53348822573156D0008FB49 /* WAVL.swift in Sources */,
 				B56B368825515B1B006C1FA6 /* ContentView.swift in Sources */,
 				B56B368625515B1B006C1FA6 /* ListuffApp.swift in Sources */,
