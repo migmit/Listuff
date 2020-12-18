@@ -294,23 +294,6 @@ let debugMessageContext: [String:ProtobufType] = [
     "Bool": .enumeration(cases: [0: "no", 1: "yes"])
 ]
 
-let debugTableInfo: [String:ProtobufType] = [
-    "TableInfo": .message(fields: [1: ("UNKNOWN", "Int"), 2: ("Content", "TableInfo1")]),
-    "TableInfo1": .message(fields: [1: ("UNKNOWN", "Int"), 2: ("UNKNOWN", "Int"), 3: ("Content", "TableData")]),
-    "TableData": .message(fields: [1: ("UNKNOWN", "Message"), 2: ("UNKNOWN", "Message"), 3: ("Record", "TableRecord"), 4: ("Field", ""), 5: ("Type", ""), 6: ("GUID", ""), 7: ("UNKNOWN", "Message")]),
-    "TableRecord": .message(fields: [1: ("UNKNOWN", "Message"), 6: ("Dict", "Dictionary"), 10: ("Cell", "TableCell"), 13: ("Object", "TableObject"), 16: ("Positions", "PositionAssociation")]),
-    "TableObject": .message(fields: [1: ("TypeId", "Int"), 3: ("Field", "ObjectField")]),
-    "ObjectField": .message(fields: [1: ("Name", "Int"), 2: ("Value", "FieldValue")]),
-    "FieldValue": .message(fields: [2: ("Int", "Int"), 4: ("String", ""), 6: ("Object", "Int")]),
-    "TableCell": .message(fields: [2: ("Content", ""), 3: ("UNKNOWN", "Message")]),
-    "Dictionary": .message(fields: [1: ("Item", "DictItem")]),
-    "DictItem": .message(fields: [1: ("Key", "FieldValue"), 2: ("Value", "FieldValue"), 3: ("UNKNOWN", "Message")]),
-    "PositionAssociation": .message(fields: [1: ("Positions", "PosAssoc"), 2: ("Keys", "Dictionary")]),
-    "PosAssoc": .message(fields: [1: ("Positions", "PosData"), 2: ("RealIds", "Dictionary")]),
-    "PosData": .message(fields: [1: ("UNKNOWN", "Message"), 2: ("Position", "PositionInfo")]),
-    "PositionInfo": .message(fields: [1: ("Index", "Int"), 2: ("GUID", "")])
-]
-
 struct GzipFlags: OptionSet {
     let rawValue: UInt8
     static let text = GzipFlags(rawValue: 1 << 0)
