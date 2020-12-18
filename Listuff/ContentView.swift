@@ -303,7 +303,8 @@ struct GzipFlags: OptionSet {
     static let comment = GzipFlags(rawValue: 1 << 4)
 }
 
-func debugPrintNote(note: Note, prefix: String = "") -> String {
+func debugPrintNote(note: Note, prefix: String = "") {
+    print("\(prefix)String: \(note.content)")
     for chunk in note.chunks {
         print("\(prefix)Chunk: \(chunk.length) characters")
         if let ts = chunk.textSize {print("\(prefix)  Text size: \(ts)")}
@@ -329,17 +330,19 @@ func debugPrintNote(note: Note, prefix: String = "") -> String {
                 for row in table {
                     print("\(prefix)    Row:")
                     for cell in row {
-                        let content = cell.map{debugPrintNote(note: $0, prefix: prefix + "      ")} ?? ""
-                        print("\(prefix)      \(content)")
+                        if let c = cell {
+                            debugPrintNote(note: c, prefix: prefix + "      ")
+                        } else {
+                            print("\(prefix)      <Empty cell>")
+                        }
                     }
                 }
             }
         }
     }
-    return note.content
 }
 
-func debugDecodeBPList(data: Data) -> String? {
+func debugDecodeBPList(data: Data) -> Note? {
     guard let keyed = try? NSKeyedUnarchiver(forReadingFrom: data) else {return nil}
     keyed.decodingFailurePolicy = .raiseException
     keyed.requiresSecureCoding = false
@@ -347,10 +350,8 @@ func debugDecodeBPList(data: Data) -> String? {
     keyed.setClass(FakeDataPersister.self, forClassName: "ICDataPersister")
     if let obj = keyed.decodeObject(forKey: NSKeyedArchiveRootObjectKey) as? FakeNotesData,
        let attributedStringData = obj.attributedStringData,
-       let protobuf = ProtobufValue.arrayFrom(data: attributedStringData),
-       let note = Note(source: ProtobufValue.lengthLimited(value: protobuf, string: nil, hex: attributedStringData).normalize(), attachments: obj.dataPersister?.identifierToDataDictionary)
-    {
-        return debugPrintNote(note: note)
+       let protobuf = ProtobufValue.arrayFrom(data: attributedStringData) {
+        return Note(source: ProtobufValue.lengthLimited(value: protobuf, string: nil, hex: attributedStringData).normalize(), attachments: obj.dataPersister?.identifierToDataDictionary)
     } else {
         return nil
     }
@@ -369,7 +370,7 @@ func debugPaste() {
         print("String: \(pb.string ?? "")")
     }
     if let data = pb.data(forPasteboardType: "com.apple.notes.richtext"), let decoded = debugDecodeBPList(data: data) {
-        print(decoded)
+        debugPrintNote(note: decoded)
     }
 }
 
