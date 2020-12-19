@@ -176,66 +176,6 @@ struct HierarchyView: UIViewRepresentable {
     }
 }
 
-enum ProtobufType {
-    case enumeration(cases: [UInt:String])
-    case message(fields: [UInt:(String, String)])
-}
-extension ProtobufValue {
-    func printMessage(expecting: (String, String?), context: [String:ProtobufType] = [:], prefix: String) {
-        let (fieldName, protobufTypeName) = expecting
-        let protobufType = protobufTypeName.map{context[$0]}
-        switch(self) {
-        case .varint(let value, let svalue):
-            var strVal = svalue >= 0 ? String(value) : "\(String(value)) (\(String(svalue)))"
-            if case .enumeration(let cases) = protobufType, let name = cases[value] {
-                strVal = name
-            }
-            print("\(prefix)\(fieldName) => \(strVal)")
-        case .fixed64(let int, let float):
-            var strVal = "\(int) or \(float)"
-            if case .enumeration(let cases) = protobufType, let name = cases[UInt(int)] {
-                strVal = name
-            }
-            print("\(prefix)\(fieldName)[64] => \(strVal)")
-        case .lengthLimited(let value, let string, let hex):
-            if let v = value {
-                print("\(prefix)\(fieldName) =>")
-                ProtobufValue.printArray(array: v, expecting: protobufTypeName, context: context, prefix: prefix + "  ")
-            } else {
-                let hexStr = hex.map{String(format: "%02X", $0)}.joined(separator: ",")
-                if let str = string {
-                    print("\(prefix)\(fieldName) =>")
-                    print(str)
-                    print("<= or \(hexStr)")
-                } else {
-                    print("\(prefix)\(fieldName) => \(hexStr)")
-                }
-            }
-        case .fixed32(let int, let float):
-            var strVal = "\(int) or \(float)"
-            if case .enumeration(let cases) = protobufType, let name = cases[UInt(int)] {
-                strVal = name
-            }
-            print("\(prefix)\(fieldName)[32] => \(strVal)")
-        }
-    }
-    static func searchType(fieldNum: UInt, expecting: String?, context: [String:ProtobufType]) -> (String, String?) {
-        if let e = expecting,
-           case .message(let expectingFields) = context[e],
-           let result = expectingFields[fieldNum]
-        {
-            return result
-        } else {
-            return (String(fieldNum), nil)
-        }
-    }
-    static func printArray(array: [(UInt, ProtobufValue)], expecting: String? = nil, context: [String:ProtobufType] = [:], prefix: String = "") {
-        for (fieldNum, value) in array {
-            value.printMessage(expecting: searchType(fieldNum: fieldNum, expecting: expecting, context: context), context: context, prefix: prefix)
-        }
-    }
-}
-
 class FakeDataPersister: NSObject, NSCoding {
     var identifierToDataDictionary: NSDictionary?
     required init?(coder: NSCoder) {
@@ -257,50 +197,6 @@ class FakeNotesData: NSObject, NSCoding {
         if let data = attributedStringData {coder.encode(data, forKey: "attributedStringData")}
         if let persister = dataPersister {coder.encode(persister, forKey: "dataPersister")}
     }
-}
-
-let debugMessageContext: [String:ProtobufType] = [
-    "Paste": .message(fields: [2: ("Text", ""), 5: ("Chunk", "ChunkInfo"), 6: ("Attachment", "AttachmentData")]),
-    "ChunkInfo": .message(
-        fields: [
-            1: ("Length", "Int"),
-            2: ("ParagraphInfo", "ParagraphInfo"),
-            3: ("TextSize", ""),
-            5: ("TextStyle", "TextStyle"),
-            6: ("Underlined", "Bool"),
-            7: ("Strikethrough", "Bool"),
-            8: ("BaselineOffset", "Int"),
-            9: ("URL", ""),
-            10: ("Color", "Color"),
-            12: ("Attachment", "Attachment")
-        ]),
-    "ParagraphInfo": .message(
-        fields: [
-            1: ("Style", "ParagraphStyle"),
-            2: ("Alignment", "Alignment"),
-            3: ("WritingDirection", "WritingDirection"),
-            4: ("ListDepth", "Int"),
-            5: ("CheckedListInfo", "CheckedListInfo"),
-            7: ("StartFrom", "Int")
-        ]),
-    "TextStyle": .enumeration(cases: [1: "Bold", 2: "Italic", 3: "BoldItalic"]),
-    "ParagraphStyle": .enumeration(cases: [0: "Title", 1: "Heading", 2: "Subheading", 0x64: "bulleted", 0x65: "dashed", 0x66: "numbered", 0x67: "(un)checked"]),
-    "CheckedListInfo": .message(fields: [1: ("UNKNOWN", ""), 2: ("IsChecked", "Bool")]),
-    "Attachment": .message(fields: [1: ("GUID", ""), 2: ("Type", "")]),
-    "AttachmentData": .message(fields: [2: ("GUID", ""), 6: ("Content", ""), 8: ("Type", ""), 17: ("UNKNOWN_PTR", ""), 25: ("UNKNOWN_INT", "Int")]),
-    "Color": .message(fields: [1: ("Red", "Float"), 2: ("Green", "Float"), 3: ("Blue", "Float"), 4: ("Alpha", "Float")]),
-    "Alignment": .enumeration(cases: [0: "left", 1: "center", 2: "right", 3: "justify"]),
-    "WritingDirection": .enumeration(cases: [0: "ltr", 1: "default", 2: "rtl"]),
-    "Bool": .enumeration(cases: [0: "no", 1: "yes"])
-]
-
-struct GzipFlags: OptionSet {
-    let rawValue: UInt8
-    static let text = GzipFlags(rawValue: 1 << 0)
-    static let hcrc = GzipFlags(rawValue: 1 << 1)
-    static let extra = GzipFlags(rawValue: 1 << 2)
-    static let name = GzipFlags(rawValue: 1 << 3)
-    static let comment = GzipFlags(rawValue: 1 << 4)
 }
 
 func debugPrintNote(note: Note, prefix: String = "") {

@@ -261,6 +261,15 @@ class NoteChunk {
     }
 }
 
+struct GzipFlags: OptionSet {
+    let rawValue: UInt8
+    static let text = GzipFlags(rawValue: 1 << 0)
+    static let hcrc = GzipFlags(rawValue: 1 << 1)
+    static let extra = GzipFlags(rawValue: 1 << 2)
+    static let name = GzipFlags(rawValue: 1 << 3)
+    static let comment = GzipFlags(rawValue: 1 << 4)
+}
+
 func gunzipFile(gzipped: Data) -> Data? {
     var dataOffset = 10
     guard dataOffset <= gzipped.count - 8 else {return nil}
