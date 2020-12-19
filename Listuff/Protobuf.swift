@@ -272,7 +272,8 @@ struct GzipFlags: OptionSet {
 
 func gunzipFile(gzipped: Data) -> Data? {
     var dataOffset = 10
-    guard dataOffset <= gzipped.count - 8 else {return nil}
+    let dataEnd = gzipped.count - 8
+    guard dataOffset <= dataEnd else {return nil}
     let flags = GzipFlags(rawValue: gzipped[3])
     if flags.contains(.extra) {
         let xlen = Int(gzipped[dataOffset]) + Int(gzipped[dataOffset+1]) * 256
@@ -280,16 +281,16 @@ func gunzipFile(gzipped: Data) -> Data? {
         guard dataOffset <= gzipped.count - 8 else {return nil}
     }
     if flags.contains(.name) {
-        while gzipped[dataOffset] != 0 && dataOffset < gzipped.count {dataOffset += 1}
+        while gzipped[dataOffset] != 0 && dataOffset < dataEnd {dataOffset += 1}
         dataOffset += 1
-        guard dataOffset <= gzipped.count - 8 else {return nil}
+        guard dataOffset <= dataEnd else {return nil}
     }
     if flags.contains(.comment) {
-        while gzipped[dataOffset] != 0 && dataOffset < gzipped.count {dataOffset += 1}
+        while gzipped[dataOffset] != 0 && dataOffset < dataEnd {dataOffset += 1}
         dataOffset += 1
-        guard dataOffset <= gzipped.count - 8 else {return nil}
+        guard dataOffset <= dataEnd else {return nil}
     }
-    return (try? (gzipped[dataOffset..<gzipped.count-8] as NSData).decompressed(using: .zlib)) as Data?
+    return (try? (gzipped[dataOffset..<dataEnd] as NSData).decompressed(using: .zlib)) as Data?
 }
 
 func transpose<T>(source: [[T]]) -> [[T]] {
