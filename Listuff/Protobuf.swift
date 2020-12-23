@@ -73,7 +73,7 @@ enum ProtoValue {
         while (currentOffset < data.endIndex) {
             let byte = data[currentOffset]
             if (byte < 128) {
-                return (UInt(byte) * multiple + summand, currentOffset + 1)
+                return (UInt(byte) &* multiple &+ summand, currentOffset + 1)
             } else {
                 summand += UInt(byte - 128) &* multiple
                 multiple <<= 7
