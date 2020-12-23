@@ -31,11 +31,32 @@ enum ProtoValue {
     case fixed32(value: UInt32)
     func getInt() -> Int? {if case .varint(let value) = self {return Int(bitPattern: value)} else {return nil}}
     func getUInt() -> UInt? {if case .varint(let value) = self {return value} else {return nil}}
+    func getSInt() -> Int? {
+        if case .varint(let value) = self {
+            let (val, sgn) = value.quotientAndRemainder(dividingBy: 2)
+            return sgn == 0 ? Int(val) : (-Int(val)-1)
+        } else {
+            return nil
+        }}
     func getInt64() -> Int64? {if case .fixed64(let value) = self {return Int64(bitPattern: value)} else {return nil}}
     func getUInt64() -> UInt64? {if case .fixed64(let value) = self {return value} else {return nil}}
+    func getSInt64() -> Int64? {
+        if case .fixed64(let value) = self {
+            let (val, sgn) = value.quotientAndRemainder(dividingBy: 2)
+            return sgn == 0 ? Int64(val) : (-Int64(val)-1)
+        } else {
+            return nil
+        }}
     func getDouble() -> Double? {if case .fixed64(let value) = self {return Double(bitPattern: value)} else {return nil}}
     func getInt32() -> Int32? {if case .fixed32(let value) = self {return Int32(bitPattern: value)} else {return nil}}
     func getUInt32() -> UInt32? {if case .fixed32(let value) = self {return value} else {return nil}}
+    func getSInt32() -> Int32? {
+        if case .varint(let value) = self {
+            let (val, sgn) = value.quotientAndRemainder(dividingBy: 2)
+            return sgn == 0 ? Int32(val) : (-Int32(val)-1)
+        } else {
+            return nil
+        }}
     func getFloat() -> Float? {if case .fixed32(let value) = self {return Float(bitPattern: value)} else {return nil}}
     func getString() -> String? {if case .lengthLimited(let value) = self {return String(bytes: value.value, encoding: .utf8)} else {return nil}}
     func getBinaryData() -> Data? {if case .lengthLimited(let value) = self {return value.value} else {return nil}}
