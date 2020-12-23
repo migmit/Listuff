@@ -7,16 +7,70 @@
 
 import SwiftUI
 
-enum ProtobufValue {
-    case varint(value: UInt, svalue: Int)
-    case fixed64(int: UInt64, float: Double)
-    case lengthLimited(value: [(UInt, ProtobufValue)]?, string: String?, hex: Data)
-    case fixed32(int: UInt32, float: Float)
-    static func readVarint(data: Data, offset: Int, maxLen: Int) -> (UInt, Int)? {
+class ProtoMessage {
+    let value: Data
+    lazy var parsed: [UInt: [ProtoValue]]? = {
+        var result: [UInt: [ProtoValue]] = [:]
+        var offset = value.startIndex
+        while offset < value.endIndex {
+            guard let (newOffset, fieldNum, protoVal) = ProtoValue.from(data: value, offset: offset) else {return nil}
+            result[fieldNum] = (result[fieldNum] ?? []) + [protoVal]
+            offset = newOffset
+        }
+        return result
+    }()
+    init(value: Data) {
+        self.value = value
+    }
+}
+
+enum ProtoValue {
+    case varint(value: UInt)
+    case fixed64(value: UInt64)
+    case lengthLimited(value: ProtoMessage)
+    case fixed32(value: UInt32)
+    func getInt() -> Int? {if case .varint(let value) = self {return Int(bitPattern: value)} else {return nil}}
+    func getUInt() -> UInt? {if case .varint(let value) = self {return value} else {return nil}}
+    func getInt64() -> Int64? {if case .fixed64(let value) = self {return Int64(bitPattern: value)} else {return nil}}
+    func getUInt64() -> UInt64? {if case .fixed64(let value) = self {return value} else {return nil}}
+    func getDouble() -> Double? {if case .fixed64(let value) = self {return Double(bitPattern: value)} else {return nil}}
+    func getInt32() -> Int32? {if case .fixed32(let value) = self {return Int32(bitPattern: value)} else {return nil}}
+    func getUInt32() -> UInt32? {if case .fixed32(let value) = self {return value} else {return nil}}
+    func getFloat() -> Float? {if case .fixed32(let value) = self {return Float(bitPattern: value)} else {return nil}}
+    func getString() -> String? {if case .lengthLimited(let value) = self {return String(bytes: value.value, encoding: .utf8)} else {return nil}}
+    func getBinaryData() -> Data? {if case .lengthLimited(let value) = self {return value.value} else {return nil}}
+    func getField(_ field: UInt) -> [ProtoValue]? {if case .lengthLimited(let value) = self {return value.parsed?[field]} else {return nil}}
+    
+    static func from(data: Data, offset: Int) -> (Int, UInt, ProtoValue)? {
+        guard let (header, bodyOffset) = readVarint(data: data, offset: offset) else {return nil}
+        let (fieldNum, wireType) = header.quotientAndRemainder(dividingBy: 8)
+        switch(wireType) {
+        case 0:
+            guard let (value, newOffset) = readVarint(data: data, offset: bodyOffset) else {return nil}
+            return (newOffset, fieldNum, .varint(value: value))
+        case 1:
+            guard bodyOffset + 8 <= data.endIndex else {return nil}
+            let value = readUInt64(data: data, offset: bodyOffset)
+            return (bodyOffset + 8, fieldNum, .fixed64(value: value))
+        case 2:
+            guard let (totalLength, messagesOffset) = readVarint(data: data, offset: bodyOffset) else {return nil}
+            let messagesEnd = messagesOffset + Int(totalLength)
+            guard messagesEnd <= data.endIndex else {return nil}
+            return (messagesEnd, fieldNum, .lengthLimited(value: ProtoMessage(value: data[messagesOffset..<messagesEnd])))
+        case 5:
+            guard bodyOffset + 4 <= data.endIndex else {return nil}
+            let value = readUInt32(data: data, offset: bodyOffset)
+            return (bodyOffset + 4, fieldNum, .fixed32(value: value))
+        default:
+            return nil
+        }
+    }
+    
+    static func readVarint(data: Data, offset: Int) -> (UInt, Int)? {
         var multiple: UInt = 1
         var summand: UInt = 0
         var currentOffset = offset
-        while (currentOffset < maxLen) {
+        while (currentOffset < data.endIndex) {
             let byte = data[currentOffset]
             if (byte < 128) {
                 return (UInt(byte) * multiple + summand, currentOffset + 1)
@@ -46,99 +100,12 @@ enum ProtobufValue {
         }
         return result
     }
-    static func from(data: Data, offset: Int, maxLen: Int) -> (UInt, ProtobufValue, Int)? {
-        if let (header, bodyOffset) = readVarint(data: data, offset: offset, maxLen: maxLen) {
-            let (fieldNum, wireType) = header.quotientAndRemainder(dividingBy: 8)
-            switch(wireType) {
-            case 0:
-                if let (value, newOffset) = readVarint(data: data, offset: bodyOffset, maxLen: maxLen) {
-                    return (fieldNum, .varint(value: value, svalue: Int(bitPattern: value)), newOffset)
-                } else {
-                    return nil
-                }
-            case 1:
-                guard bodyOffset + 8 <= maxLen else {return nil}
-                let uint64 = readUInt64(data: data, offset: bodyOffset)
-                return (fieldNum, .fixed64(int: uint64, float: Double(bitPattern: uint64)), bodyOffset + 8)
-            case 2:
-                if let (totalLength, messagesOffset) = readVarint(data: data, offset: bodyOffset, maxLen: maxLen) {
-                    let messagesEnd = messagesOffset + Int(totalLength)
-                    if messagesEnd > maxLen {
-                        return nil
-                    } else {
-                        let dataSlice = data[messagesOffset..<messagesEnd]
-                        let messages = arrayFrom(data: data, offset: messagesOffset, maxLen: messagesEnd)
-                        return (fieldNum, .lengthLimited(value: messages, string: String(data: dataSlice, encoding: .utf8), hex: dataSlice), messagesEnd)
-                    }
-                } else {
-                    return nil
-                }
-            case 5:
-                guard bodyOffset + 4 <= maxLen else {return nil}
-                let uint32 = readUInt32(data: data, offset: bodyOffset)
-                return (fieldNum, .fixed32(int: uint32, float: Float(bitPattern: uint32)), bodyOffset + 4)
-            default:
-                return nil
-            }
-        } else {
-            return nil
-        }
-    }
-    static func arrayFrom(data: Data, offset: Int, maxLen: Int) -> [(UInt, ProtobufValue)]? {
-        var messages: [(UInt, ProtobufValue)] = []
-        var nextOffset = offset
-        while nextOffset < maxLen {
-            if let (fieldNum, message, newOffset) = from(data: data, offset: nextOffset, maxLen: maxLen) {
-                messages.append((fieldNum, message))
-                nextOffset = newOffset
-            } else {
-                return nil
-            }
-        }
-        return messages
-    }
-    static func arrayFrom(data: Data) -> [(UInt, ProtobufValue)]? {
-        return arrayFrom(data: data, offset: 0, maxLen: data.count)
-    }
-    func normalize() -> NormalizedProtobufValue {
-        switch(self) {
-        case .varint(let value, let svalue): return .varint(value: value, svalue: svalue)
-        case .fixed64(let int, let float): return .fixed64(int: int, float: float)
-        case .lengthLimited(let value, let string, let hex): return .lengthLimited(value: value.map{ProtobufValue.normalizeArray(array: $0)}, string: string, hex: hex)
-        case .fixed32(let int, let float): return .fixed32(int: int, float: float)
-        }
-    }
-    static func normalizeArray(array: [(UInt, ProtobufValue)]) -> [UInt: [NormalizedProtobufValue]] {
-        var normalized: [UInt: [NormalizedProtobufValue]] = [:]
-        for (k, pv) in array {
-            normalized[k] = (normalized[k] ?? []) + [pv.normalize()]
-        }
-        return normalized
-    }
-}
-
-enum NormalizedProtobufValue {
-    case varint(value: UInt, svalue: Int)
-    case fixed64(int: UInt64, float: Double)
-    case lengthLimited(value: [UInt: [NormalizedProtobufValue]]?, string: String?, hex: Data)
-    case fixed32(int: UInt32, float: Float)
-    func getInt() -> Int? {if case .varint(_, let svalue) = self {return svalue} else {return nil}}
-    func getUInt() -> UInt? {if case .varint(let value, _) = self {return value} else {return nil}}
-    func getInt64() -> Int64? {if case .fixed64(let int, _) = self {return Int64(bitPattern: int)} else {return nil}}
-    func getUInt64() -> UInt64? {if case .fixed64(let int, _) = self {return int} else {return nil}}
-    func getDouble() -> Double? {if case .fixed64(_, let float) = self {return float} else {return nil}}
-    func getInt32() -> Int32? {if case .fixed32(let int, _) = self {return Int32(bitPattern: int)} else {return nil}}
-    func getUInt32() -> UInt32? {if case .fixed32(let int, _) = self {return int} else {return nil}}
-    func getFloat() -> Float? {if case .fixed32(_, let float) = self {return float} else {return nil}}
-    func getString() -> String? {if case .lengthLimited(_, let string, _) = self {return string} else {return nil}}
-    func getBinaryData() -> Data? {if case .lengthLimited(_, _, let hex) = self {return hex} else {return nil}}
-    func getField(_ field: UInt) -> [NormalizedProtobufValue]? {if case .lengthLimited(let value, _, _) = self {return value?[field]} else {return nil}}
 }
 
 class Note {
     let content: String
     let chunks: [NoteChunk]
-    init?(source: NormalizedProtobufValue, attachments: NSDictionary?) {
+    init?(source: ProtoValue, attachments: NSDictionary?) {
         guard let content = source.getField(2)?.first?.getString() else {return nil}
         self.content = content
         let chunkInfo = source.getField(5)?.map{NoteChunk(source: $0, attachments: attachments)} ?? []
@@ -160,7 +127,7 @@ class NoteChunk {
     let linkUrl: String?
     let color: Color?
     let attachment: NoteAttachment?
-    init?(source: NormalizedProtobufValue, attachments: NSDictionary?) {
+    init?(source: ProtoValue, attachments: NSDictionary?) {
         if let length = source.getField(1)?.first?.getInt() {
             if let ps = source.getField(2)?.first {
                 var paragraphType = ParagraphType.normal
@@ -242,8 +209,7 @@ class NoteChunk {
                 case "com.apple.notes.table":
                     if let attachmentData = attachments?[guid + "_mergeableData"] as? Data,
                        let unarchived = gunzipFile(gzipped: attachmentData),
-                       let protobufArray = ProtobufValue.arrayFrom(data: unarchived),
-                       let notesTable = NotesTable(source: ProtobufValue.lengthLimited(value: protobufArray, string: nil, hex: unarchived).normalize()),
+                       let notesTable = NotesTable(source: ProtoValue.lengthLimited(value: ProtoMessage(value: unarchived))),
                        let decoded = DecodedTable(source: notesTable) {
                         self.attachment = .table(table: transpose(source: decoded.cells))
                     } else {
@@ -271,14 +237,14 @@ struct GzipFlags: OptionSet {
 }
 
 func gunzipFile(gzipped: Data) -> Data? {
-    var dataOffset = 10
-    let dataEnd = gzipped.count - 8
+    var dataOffset = gzipped.startIndex + 10
+    let dataEnd = gzipped.endIndex - 8
     guard dataOffset <= dataEnd else {return nil}
     let flags = GzipFlags(rawValue: gzipped[3])
     if flags.contains(.extra) {
         let xlen = Int(gzipped[dataOffset]) + Int(gzipped[dataOffset+1]) * 256
         dataOffset += xlen + 2
-        guard dataOffset <= gzipped.count - 8 else {return nil}
+        guard dataOffset <= dataEnd else {return nil}
     }
     if flags.contains(.name) {
         while gzipped[dataOffset] != 0 && dataOffset < dataEnd {dataOffset += 1}
@@ -376,7 +342,7 @@ class NotesTable {
     let types: [String?]
     let GUIDs: [Data?]
     let records: [NotesRecord?]
-    init?(source: NormalizedProtobufValue) {
+    init?(source: ProtoValue) {
         guard let content = source.getField(2)?.first?.getField(3)?.first else {return nil}
         let fields = (content.getField(4) ?? []).map {$0.getString()}
         let types = (content.getField(5) ?? []).map {$0.getString()}
@@ -416,8 +382,8 @@ extension Int: NotesField {}
 extension String: NotesField {}
 
 class NotesRecord: NotesField {
-    let protobuf: NormalizedProtobufValue?
-    init(protobuf: NormalizedProtobufValue?) {
+    let protobuf: ProtoValue?
+    init(protobuf: ProtoValue?) {
         self.protobuf = protobuf
     }
     func fill(fields: [String?], types: [String?], records: [NotesRecord?]) -> Bool {return true}

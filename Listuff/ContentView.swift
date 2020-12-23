@@ -245,9 +245,8 @@ func debugDecodeBPList(data: Data) -> Note? {
     keyed.setClass(FakeNotesData.self, forClassName: "ICNotePasteboardData")
     keyed.setClass(FakeDataPersister.self, forClassName: "ICDataPersister")
     if let obj = keyed.decodeObject(forKey: NSKeyedArchiveRootObjectKey) as? FakeNotesData,
-       let attributedStringData = obj.attributedStringData,
-       let protobuf = ProtobufValue.arrayFrom(data: attributedStringData) {
-        return Note(source: ProtobufValue.lengthLimited(value: protobuf, string: nil, hex: attributedStringData).normalize(), attachments: obj.dataPersister?.identifierToDataDictionary)
+       let attributedStringData = obj.attributedStringData {
+        return Note(source: ProtoValue.lengthLimited(value: ProtoMessage(value: attributedStringData[0..<attributedStringData.count])), attachments: obj.dataPersister?.identifierToDataDictionary)
     } else {
         return nil
     }
