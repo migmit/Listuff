@@ -315,10 +315,14 @@ class WAVL<V>: Sequence {
     typealias Node = WAVLTree<V>.Node
     typealias Dir = WAVLTree<V>.Dir
     typealias Iterator = WAVLTree<V>.Iterator
-    typealias Publisher = AnyPublisher<(Node?, NSRange), Never>
+    typealias Publisher = AnyPublisher<(Event, NSRange), Never>
+    enum Event {
+        case Insert(Node)
+        case Remove
+    }
     
     var tree = WAVLTree<V>()
-    private let passthroughSubject = PassthroughSubject<(Node?, NSRange), Never>()
+    private let passthroughSubject = PassthroughSubject<(Event, NSRange), Never>()
     var publisher: Publisher {
         return passthroughSubject.eraseToAnyPublisher()
     }
@@ -334,12 +338,12 @@ class WAVL<V>: Sequence {
     }
     func insert(value: V, length: Int, dir: Dir = .Right, near: Node? = nil) -> (Node, Int) {
         let (node, start) = tree.insert(value: value, length: length, dir: dir, near: near)
-        passthroughSubject.send((node, NSMakeRange(start, length)))
+        passthroughSubject.send((.Insert(node), NSMakeRange(start, length)))
         return (node, start)
     }
     func remove(node: Node) -> NSRange {
         let range = tree.remove(node: node)
-        passthroughSubject.send((nil, range))
+        passthroughSubject.send((.Remove, range))
         return range
     }
 }
