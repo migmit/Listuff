@@ -309,3 +309,37 @@ struct WAVLTree<V>: Sequence {
         return NSMakeRange(shift, length)
     }
 }
+
+struct WAVL<V>: Sequence {
+    typealias Value = V
+    typealias Node = WAVLTree<V>.Node
+    typealias Dir = WAVLTree<V>.Dir
+    typealias Iterator = WAVLTree<V>.Iterator
+    typealias Publisher = AnyPublisher<(Node?, NSRange), Never>
+    
+    var tree = WAVLTree<V>()
+    private let passthroughSubject = PassthroughSubject<(Node?, NSRange), Never>()
+    var publisher: Publisher {
+        return passthroughSubject.eraseToAnyPublisher()
+    }
+    
+    func makeIterator() -> Iterator {
+        return tree.makeIterator()
+    }
+    func covering(from: Int = 0, to: Int? = nil) -> Iterator {
+        return tree.covering(from: from, to: to)
+    }
+    func search(pos: Int) -> (NSRange, V)? {
+        return tree.search(pos: pos)
+    }
+    mutating func insert(value: V, length: Int, dir: Dir = .Right, near: Node? = nil) -> (Node, Int) {
+        let (node, start) = tree.insert(value: value, length: length, dir: dir, near: near)
+        passthroughSubject.send((node, NSMakeRange(start, length)))
+        return (node, start)
+    }
+    mutating func remove(node: Node) -> NSRange {
+        let range = tree.remove(node: node)
+        passthroughSubject.send((nil, range))
+        return range
+    }
+}
