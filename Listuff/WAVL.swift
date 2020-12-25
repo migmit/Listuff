@@ -310,7 +310,7 @@ struct WAVLTree<V>: Sequence {
     }
 }
 
-struct WAVL<V>: Sequence {
+class WAVL<V>: Sequence {
     typealias Value = V
     typealias Node = WAVLTree<V>.Node
     typealias Dir = WAVLTree<V>.Dir
@@ -332,12 +332,12 @@ struct WAVL<V>: Sequence {
     func search(pos: Int) -> (NSRange, V)? {
         return tree.search(pos: pos)
     }
-    mutating func insert(value: V, length: Int, dir: Dir = .Right, near: Node? = nil) -> (Node, Int) {
+    func insert(value: V, length: Int, dir: Dir = .Right, near: Node? = nil) -> (Node, Int) {
         let (node, start) = tree.insert(value: value, length: length, dir: dir, near: near)
         passthroughSubject.send((node, NSMakeRange(start, length)))
         return (node, start)
     }
-    mutating func remove(node: Node) -> NSRange {
+    func remove(node: Node) -> NSRange {
         let range = tree.remove(node: node)
         passthroughSubject.send((nil, range))
         return range
