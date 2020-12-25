@@ -14,6 +14,7 @@ protocol Sequence {
     func search(pos: Int) -> (NSRange, Value)?
     mutating func insert(value: Value, length: Int, dir: WAVL<Value>.Dir, near: Node?) -> (Node, Int)
     mutating func remove(node: Node) -> NSRange
+    func setLength(node: Node, length: Int) -> NSRange
     static func same(node1: Node, node2: Node) -> Bool
     func foldLeft<T>(_ initial: T, op: (T, Value) -> T) -> T
     func foldLeftBounds<T>(_ initial: T, from: Int, to: Int?, op: (T, NSRange, Value) -> T) -> T
@@ -60,10 +61,15 @@ extension WAVL: Sequence {
 
 class SimpleSequence<V>: Sequence {
     typealias Value = V
-    struct Node {
+    class Node {
         let index: Int
-        let length: Int
+        var length: Int
         let value: V
+        init(index: Int, length: Int, value: V) {
+            self.index = index
+            self.length = length
+            self.value = value
+        }
     }
     var nodes: [Node] = []
     var autoinc: Int = 0
@@ -78,6 +84,16 @@ class SimpleSequence<V>: Sequence {
             }
         }
         return nil
+    }
+    func setLength(node: Node, length: Int) -> NSRange {
+        var shift = 0
+        for current in nodes {
+            if current.index == node.index {break}
+            shift += current.length
+        }
+        let result = NSMakeRange(shift, node.length)
+        node.length = length
+        return result
     }
     func insert(value: V, length: Int, dir: WAVL<V>.Dir, near: Node?) -> (Node, Int) {
         var pos: Int
@@ -143,6 +159,7 @@ enum WAVLCommand {
     case Search(pos: Int)
     case Insert(value: Int, length: Int, dir: WAVL<Int>.Dir, near: Int) // length >= 1; near modulo (number of active nodes + 1); near = 0 means root
     case Remove(node: Int) // node module (number of active nodes + 1); node = 0 means no-op
+    case SetLength(node: Int, length: Int) // node module (number of active nodes + 1); node = 0 means no-op
     case FoldPart(start: Int, length: Int?)
 }
 class WAVLTester<S: Sequence> where S.Value == Int {
@@ -167,6 +184,14 @@ class WAVLTester<S: Sequence> where S.Value == Int {
             if let toRemove = (index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]) {
                 let range = tree.remove(node: toRemove)
                 nodes.removeAll{S.same(node1: $0, node2: toRemove)}
+                return (range, 0)
+            }
+            return nil
+        case .SetLength(let node, let length):
+            let realLength = length >= 1 ? length : 1 - length
+            let index = node % (1 + nodes.count)
+            if let toChange = (index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]) {
+                let range = tree.setLength(node: toChange, length: realLength)
                 return (range, 0)
             }
             return nil
@@ -215,7 +240,7 @@ func generatePos() -> Int {
     }
 }
 func generateCmd() -> WAVLCommand {
-    switch Int.random(in: 0...3) {
+    switch Int.random(in: 0...4) {
     case 0:
         return .Search(pos: generatePos())
     case 1:
@@ -226,6 +251,8 @@ func generateCmd() -> WAVLCommand {
         return .Insert(value: value, length: length, dir: dir, near: near)
     case 2:
         return .Remove(node: Int.random(in: Int.min...Int.max))
+    case 3:
+        return .SetLength(node: Int.random(in: Int.min...Int.max), length: Int.random(in: 1...1000))
     default:
         let start = generatePos()
         let length = Bool.random() ? generatePos() : nil

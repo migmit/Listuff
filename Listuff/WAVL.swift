@@ -156,6 +156,19 @@ struct WAVLTree<V>: Sequence {
         }
         return result
     }
+    static func setLength(node: Node, length: Int) -> NSRange {
+        var shift = 0
+        var subNode = node[.Left]?.node
+        while let child = subNode {
+            shift += child.end
+            subNode = child[.Right]?.node
+        }
+        let oldLength = node.end - shift
+        let advance = length - oldLength
+        _ = node.advance(dir: .Left, length: advance)
+        shift += advanceRecurse(node: node, length: advance)
+        return NSMakeRange(shift, oldLength)
+    }
     mutating func insert(value: V, length: Int, dir: Dir = .Right, near: Node? = nil) -> (Node, Int) {
         let newNode = Node(value: value, length: length)
         guard let r = root else {
@@ -319,6 +332,7 @@ class WAVL<V>: Sequence {
     enum Event {
         case Insert(Node)
         case Remove
+        case SetLength
     }
     
     var tree = WAVLTree<V>()
@@ -335,6 +349,11 @@ class WAVL<V>: Sequence {
     }
     func search(pos: Int) -> (NSRange, V)? {
         return tree.search(pos: pos)
+    }
+    func setLength(node: Node, length: Int) -> NSRange {
+        let range = WAVLTree.setLength(node: node, length: length)
+        passthroughSubject.send((.SetLength, range))
+        return range
     }
     func insert(value: V, length: Int, dir: Dir = .Right, near: Node? = nil) -> (Node, Int) {
         let (node, start) = tree.insert(value: value, length: length, dir: dir, near: near)
