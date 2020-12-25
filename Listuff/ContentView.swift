@@ -29,7 +29,7 @@ struct Tree {
         var children: WAVLTree<Item> = WAVLTree()
         init(id: Int, text: String, chunks: inout WAVLTree<Item>) {
             self.id = id
-            self.text = chunks.insert(value: self, length: text.count, dir: .Left, near: nil)
+            self.text = chunks.insert(value: self, length: text.count, dir: .Left, near: nil).0
         }
     }
     var text: String

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 
 struct WAVLTree<V>: Sequence {
     enum Dir {
@@ -51,9 +52,13 @@ struct WAVLTree<V>: Sequence {
         func mkSubNode(deep: Bool) -> SubNode {
             return SubNode(deep: deep, node: self)
         }
-        func advance(dir: Dir, length: Int) {
-            if case .Left = dir {
+        func advance(dir: Dir, length: Int) -> Int {
+            switch(dir) {
+            case .Left:
                 end += length
+                return 0
+            case .Right:
+                return end
             }
         }
         func copyEnd(other: Node) {
@@ -142,18 +147,20 @@ struct WAVLTree<V>: Sequence {
             with?.detach()
         }
     }
-    func advanceRecurse(node: Node, length: Int) {
+    static func advanceRecurse(node: Node, length: Int) -> Int {
         var current = node
+        var result = 0
         while let (parent, dir, _) = current.getChildInfo() {
-            parent.advance(dir: dir, length: length)
+            result += parent.advance(dir: dir, length: length)
             current = parent
         }
+        return result
     }
-    mutating func insert(value: V, length: Int, dir: Dir = .Right, near: Node? = nil) -> Node {
+    mutating func insert(value: V, length: Int, dir: Dir = .Right, near: Node? = nil) -> (Node, Int) {
         let newNode = Node(value: value, length: length)
         guard let r = root else {
             root = newNode
-            return newNode
+            return (newNode, 0)
         }
         var (current, side) = near.map {n in (n[dir]?.node).map{($0, dir.other)} ?? (n, dir)} ?? (r, dir.other)
         while let subNode = current[side]?.node {current = subNode}
@@ -161,50 +168,50 @@ struct WAVLTree<V>: Sequence {
         var isOtherDeep = current.deep(dir: side.other)
         current[side] = newNode.mkSubNode(deep: false)
         var child = newNode
+        var shift = 0
         while !isDeep && !isOtherDeep {
             child = current
             current[side.other]?.deep = true
-            current.advance(dir: side, length: length)
-            guard let childInfo = current.getChildInfo() else {return newNode}
+            shift += current.advance(dir: side, length: length)
+            guard let childInfo = current.getChildInfo() else {return (newNode, shift)}
             (current, side, isDeep) = childInfo
             isOtherDeep = current.deep(dir: side.other)
         }
         if (isDeep) {
             current[side]?.deep = false
-            current.advance(dir: side, length: length)
-            advanceRecurse(node: current, length: length)
+            shift += current.advance(dir: side, length: length)
+            shift += WAVLTree.advanceRecurse(node: current, length: length)
+        } else if (child.deep(dir: side)) {
+            let grandchild = child[side.other]!.node // if child[side.other] = nil, then child is a leaf (then child.deep(_) = false) or child[side] is a leaf (then child.deep(side) = false)
+            replace(node: current, with: grandchild)
+            _ = grandchild.advance(dir: side, length: child.end)
+            shift += current.advance(dir: side, length: length - grandchild.end)
+            _ = child.advance(dir: side.other, length: -grandchild.end)
+            _ = grandchild.advance(dir: side.other, length: current.end)
+            child[side]?.deep = false
+            child[side.other] = grandchild[side]
+            current[side] = grandchild[side.other]
+            current[side.other]?.deep = false
+            grandchild[side] = child.mkSubNode(deep: false)
+            grandchild[side.other] = current.mkSubNode(deep: false)
+            shift += WAVLTree.advanceRecurse(node: grandchild, length: length)
         } else {
-            if (child.deep(dir: side)) {
-                let grandchild = child[side.other]!.node // if child[side.other] = nil, then child is a leaf (then child.deep(_) = false) or child[side] is a leaf (then child.deep(side) = false)
-                replace(node: current, with: grandchild)
-                grandchild.advance(dir: side, length: child.end)
-                current.advance(dir: side, length: length - grandchild.end)
-                child.advance(dir: side.other, length: -grandchild.end)
-                grandchild.advance(dir: side.other, length: current.end)
-                child[side]?.deep = false
-                child[side.other] = grandchild[side]
-                current[side] = grandchild[side.other]
-                current[side.other]?.deep = false
-                grandchild[side] = child.mkSubNode(deep: false)
-                grandchild[side.other] = current.mkSubNode(deep: false)
-                advanceRecurse(node: grandchild, length: length)
-            } else {
-                replace(node: current, with: child)
-                current.advance(dir: side, length: length - child.end)
-                child.advance(dir: side.other, length: current.end)
-                current[side] = child[side.other]?.node.mkSubNode(deep: false)
-                current[side.other]?.deep = false
-                child[side.other] = current.mkSubNode(deep: false)
-                advanceRecurse(node: child, length: length)
-            }
+            replace(node: current, with: child)
+            shift += current.advance(dir: side, length: length - child.end)
+            _ = child.advance(dir: side.other, length: current.end)
+            current[side] = child[side.other]?.node.mkSubNode(deep: false)
+            current[side.other]?.deep = false
+            child[side.other] = current.mkSubNode(deep: false)
+            shift += WAVLTree.advanceRecurse(node: child, length: length)
         }
-        return newNode
+        return (newNode, shift)
     }
-    mutating func remove(node: Node) {
+    mutating func remove(node: Node) -> NSRange {
         var current: Node
         var dir: Dir
         var isDeep: Bool
         var length = node.end
+        var shift = 0
         defer {
             node[.Left] = nil
             node[.Right] = nil
@@ -224,12 +231,14 @@ struct WAVLTree<V>: Sequence {
                 dir = .Left
                 isDeep = leftSubNode.deep
                 target[.Left]?.deep = isDeep
+                shift = target.end
             } else {
                 current = targetParent
                 dir = .Right
                 isDeep = targetParent.deep(dir: .Right)
                 targetParent[.Right] = target[.Left]?.node.mkSubNode(deep: isDeep)
                 target[.Left] = node[.Left]
+                shift = target.end
             }
             target[.Right] = node[.Right]
             target.copyEnd(other: node)
@@ -240,63 +249,64 @@ struct WAVLTree<V>: Sequence {
                     root = node[.Right]?.node
                     root?.detach()
                 }
-                return
+                return NSMakeRange(0, length)
             }
             (current, dir, isDeep) = childInfo
             current[dir] = node[.Right]?.node.mkSubNode(deep: isDeep)
         }
         if !isDeep && current[dir] == nil && current[dir.other] == nil {
-            current.advance(dir: dir, length: -length)
-            guard let childInfo = current.getChildInfo() else {return}
+            shift += current.advance(dir: dir, length: -length)
+            guard let childInfo = current.getChildInfo() else {return NSMakeRange(shift, length)}
             (current, dir, isDeep) = childInfo
         }
         while isDeep {
             if current.deep(dir: dir.other) {
-                current.advance(dir: dir, length: -length)
+                shift += current.advance(dir: dir, length: -length)
                 current[dir.other]?.deep = false
-                guard let childInfo = current.getChildInfo() else {return}
+                guard let childInfo = current.getChildInfo() else {return NSMakeRange(shift, length)}
                 (current, dir, isDeep) = childInfo
             } else {
                 let child = current[dir.other]!.node
                 if child.deep(dir: dir.other) {
                     if child.deep(dir: dir) {
-                        current.advance(dir: dir, length: -length)
+                        shift += current.advance(dir: dir, length: -length)
                         child[dir]?.deep = false
                         child[dir.other]?.deep = false
-                        guard let childInfo = current.getChildInfo() else {return}
+                        guard let childInfo = current.getChildInfo() else {return NSMakeRange(shift, length)}
                         (current, dir, isDeep) = childInfo
                     } else {
                         let grandchild = child[dir]!.node
                         replace(node: current, with: grandchild)
-                        current.advance(dir: dir, length: -length)
-                        child.advance(dir: dir, length: -grandchild.end)
-                        grandchild.advance(dir: dir, length: current.end)
-                        grandchild.advance(dir: dir.other, length: child.end)
-                        current.advance(dir: dir.other, length: -grandchild.end)
+                        shift += current.advance(dir: dir, length: -length)
+                        _ = child.advance(dir: dir, length: -grandchild.end)
+                        _ = grandchild.advance(dir: dir, length: current.end)
+                        _ = grandchild.advance(dir: dir.other, length: child.end)
+                        _ = current.advance(dir: dir.other, length: -grandchild.end)
                         current[dir]?.deep = false
                         current[dir.other] = grandchild[dir]
                         child[dir] = grandchild[dir.other]
                         child[dir.other]?.deep = false
                         grandchild[dir] = current.mkSubNode(deep: true)
                         grandchild[dir.other] = child.mkSubNode(deep: true)
-                        advanceRecurse(node: grandchild, length: -length)
-                        return
+                        shift += WAVLTree.advanceRecurse(node: grandchild, length: -length)
+                        return NSMakeRange(shift, length)
                     }
                 } else {
                     replace(node: current, with: child)
-                    current.advance(dir: dir, length: -length)
-                    child.advance(dir: dir, length: current.end)
-                    current.advance(dir: dir.other, length: -child.end)
+                    shift += current.advance(dir: dir, length: -length)
+                    _ = child.advance(dir: dir, length: current.end)
+                    _ = current.advance(dir: dir.other, length: -child.end)
                     current[dir.other] = child[dir]
                     child[dir.other]?.deep = true
                     child[dir] = current.mkSubNode(deep: current[.Left] == nil && current[.Right] == nil)
-                    advanceRecurse(node: child, length: -length)
-                    return
+                    shift += WAVLTree.advanceRecurse(node: child, length: -length)
+                    return NSMakeRange(shift, length)
                 }
             }
         }
         current[dir]?.deep = true
-        current.advance(dir: dir, length: -length)
-        advanceRecurse(node: current, length: -length)
+        shift += current.advance(dir: dir, length: -length)
+        shift += WAVLTree.advanceRecurse(node: current, length: -length)
+        return NSMakeRange(shift, length)
     }
 }

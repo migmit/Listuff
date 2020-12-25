@@ -12,8 +12,8 @@ protocol Sequence {
     associatedtype Value
     associatedtype Node
     func search(pos: Int) -> (NSRange, Value)?
-    mutating func insert(value: Value, length: Int, dir: WAVLTree<Value>.Dir, near: Node?) -> Node
-    mutating func remove(node: Node)
+    mutating func insert(value: Value, length: Int, dir: WAVLTree<Value>.Dir, near: Node?) -> (Node, Int)
+    mutating func remove(node: Node) -> NSRange
     static func same(node1: Node, node2: Node) -> Bool
     func foldLeft<T>(_ initial: T, op: (T, Value) -> T) -> T
     func foldLeftBounds<T>(_ initial: T, from: Int, to: Int?, op: (T, NSRange, Value) -> T) -> T
@@ -79,7 +79,7 @@ class SimpleSequence<V>: Sequence {
         }
         return nil
     }
-    func insert(value: V, length: Int, dir: WAVLTree<V>.Dir, near: Node?) -> Node {
+    func insert(value: V, length: Int, dir: WAVLTree<V>.Dir, near: Node?) -> (Node, Int) {
         var pos: Int
         if let n = near, let p = (nodes.firstIndex{$0.index == n.index}) {
             switch dir {
@@ -94,11 +94,23 @@ class SimpleSequence<V>: Sequence {
         }
         let newNode = Node(index: autoinc, length: length, value: value)
         nodes.insert(newNode, at: pos)
+        var shift = 0
+        for node in nodes {
+            if node.index == autoinc {break}
+            shift += node.length
+        }
         autoinc += 1
-        return newNode
+        return (newNode, shift)
     }
-    func remove(node: Node) {
+    func remove(node: Node) -> NSRange {
+        var shift = 0
+        let length = node.length
+        for current in nodes {
+            if current.index == node.index {break}
+            shift += current.length
+        }
         nodes.removeAll{$0.index == node.index}
+        return NSMakeRange(shift, length)
     }
     static func same(node1: Node, node2: Node) -> Bool {
         return node1.index == node2.index
@@ -147,14 +159,15 @@ class WAVLTester<S: Sequence> where S.Value == Int {
             let realLength = length >= 1 ? length : 1 - length
             let index = near % (1 + nodes.count)
             let node = index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]
-            let newNode = tree.insert(value: value, length: realLength, dir: dir, near: node)
+            let (newNode, shift) = tree.insert(value: value, length: realLength, dir: dir, near: node)
             nodes.append(newNode)
-            return nil
+            return (NSMakeRange(shift, length), 0)
         case .Remove(let node):
             let index = node % (1 + nodes.count)
             if let toRemove = (index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]) {
-                tree.remove(node: toRemove)
+                let range = tree.remove(node: toRemove)
                 nodes.removeAll{S.same(node1: $0, node2: toRemove)}
+                return (range, 0)
             }
             return nil
         case .FoldPart(let start, let length):
