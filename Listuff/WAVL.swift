@@ -231,15 +231,14 @@ struct WAVLTree<V>: Sequence {
                 dir = .Left
                 isDeep = leftSubNode.deep
                 target[.Left]?.deep = isDeep
-                shift = target.end
             } else {
                 current = targetParent
                 dir = .Right
                 isDeep = targetParent.deep(dir: .Right)
                 targetParent[.Right] = target[.Left]?.node.mkSubNode(deep: isDeep)
                 target[.Left] = node[.Left]
-                shift = target.end
             }
+            shift = target.end
             target[.Right] = node[.Right]
             target.copyEnd(other: node)
             replace(node: node, with: target)
