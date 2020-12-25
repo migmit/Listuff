@@ -25,15 +25,15 @@ struct Node {
 struct Tree {
     class Item {
         var id: Int
-        weak var text: WAVLTree<Item>.Node!
-        var children: WAVLTree<Item> = WAVLTree()
-        init(id: Int, text: String, chunks: inout WAVLTree<Item>) {
+        weak var text: WAVL<Item>.Node!
+        var children: WAVL<Item> = WAVL()
+        init(id: Int, text: String, chunks: inout WAVL<Item>) {
             self.id = id
             self.text = chunks.insert(value: self, length: text.count, dir: .Left, near: nil).0
         }
     }
     var text: String
-    var chunks: WAVLTree<Item>
+    var chunks: WAVL<Item>
     var root: Item
     var items: [(Int, Substring)] {
         var result: [(Int, Substring)] = []
@@ -58,7 +58,7 @@ class NodeStorage: NSTextStorage {
 }
 
 func nodeToTree(node: Node) -> Tree {
-    var tree: WAVLTree<Tree.Item> = WAVLTree()
+    var tree: WAVL<Tree.Item> = WAVL()
     var text = node.text
     var root = Tree.Item(id: node.id, text: node.text, chunks: &tree)
     func appendChildren(current: inout Tree.Item, children: [Node]) {
