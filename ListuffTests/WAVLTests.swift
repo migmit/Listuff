@@ -12,7 +12,7 @@ protocol Sequence {
     associatedtype Value
     associatedtype Node
     func search(pos: Int) -> (NSRange, Value)?
-    mutating func insert(value: Value, length: Int, dir: WAVLTree<Value>.Dir, near: Node?) -> (Node, Int)
+    mutating func insert(value: Value, length: Int, dir: WAVL<Value>.Dir, near: Node?) -> (Node, Int)
     mutating func remove(node: Node) -> NSRange
     static func same(node1: Node, node2: Node) -> Bool
     func foldLeft<T>(_ initial: T, op: (T, Value) -> T) -> T
@@ -20,7 +20,7 @@ protocol Sequence {
     func checkBalanced() -> Bool
 }
 
-extension WAVLTree: Sequence {
+extension WAVL: Sequence {
     static func same(node1: Node, node2: Node) -> Bool {
         return node1 === node2
     }
@@ -54,7 +54,7 @@ extension WAVLTree: Sequence {
                 return (level ?? 0) == 0 ? 0 : nil
             }
         }
-        return checkBalance(node: root, level: nil) != nil
+        return checkBalance(node: tree.root, level: nil) != nil
     }
 }
 
@@ -79,7 +79,7 @@ class SimpleSequence<V>: Sequence {
         }
         return nil
     }
-    func insert(value: V, length: Int, dir: WAVLTree<V>.Dir, near: Node?) -> (Node, Int) {
+    func insert(value: V, length: Int, dir: WAVL<V>.Dir, near: Node?) -> (Node, Int) {
         var pos: Int
         if let n = near, let p = (nodes.firstIndex{$0.index == n.index}) {
             switch dir {
@@ -141,7 +141,7 @@ class SimpleSequence<V>: Sequence {
 
 enum WAVLCommand {
     case Search(pos: Int)
-    case Insert(value: Int, length: Int, dir: WAVLTree<Int>.Dir, near: Int) // length >= 1; near modulo (number of active nodes + 1); near = 0 means root
+    case Insert(value: Int, length: Int, dir: WAVL<Int>.Dir, near: Int) // length >= 1; near modulo (number of active nodes + 1); near = 0 means root
     case Remove(node: Int) // node module (number of active nodes + 1); node = 0 means no-op
     case FoldPart(start: Int, length: Int?)
 }
@@ -189,7 +189,7 @@ func checkSame(t1: (NSRange, Int)?, t2: (NSRange, Int)?) -> Bool {
     }
 }
 func testCommands(cmds: [WAVLCommand]) throws {
-    let tester1 = WAVLTester(tree: WAVLTree())
+    let tester1 = WAVLTester(tree: WAVL())
     let tester2 = WAVLTester(tree: SimpleSequence())
     for cmd in cmds {
         let val1 = tester1.executeCommand(cmd: cmd)
@@ -221,7 +221,7 @@ func generateCmd() -> WAVLCommand {
     case 1:
         let value = Int.random(in: Int.min...Int.max)
         let length = Int.random(in: 1...1000)
-        let dir: WAVLTree<Int>.Dir = Bool.random() ? .Left : .Right
+        let dir: WAVL<Int>.Dir = Bool.random() ? .Left : .Right
         let near = Int.random(in: 0...Int.max)
         return .Insert(value: value, length: length, dir: dir, near: near)
     case 2:
