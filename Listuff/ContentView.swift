@@ -5,6 +5,7 @@
 //  Created by MigMit on 03.11.2020.
 //
 
+import Combine
 import SwiftUI
 //import CoreData
 
@@ -22,18 +23,27 @@ struct Node {
     }
 }
 
-struct Tree {
+class TextState {
     class Item {
         var id: Int
-        weak var text: WAVL<Item, ()>.Node!
-        var children: WAVL<Item, ()> = WAVL()
-        init(id: Int, text: String, chunks: inout WAVL<Item, ()>) {
+        weak var text: WAVLTree<Item>.Node!
+        var children: WAVLTree<Item> = WAVLTree()
+        weak var parent: Item? = nil
+        init(id: Int, text: String, chunks: inout WAVLTree<Item>, parent: Item?) {
             self.id = id
-            self.text = chunks.insert(value: self, length: text.count, data: (), dir: .Left, near: nil).0
+            self.text = chunks.insert(value: self, length: text.count, dir: .Left, near: nil).0
+            self.parent = parent
         }
     }
+    typealias Dir = WAVLTree<Item>.Dir
+    typealias Chunk = WAVLTree<Item>.Node
+    enum Event {
+        case Insert(node: Chunk, range: NSRange)
+        case Remove(value: Item, oldRange: NSRange)
+        case SetLength(value: Item, length: Int, oldRange: NSRange)
+    }
     var text: String
-    var chunks: WAVL<Item, ()>
+    var chunks: WAVLTree<Item>
     var root: Item
     var items: [(Int, Substring)] {
         var result: [(Int, Substring)] = []
@@ -44,36 +54,51 @@ struct Tree {
         }
         return result
     }
-}
-
-class NodeStorage: NSTextStorage {
-    let topNode: Node
-    init(topNode: Node) {
-        self.topNode = topNode
-        super.init()
+    private let eventsPublisher = PassthroughSubject<Event, Never>()
+    var events: AnyPublisher<Event, Never> {
+        return eventsPublisher.eraseToAnyPublisher()
     }
-    required init?(coder: NSCoder) {
-        return nil
+    init(text: String, chunks: WAVLTree<Item>, root: Item) {
+        self.text = text
+        self.chunks = chunks
+        self.root = root
     }
-}
-
-func nodeToTree(node: Node) -> Tree {
-    var tree: WAVL<Tree.Item, ()> = WAVL()
-    var text = node.text
-    var root = Tree.Item(id: node.id, text: node.text, chunks: &tree)
-    func appendChildren(current: inout Tree.Item, children: [Node]) {
-        for child in children {
-            text += child.text
-            var item = Tree.Item(id: child.id, text: child.text, chunks: &tree)
-            let _ = current.children.insert(value: item, length: 1, data: (), dir: .Left, near: nil)
-            appendChildren(current: &item, children: child.children)
+    init(node: Node) {
+        var chunks: WAVLTree<Item> = WAVLTree()
+        var text = node.text
+        var root = Item(id: node.id, text: node.text, chunks: &chunks, parent: nil)
+        func appendChildren(current: inout Item, children: [Node]) {
+            for child in children {
+                text += child.text
+                var item = Item(id: child.id, text: child.text, chunks: &chunks, parent: current)
+                let _ = current.children.insert(value: item, length: 1, dir: .Left, near: nil)
+                appendChildren(current: &item, children: child.children)
+            }
         }
+        appendChildren(current: &root, children: node.children)
+        self.text = text
+        self.chunks = chunks
+        self.root = root
     }
-    appendChildren(current: &root, children: node.children)
-    return Tree(text: text, chunks: tree, root: root)
+    func setChunkLength(node: Chunk, length: Int) -> NSRange {
+        let range = WAVLTree.setLength(node: node, length: length)
+        eventsPublisher.send(.SetLength(value: node.value, length: length, oldRange: range))
+        return range
+    }
+    func insertChunk(value: Item, length: Int, dir: Dir = .Right, near: Chunk? = nil) -> (Chunk, Int) {
+        let (node, start) = chunks.insert(value: value, length: length, dir: dir, near: near)
+        eventsPublisher.send(.Insert(node: node, range: NSMakeRange(start, length)))
+        return (node, start)
+    }
+    func removeChunk(node: Chunk) -> NSRange {
+        let value = node.value
+        let range = chunks.remove(node: node)
+        eventsPublisher.send(.Remove(value: value, oldRange: range))
+        return range
+    }
 }
 
-var testDocument = nodeToTree(node: Node(
+var testDocument = TextState(node: Node(
     id: 0,
     text: "First node",
     children: [

@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import Combine
 
 struct WAVLTree<V>: Sequence {
     enum Dir {
@@ -320,51 +319,5 @@ struct WAVLTree<V>: Sequence {
         shift += current.advance(dir: dir, length: -length)
         shift += WAVLTree.advanceRecurse(node: current, length: -length)
         return NSMakeRange(shift, length)
-    }
-}
-
-class WAVL<V, D>: Sequence {
-    typealias Value = V
-    typealias Data = D
-    typealias Node = WAVLTree<V>.Node
-    typealias Dir = WAVLTree<V>.Dir
-    typealias Iterator = WAVLTree<V>.Iterator
-    typealias Publisher = AnyPublisher<(Event, NSRange), Never>
-    enum Event {
-        case Insert(node: Node, data: D)
-        case Remove(value: Value)
-        case SetLength(value: Value, data: D, length: Int)
-    }
-    
-    var tree = WAVLTree<V>()
-    private let passthroughSubject = PassthroughSubject<(Event, NSRange), Never>()
-    var publisher: Publisher {
-        return passthroughSubject.eraseToAnyPublisher()
-    }
-    
-    func makeIterator() -> Iterator {
-        return tree.makeIterator()
-    }
-    func covering(from: Int = 0, to: Int? = nil) -> Iterator {
-        return tree.covering(from: from, to: to)
-    }
-    func search(pos: Int) -> (NSRange, V)? {
-        return tree.search(pos: pos)
-    }
-    func setLength(node: Node, data: D, length: Int) -> NSRange {
-        let range = WAVLTree.setLength(node: node, length: length)
-        passthroughSubject.send((.SetLength(value: node.value, data: data, length: length), range))
-        return range
-    }
-    func insert(value: V, length: Int, data: D, dir: Dir = .Right, near: Node? = nil) -> (Node, Int) {
-        let (node, start) = tree.insert(value: value, length: length, dir: dir, near: near)
-        passthroughSubject.send((.Insert(node: node, data: data), NSMakeRange(start, length)))
-        return (node, start)
-    }
-    func remove(node: Node) -> NSRange {
-        let value = node.value
-        let range = tree.remove(node: node)
-        passthroughSubject.send((.Remove(value: value), range))
-        return range
     }
 }
