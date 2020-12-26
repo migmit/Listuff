@@ -21,7 +21,10 @@ protocol Sequence {
     func checkBalanced() -> Bool
 }
 
-extension WAVL: Sequence {
+extension WAVLTree: Sequence {
+    func setLength(node: Node, length: Int) -> NSRange {
+        return WAVLTree.setLength(node: node, length: length)
+    }
     static func same(node1: Node, node2: Node) -> Bool {
         return node1 === node2
     }
@@ -55,7 +58,7 @@ extension WAVL: Sequence {
                 return (level ?? 0) == 0 ? 0 : nil
             }
         }
-        return checkBalance(node: tree.root, level: nil) != nil
+        return checkBalance(node: root, level: nil) != nil
     }
 }
 
@@ -214,7 +217,7 @@ func checkSame(t1: (NSRange, Int)?, t2: (NSRange, Int)?) -> Bool {
     }
 }
 func testCommands(cmds: [WAVLCommand]) throws {
-    let tester1 = WAVLTester(tree: WAVL())
+    let tester1 = WAVLTester(tree: WAVLTree())
     let tester2 = WAVLTester(tree: SimpleSequence())
     for cmd in cmds {
         let val1 = tester1.executeCommand(cmd: cmd)

@@ -25,15 +25,15 @@ struct Node {
 struct Tree {
     class Item {
         var id: Int
-        weak var text: WAVL<Item>.Node!
-        var children: WAVL<Item> = WAVL()
-        init(id: Int, text: String, chunks: inout WAVL<Item>) {
+        weak var text: WAVL<Item, ()>.Node!
+        var children: WAVL<Item, ()> = WAVL()
+        init(id: Int, text: String, chunks: inout WAVL<Item, ()>) {
             self.id = id
-            self.text = chunks.insert(value: self, length: text.count, dir: .Left, near: nil).0
+            self.text = chunks.insert(value: self, length: text.count, data: (), dir: .Left, near: nil).0
         }
     }
     var text: String
-    var chunks: WAVL<Item>
+    var chunks: WAVL<Item, ()>
     var root: Item
     var items: [(Int, Substring)] {
         var result: [(Int, Substring)] = []
@@ -58,14 +58,14 @@ class NodeStorage: NSTextStorage {
 }
 
 func nodeToTree(node: Node) -> Tree {
-    var tree: WAVL<Tree.Item> = WAVL()
+    var tree: WAVL<Tree.Item, ()> = WAVL()
     var text = node.text
     var root = Tree.Item(id: node.id, text: node.text, chunks: &tree)
     func appendChildren(current: inout Tree.Item, children: [Node]) {
         for child in children {
             text += child.text
             var item = Tree.Item(id: child.id, text: child.text, chunks: &tree)
-            let _ = current.children.insert(value: item, length: 1, dir: .Left, near: nil)
+            let _ = current.children.insert(value: item, length: 1, data: (), dir: .Left, near: nil)
             appendChildren(current: &item, children: child.children)
         }
     }
