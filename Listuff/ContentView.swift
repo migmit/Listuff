@@ -24,19 +24,20 @@ struct Node {
 }
 
 class TextState {
+    typealias Dir = WAVLTree<Item>.Dir
+    typealias Chunk = WAVLTree<Item>.Node
+    typealias EventPublisher = AnyPublisher<Event, Never>
     class Item {
         var id: Int
         weak var text: WAVLTree<Item>.Node!
         var children: WAVLTree<Item> = WAVLTree()
-        weak var parent: Item? = nil
+        weak var parent: Item?
         init(id: Int, text: String, chunks: inout WAVLTree<Item>, parent: Item?) {
             self.id = id
             self.text = chunks.insert(value: self, length: text.count, dir: .Left, near: nil).0
             self.parent = parent
         }
     }
-    typealias Dir = WAVLTree<Item>.Dir
-    typealias Chunk = WAVLTree<Item>.Node
     enum Event {
         case Insert(node: Chunk, range: NSRange)
         case Remove(value: Item, oldRange: NSRange)
@@ -55,7 +56,7 @@ class TextState {
         return result
     }
     private let eventsPublisher = PassthroughSubject<Event, Never>()
-    var events: AnyPublisher<Event, Never> {
+    var events: EventPublisher {
         return eventsPublisher.eraseToAnyPublisher()
     }
     init(text: String, chunks: WAVLTree<Item>, root: Item) {
@@ -65,12 +66,13 @@ class TextState {
     }
     init(node: Node) {
         var chunks: WAVLTree<Item> = WAVLTree()
-        var text = node.text
+        var text = node.text + "\n"
         var root = Item(id: node.id, text: node.text, chunks: &chunks, parent: nil)
         func appendChildren(current: inout Item, children: [Node]) {
             for child in children {
-                text += child.text
-                var item = Item(id: child.id, text: child.text, chunks: &chunks, parent: current)
+                let childText = child.text + "\n"
+                text += childText
+                var item = Item(id: child.id, text: childText, chunks: &chunks, parent: current)
                 let _ = current.children.insert(value: item, length: 1, dir: .Left, near: nil)
                 appendChildren(current: &item, children: child.children)
             }
@@ -96,6 +98,9 @@ class TextState {
         eventsPublisher.send(.Remove(value: value, oldRange: range))
         return range
     }
+    func replaceCharacters(in range: NSRange, with str: String) -> (NSRange, Int) { // changed range (could be wider than "in range"), change in length
+        return (range, 0) // TOFIX
+    }
 }
 
 var testDocument = TextState(node: Node(
@@ -104,7 +109,7 @@ var testDocument = TextState(node: Node(
     children: [
         Node(
             id: 1,
-            text: "Second node\n",
+            text: "Second node",
             children: [
                 Node(
                     id: 2,
@@ -128,6 +133,8 @@ struct Test {
     mutating func update() {}
 }
 
+let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.systemFontSize, weight: .regular)
+
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
     
@@ -135,8 +142,8 @@ struct HierarchyView: UIViewRepresentable {
     let layoutManager: NSLayoutManager
     let textContainer: NSTextContainer
 
-    init() {
-        textStorage = TextStorage()
+    init(content: TextState) {
+        textStorage = TextStorage(content: content)
         layoutManager = NSLayoutManager()
         textContainer = NSTextContainer()
         textStorage.addLayoutManager(layoutManager)
@@ -144,6 +151,12 @@ struct HierarchyView: UIViewRepresentable {
     }
     
     func makeUIView(context: Context) -> TextView {
+        if layoutManager.textStorage == nil {
+            textStorage.addLayoutManager(layoutManager)
+        }
+        if textContainer.layoutManager == nil {
+            layoutManager.addTextContainer(textContainer)
+        }
         let view = TextView(frame: .zero, textContainer: textContainer)
         return view
     }
@@ -176,26 +189,29 @@ struct HierarchyView: UIViewRepresentable {
     }
     
     class TextStorage: NSTextStorage {
-        let stored: NSMutableAttributedString
-        override init() {
-            stored = NSMutableAttributedString(string: "")
+        let content: TextState
+        init(content: TextState) {
+            self.content = content
             super.init()
         }
         required init?(coder: NSCoder) {
             return nil
         }
         override var string: String {
-            return stored.string
+            return content.text
         }
         override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
-            return stored.attributes(at: location, effectiveRange: range)
+            if let rangePtr = range {
+                rangePtr[0] = NSMakeRange(0, content.text.utf16.count) // TOFIX
+            }
+            return [.font: systemFont] // TOFIX
         }
         override func replaceCharacters(in range: NSRange, with str: String) {
-            stored.replaceCharacters(in: range, with: str)
-            edited(.editedCharacters, range: range, changeInLength: str.utf16.count - range.length)
+            let (changedRange, changeInLength) = content.replaceCharacters(in: range, with: str)
+            edited(.editedCharacters, range: changedRange, changeInLength: changeInLength)
         }
         override func setAttributes(_ attrs: [NSAttributedString.Key : Any]?, range: NSRange) {
-            stored.setAttributes(attrs, range: range)
+            // TOFIX
             edited(.editedAttributes, range: range, changeInLength: 0)
         }
     }
@@ -318,7 +334,7 @@ struct ContentView: View {
             }
             .listStyle(PlainListStyle())
             .navigationBarTitle("Outline", displayMode: .inline)
-            HierarchyView()
+            HierarchyView(content: testDocument)
                 .navigationBarHidden(true)
         }
     }
