@@ -133,7 +133,8 @@ struct Test {
     mutating func update() {}
 }
 
-let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.systemFontSize, weight: .regular)
+let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
+let systemColor = UIColor.label
 
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
@@ -204,7 +205,7 @@ struct HierarchyView: UIViewRepresentable {
             if let rangePtr = range {
                 rangePtr[0] = NSMakeRange(0, content.text.utf16.count) // TOFIX
             }
-            return [.font: systemFont] // TOFIX
+            return [.font: systemFont, .foregroundColor: systemColor] // TOFIX
         }
         override func replaceCharacters(in range: NSRange, with str: String) {
             let (changedRange, changeInLength) = content.replaceCharacters(in: range, with: str)
