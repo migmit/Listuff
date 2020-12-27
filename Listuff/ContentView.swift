@@ -155,6 +155,7 @@ struct Test {
 let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
 let systemColor = UIColor.label
 let indentationStep = 35.0
+let paragraphSpacing = 5.0
 
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
@@ -233,11 +234,12 @@ struct HierarchyView: UIViewRepresentable {
             let paragraphStyle = NSMutableParagraphStyle()
             paragraphStyle.firstLineHeadIndent = paragraphIndentation
             paragraphStyle.headIndent = paragraphIndentation
+            paragraphStyle.paragraphSpacing = CGFloat(paragraphSpacing)
             return [
                 .font: systemFont,
                 .foregroundColor: systemColor,
                 .paragraphStyle: paragraphStyle
-            ] // TOFIX
+            ]
         }
         override func replaceCharacters(in range: NSRange, with str: String) {
             let (changedRange, changeInLength) = content.replaceCharacters(in: range, with: str)
