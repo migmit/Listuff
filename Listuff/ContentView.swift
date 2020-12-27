@@ -9,119 +9,6 @@ import Combine
 import SwiftUI
 //import CoreData
 
-struct Node {
-    var id: Int
-    var text: String
-    var children: [Node] = []
-    
-    func allNodes() -> [Node] {
-        var result = [self]
-        for child in children {
-            result = result + child.allNodes()
-        }
-        return result
-    }
-}
-
-class TextState {
-    typealias Dir = WAVLTree<Item>.Dir
-    typealias Chunk = WAVLTree<Item>.Node
-    typealias EventPublisher = AnyPublisher<Event, Never>
-    class Item {
-        var id: Int
-        weak var text: WAVLTree<Item>.Node!
-        var children: WAVLTree<Item> = WAVLTree()
-        weak var parent: Item?
-        init(id: Int, text: String, chunks: inout WAVLTree<Item>, parent: Item?) {
-            self.id = id
-            self.text = chunks.insert(value: self, length: text.utf16.count, dir: .Left, near: nil).0
-            self.parent = parent
-        }
-        var depth: Int {
-            var result = 0
-            var current = self
-            while let p = current.parent {
-                result += 1
-                current = p
-            }
-            return result
-        }
-    }
-    enum Event {
-        case Insert(node: Chunk, range: NSRange)
-        case Remove(value: Item, oldRange: NSRange)
-        case SetLength(value: Item, length: Int, oldRange: NSRange)
-    }
-    struct ListItemInfo {
-        let range: NSRange
-        let depth: Int
-    }
-    var text: String
-    var chunks: WAVLTree<Item>
-    var root: Item
-    var items: [(Int, Substring)] {
-        var result: [(Int, Substring)] = []
-        for (bounds, item) in chunks {
-            if let r = Range(bounds, in: text) {
-                result.append((item.id, text[r]))
-            }
-        }
-        return result
-    }
-    private let eventsPublisher = PassthroughSubject<Event, Never>()
-    var events: EventPublisher {
-        return eventsPublisher.eraseToAnyPublisher()
-    }
-    init(text: String, chunks: WAVLTree<Item>, root: Item) {
-        self.text = text
-        self.chunks = chunks
-        self.root = root
-    }
-    init(node: Node) {
-        var chunks: WAVLTree<Item> = WAVLTree()
-        var text = node.text + "\n"
-        var root = Item(id: node.id, text: text, chunks: &chunks, parent: nil)
-        func appendChildren(current: inout Item, children: [Node]) {
-            for child in children {
-                let childText = child.text + "\n"
-                text += childText
-                var item = Item(id: child.id, text: childText, chunks: &chunks, parent: current)
-                let _ = current.children.insert(value: item, length: 1, dir: .Left, near: nil)
-                appendChildren(current: &item, children: child.children)
-            }
-        }
-        appendChildren(current: &root, children: node.children)
-        self.text = text
-        self.chunks = chunks
-        self.root = root
-    }
-    func setChunkLength(node: Chunk, length: Int) -> NSRange {
-        let range = WAVLTree.setLength(node: node, length: length)
-        eventsPublisher.send(.SetLength(value: node.value, length: length, oldRange: range))
-        return range
-    }
-    func insertChunk(value: Item, length: Int, dir: Dir = .Right, near: Chunk? = nil) -> (Chunk, Int) {
-        let (node, start) = chunks.insert(value: value, length: length, dir: dir, near: near)
-        eventsPublisher.send(.Insert(node: node, range: NSMakeRange(start, length)))
-        return (node, start)
-    }
-    func removeChunk(node: Chunk) -> NSRange {
-        let value = node.value
-        let range = chunks.remove(node: node)
-        eventsPublisher.send(.Remove(value: value, oldRange: range))
-        return range
-    }
-    func replaceCharacters(in range: NSRange, with str: String) -> (NSRange, Int) { // changed range (could be wider than "in range"), change in length
-        return (range, 0) // TOFIX
-    }
-    func listItemInfo(pos: Int) -> ListItemInfo? {
-        return chunks.search(pos: pos).map{ListItemInfo(
-            range: $0.0,
-            depth: $0.1.depth
-        )}
-    }
-}
-
 var testDocument = TextState(node: Node(
     id: 0,
     text: "First node",
@@ -146,11 +33,6 @@ var testDocument = TextState(node: Node(
         )
     ]
 ))
-
-struct Test {
-    var text: String
-    mutating func update() {}
-}
 
 let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
 let systemColor = UIColor.label
@@ -252,29 +134,6 @@ struct HierarchyView: UIViewRepresentable {
     }
 }
 
-class FakeDataPersister: NSObject, NSCoding {
-    var identifierToDataDictionary: NSDictionary?
-    required init?(coder: NSCoder) {
-        identifierToDataDictionary = coder.decodeObject(forKey: "identifierToDataDictionary") as? NSDictionary
-    }
-    func encode(with coder: NSCoder) {
-        if let dict = identifierToDataDictionary {coder.encode(dict, forKey: "identifierToDataDictionary")}
-    }
-}
-
-class FakeNotesData: NSObject, NSCoding {
-    var attributedStringData: Data?
-    var dataPersister: FakeDataPersister?
-    required init?(coder: NSCoder) {
-        attributedStringData = coder.decodeObject(forKey: "attributedStringData") as? Data
-        dataPersister = coder.decodeObject(forKey: "dataPersister") as? FakeDataPersister
-    }
-    func encode(with coder: NSCoder) {
-        if let data = attributedStringData {coder.encode(data, forKey: "attributedStringData")}
-        if let persister = dataPersister {coder.encode(persister, forKey: "dataPersister")}
-    }
-}
-
 func debugPrintNote(note: Note, prefix: String = "") {
     print("\(prefix)String: \(note.content)")
     for chunk in note.chunks {
@@ -314,20 +173,6 @@ func debugPrintNote(note: Note, prefix: String = "") {
     }
 }
 
-func debugDecodeBPList(data: Data) -> Note? {
-    guard let keyed = try? NSKeyedUnarchiver(forReadingFrom: data) else {return nil}
-    keyed.decodingFailurePolicy = .raiseException
-    keyed.requiresSecureCoding = false
-    keyed.setClass(FakeNotesData.self, forClassName: "ICNotePasteboardData")
-    keyed.setClass(FakeDataPersister.self, forClassName: "ICDataPersister")
-    if let obj = keyed.decodeObject(forKey: NSKeyedArchiveRootObjectKey) as? FakeNotesData,
-       let attributedStringData = obj.attributedStringData {
-        return Note(source: ProtoValue.lengthLimited(value: ProtoMessage(value: attributedStringData[0..<attributedStringData.count])), attachments: obj.dataPersister?.identifierToDataDictionary)
-    } else {
-        return nil
-    }
-}
-
 func debugPrintAttributedString(str: NSAttributedString) {
     print("STRING: \(str.string)")
     str.enumerateAttributes(in: NSMakeRange(0, str.length), options: []) {attrs, range, _ in
@@ -340,7 +185,7 @@ func debugPaste() {
     if pb.hasStrings {
         print("String: \(pb.string ?? "")")
     }
-    if let data = pb.data(forPasteboardType: "com.apple.notes.richtext"), let decoded = debugDecodeBPList(data: data) {
+    if let data = pb.data(forPasteboardType: "com.apple.notes.richtext"), let decoded = decodeNote(data: data) {
         debugPrintNote(note: decoded)
     }
 }
@@ -352,8 +197,6 @@ struct ContentView: View {
 //        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
 //        animation: .default)
 //    private var items: FetchedResults<Item>
-    
-    let test = ObservableProxy(value: Test(text: "Hello World"))
     
     var body: some View {
         NavigationView {

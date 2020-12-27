@@ -524,3 +524,40 @@ class NotesPositions: NotesRecord {
         return true
     }
 }
+
+class FakeDataPersister: NSObject, NSCoding {
+    var identifierToDataDictionary: NSDictionary?
+    required init?(coder: NSCoder) {
+        identifierToDataDictionary = coder.decodeObject(forKey: "identifierToDataDictionary") as? NSDictionary
+    }
+    func encode(with coder: NSCoder) {
+        if let dict = identifierToDataDictionary {coder.encode(dict, forKey: "identifierToDataDictionary")}
+    }
+}
+
+class FakeNotesData: NSObject, NSCoding {
+    var attributedStringData: Data?
+    var dataPersister: FakeDataPersister?
+    required init?(coder: NSCoder) {
+        attributedStringData = coder.decodeObject(forKey: "attributedStringData") as? Data
+        dataPersister = coder.decodeObject(forKey: "dataPersister") as? FakeDataPersister
+    }
+    func encode(with coder: NSCoder) {
+        if let data = attributedStringData {coder.encode(data, forKey: "attributedStringData")}
+        if let persister = dataPersister {coder.encode(persister, forKey: "dataPersister")}
+    }
+}
+
+func decodeNote(data: Data) -> Note? {
+    guard let keyed = try? NSKeyedUnarchiver(forReadingFrom: data) else {return nil}
+    keyed.decodingFailurePolicy = .raiseException
+    keyed.requiresSecureCoding = false
+    keyed.setClass(FakeNotesData.self, forClassName: "ICNotePasteboardData")
+    keyed.setClass(FakeDataPersister.self, forClassName: "ICDataPersister")
+    if let obj = keyed.decodeObject(forKey: NSKeyedArchiveRootObjectKey) as? FakeNotesData,
+       let attributedStringData = obj.attributedStringData {
+        return Note(source: ProtoValue.lengthLimited(value: ProtoMessage(value: attributedStringData[0..<attributedStringData.count])), attachments: obj.dataPersister?.identifierToDataDictionary)
+    } else {
+        return nil
+    }
+}
