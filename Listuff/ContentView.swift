@@ -34,14 +34,27 @@ class TextState {
         weak var parent: Item?
         init(id: Int, text: String, chunks: inout WAVLTree<Item>, parent: Item?) {
             self.id = id
-            self.text = chunks.insert(value: self, length: text.count, dir: .Left, near: nil).0
+            self.text = chunks.insert(value: self, length: text.utf16.count, dir: .Left, near: nil).0
             self.parent = parent
+        }
+        var depth: Int {
+            var result = 0
+            var current = self
+            while let p = current.parent {
+                result += 1
+                current = p
+            }
+            return result
         }
     }
     enum Event {
         case Insert(node: Chunk, range: NSRange)
         case Remove(value: Item, oldRange: NSRange)
         case SetLength(value: Item, length: Int, oldRange: NSRange)
+    }
+    struct ListItemInfo {
+        let range: NSRange
+        let depth: Int
     }
     var text: String
     var chunks: WAVLTree<Item>
@@ -67,7 +80,7 @@ class TextState {
     init(node: Node) {
         var chunks: WAVLTree<Item> = WAVLTree()
         var text = node.text + "\n"
-        var root = Item(id: node.id, text: node.text, chunks: &chunks, parent: nil)
+        var root = Item(id: node.id, text: text, chunks: &chunks, parent: nil)
         func appendChildren(current: inout Item, children: [Node]) {
             for child in children {
                 let childText = child.text + "\n"
@@ -100,6 +113,12 @@ class TextState {
     }
     func replaceCharacters(in range: NSRange, with str: String) -> (NSRange, Int) { // changed range (could be wider than "in range"), change in length
         return (range, 0) // TOFIX
+    }
+    func listItemInfo(pos: Int) -> ListItemInfo? {
+        return chunks.search(pos: pos).map{ListItemInfo(
+            range: $0.0,
+            depth: $0.1.depth
+        )}
     }
 }
 
@@ -135,6 +154,7 @@ struct Test {
 
 let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
 let systemColor = UIColor.label
+let indentationStep = 35.0
 
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
@@ -202,10 +222,22 @@ struct HierarchyView: UIViewRepresentable {
             return content.text
         }
         override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
-            if let rangePtr = range {
-                rangePtr[0] = NSMakeRange(0, content.text.utf16.count) // TOFIX
+            guard let listItemInfo = content.listItemInfo(pos: location) else {
+                NSException(name: .rangeException, reason: "Position \(location) out of bounds", userInfo: [:]).raise()
+                return [:] // Never happens
             }
-            return [.font: systemFont, .foregroundColor: systemColor] // TOFIX
+            if let rangePtr = range {
+                rangePtr[0] = listItemInfo.range
+            }
+            let paragraphIndentation = CGFloat(Double(listItemInfo.depth) * indentationStep)
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.firstLineHeadIndent = paragraphIndentation
+            paragraphStyle.headIndent = paragraphIndentation
+            return [
+                .font: systemFont,
+                .foregroundColor: systemColor,
+                .paragraphStyle: paragraphStyle
+            ] // TOFIX
         }
         override func replaceCharacters(in range: NSRange, with str: String) {
             let (changedRange, changeInLength) = content.replaceCharacters(in: range, with: str)
