@@ -109,17 +109,17 @@
 		B56B368425515B1B006C1FA6 /* Listuff */ = {
 			isa = PBXGroup;
 			children = (
-				B56B368525515B1B006C1FA6 /* ListuffApp.swift */,
-				B56B368725515B1B006C1FA6 /* ContentView.swift */,
-				B56B368925515B1C006C1FA6 /* Assets.xcassets */,
-				B56B368E25515B1C006C1FA6 /* Persistence.swift */,
 				B56B369325515B1C006C1FA6 /* Info.plist */,
+				B56B368725515B1B006C1FA6 /* ContentView.swift */,
+				B56B368525515B1B006C1FA6 /* ListuffApp.swift */,
+				B52D57F7258C346C0024FA43 /* NotePaste.swift */,
+				B533488B2573D1570008FB49 /* ObservableProxy.swift */,
+				B56B368E25515B1C006C1FA6 /* Persistence.swift */,
+				B53C4C7225992EC900DCED26 /* TextState.swift */,
+				B53348812573156D0008FB49 /* WAVL.swift */,
+				B56B368925515B1C006C1FA6 /* Assets.xcassets */,
 				B56B369025515B1C006C1FA6 /* Listuff.xcdatamodeld */,
 				B56B368B25515B1C006C1FA6 /* Preview Content */,
-				B53348812573156D0008FB49 /* WAVL.swift */,
-				B533488B2573D1570008FB49 /* ObservableProxy.swift */,
-				B52D57F7258C346C0024FA43 /* NotePaste.swift */,
-				B53C4C7225992EC900DCED26 /* TextState.swift */,
 			);
 			path = Listuff;
 			sourceTree = "<group>";

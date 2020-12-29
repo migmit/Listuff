@@ -156,7 +156,7 @@ func debugPrintNote(note: Note, prefix: String = "") {
         if let color = chunk.color {print("\(prefix)  Color: \(color)")}
         if let attachment = chunk.attachment {
             switch(attachment) {
-            case .table(let table):
+            case .table(table: let table):
                 print("\(prefix)  Table:")
                 for row in table {
                     print("\(prefix)    Row:")
