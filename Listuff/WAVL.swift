@@ -82,6 +82,7 @@ struct WAVLTree<V>: Sequence {
         }
     }
     private(set) var root: Node? = nil
+    private(set) var rank: Int = 0
     init() {}
     private func searchNode(pos: Int) -> (NSRange, Node)? {
         var shift = 0
@@ -168,24 +169,21 @@ struct WAVLTree<V>: Sequence {
         shift += advanceRecurse(node: node, length: advance)
         return NSMakeRange(shift, oldLength)
     }
-    mutating func insert(value: V, length: Int, dir: Dir = .Right, near: Node? = nil) -> (Node, Int) {
-        let newNode = Node(value: value, length: length)
-        guard let r = root else {
-            root = newNode
-            return (newNode, 0)
-        }
-        var (current, side) = near.map {n in (n[dir]?.node).map{($0, dir.other)} ?? (n, dir)} ?? (r, dir.other)
-        while let subNode = current[side]?.node {current = subNode}
-        var isDeep = current.deep(dir: side)
-        var isOtherDeep = current.deep(dir: side.other)
-        current[side] = newNode.mkSubNode(deep: false)
-        var child = newNode
+    private mutating func insertRebalance(startWith: Node, topChild: Node, subDeep: Bool, subOtherDeep: Bool, dir: Dir, length: Int) -> Int {
+        var current = startWith
+        var child = topChild
+        var isDeep = subDeep
+        var isOtherDeep = subOtherDeep
+        var side = dir
         var shift = 0
         while !isDeep && !isOtherDeep {
             child = current
             current[side.other]?.deep = true
             shift += current.advance(dir: side, length: length)
-            guard let childInfo = current.getChildInfo() else {return (newNode, shift)}
+            guard let childInfo = current.getChildInfo() else {
+                rank += 1
+                return shift
+            }
             (current, side, isDeep) = childInfo
             isOtherDeep = current.deep(dir: side.other)
         }
@@ -216,7 +214,21 @@ struct WAVLTree<V>: Sequence {
             child[side.other] = current.mkSubNode(deep: false)
             shift += WAVLTree.advanceRecurse(node: child, length: length)
         }
-        return (newNode, shift)
+        return shift
+    }
+    mutating func insert(value: V, length: Int, dir: Dir = .Right, near: Node? = nil) -> (Node, Int) {
+        let newNode = Node(value: value, length: length)
+        guard let r = root else {
+            rank = 1
+            root = newNode
+            return (newNode, 0)
+        }
+        var (current, side) = near.map {n in (n[dir]?.node).map{($0, dir.other)} ?? (n, dir)} ?? (r, dir.other)
+        while let subNode = current[side]?.node {current = subNode}
+        let isDeep = current.deep(dir: side)
+        let isOtherDeep = current.deep(dir: side.other)
+        current[side] = newNode.mkSubNode(deep: false)
+        return (newNode, insertRebalance(startWith: current, topChild: newNode, subDeep: isDeep, subOtherDeep: isOtherDeep, dir: side, length: length))
     }
     mutating func remove(node: Node) -> NSRange {
         var current: Node
@@ -257,6 +269,7 @@ struct WAVLTree<V>: Sequence {
         } else {
             guard let childInfo = node.getChildInfo() else {
                 if root === node {
+                    rank -= 1
                     root = node[.Right]?.node
                     root?.detach()
                 }
@@ -267,14 +280,20 @@ struct WAVLTree<V>: Sequence {
         }
         if !isDeep && current[dir] == nil && current[dir.other] == nil {
             shift += current.advance(dir: dir, length: -length)
-            guard let childInfo = current.getChildInfo() else {return NSMakeRange(shift, length)}
+            guard let childInfo = current.getChildInfo() else {
+                rank -= 1
+                return NSMakeRange(shift, length)
+            }
             (current, dir, isDeep) = childInfo
         }
         while isDeep {
             if current.deep(dir: dir.other) {
                 shift += current.advance(dir: dir, length: -length)
                 current[dir.other]?.deep = false
-                guard let childInfo = current.getChildInfo() else {return NSMakeRange(shift, length)}
+                guard let childInfo = current.getChildInfo() else {
+                    rank -= 1
+                    return NSMakeRange(shift, length)
+                }
                 (current, dir, isDeep) = childInfo
             } else {
                 let child = current[dir.other]!.node
@@ -283,7 +302,10 @@ struct WAVLTree<V>: Sequence {
                         shift += current.advance(dir: dir, length: -length)
                         child[dir]?.deep = false
                         child[dir.other]?.deep = false
-                        guard let childInfo = current.getChildInfo() else {return NSMakeRange(shift, length)}
+                        guard let childInfo = current.getChildInfo() else {
+                            rank -= 1
+                            return NSMakeRange(shift, length)
+                        }
                         (current, dir, isDeep) = childInfo
                     } else {
                         let grandchild = child[dir]!.node
@@ -319,5 +341,13 @@ struct WAVLTree<V>: Sequence {
         shift += current.advance(dir: dir, length: -length)
         shift += WAVLTree.advanceRecurse(node: current, length: -length)
         return NSMakeRange(shift, length)
+    }
+    mutating func popLeft() -> (V, Int)? {
+        guard let r = root else {return nil}
+        var current = r
+        while let subNode = current[.Left]?.node {current = subNode}
+        let value = current.value
+        let oldRange = remove(node: current)
+        return (value, oldRange.length)
     }
 }

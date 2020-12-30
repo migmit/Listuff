@@ -43,22 +43,22 @@ extension WAVLTree: Sequence {
         return result
     }
     func checkBalanced() -> Bool {
-        func checkBalance(node: Node?, level: Int?) -> Int? {
+        func checkBalance(node: Node?, level: Int) -> Bool {
             if let current = node {
+                if current[.Left]?.node.parent ?? current !== current {return false}
+                if current[.Right]?.node.parent ?? current !== current {return false}
                 let leftShift = current.deep(dir: .Left) ? 2 : 1
                 let rightShift = current.deep(dir: .Right) ? 2 : 1
-                guard let levelLeft = checkBalance(node: current[.Left]?.node, level: level.map{$0 - leftShift}) else {return nil}
-                guard let levelRight = checkBalance(node: current[.Right]?.node, level: levelLeft + leftShift - rightShift) else {return nil}
-                if current[.Left] == nil && rightShift == 2 {return nil}
-                if current[.Right] == nil && leftShift == 2 {return nil}
-                if current[.Left]?.node.parent ?? current !== current {return nil}
-                if current[.Right]?.node.parent ?? current !== current {return nil}
-                return levelRight + rightShift
+                if current[.Left] == nil && rightShift == 2 {return false}
+                if current[.Right] == nil && leftShift == 2 {return false}
+                guard checkBalance(node: current[.Left]?.node, level: level - leftShift) else {return false}
+                guard checkBalance(node: current[.Right]?.node, level: level - rightShift) else {return false}
+                return true
             } else {
-                return (level ?? 0) == 0 ? 0 : nil
+                return level == 0
             }
         }
-        return checkBalance(node: root, level: nil) != nil
+        return checkBalance(node: root, level: rank)
     }
 }
 
