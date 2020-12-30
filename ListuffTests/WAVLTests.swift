@@ -45,15 +45,18 @@ extension WAVLTree: Sequence {
     func checkBalanced() -> Bool {
         func checkBalance(node: Node?, level: Int) -> Bool {
             if let current = node {
-                if current[.Left]?.node.parent ?? current !== current {return false}
-                if current[.Right]?.node.parent ?? current !== current {return false}
+                let leftNode = current[.Left]?.node
+                let rightNode = current[.Right]?.node
                 let leftShift = current.deep(dir: .Left) ? 2 : 1
                 let rightShift = current.deep(dir: .Right) ? 2 : 1
-                if current[.Left] == nil && rightShift == 2 {return false}
-                if current[.Right] == nil && leftShift == 2 {return false}
-                guard checkBalance(node: current[.Left]?.node, level: level - leftShift) else {return false}
-                guard checkBalance(node: current[.Right]?.node, level: level - rightShift) else {return false}
-                return true
+                return (
+                    (leftNode?.parent ?? current === current) &&
+                    (rightNode?.parent ?? current === current) &&
+                    (leftNode != nil || rightShift == 1) &&
+                    (rightNode != nil || leftShift == 1) &&
+                    (checkBalance(node: leftNode, level: level - leftShift)) &&
+                    (checkBalance(node: rightNode, level: level - rightShift))
+                )
             } else {
                 return level == 0
             }
