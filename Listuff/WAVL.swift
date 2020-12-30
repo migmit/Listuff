@@ -342,12 +342,11 @@ struct WAVLTree<V>: Sequence {
         shift += WAVLTree.advanceRecurse(node: current, length: -length)
         return NSMakeRange(shift, length)
     }
-    mutating func popLeft() -> (V, Int)? {
+    private mutating func popLeft() -> (Node, Int)? {
         guard let r = root else {return nil}
         var current = r
         while let subNode = current[.Left]?.node {current = subNode}
-        let value = current.value
         let oldRange = remove(node: current)
-        return (value, oldRange.length)
+        return (current, oldRange.length)
     }
 }
