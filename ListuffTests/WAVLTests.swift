@@ -12,7 +12,7 @@ protocol Sequence {
     associatedtype Value
     associatedtype Node
     func search(pos: Int) -> (NSRange, Value)?
-    mutating func insert(value: Value, length: Int, dir: WAVLTree<Value>.WAVLDir, near: Node?) -> (Node, Int)
+    mutating func insert(value: Value, length: Int, dir: WAVLDir, near: Node?) -> (Node, Int)
     mutating func remove(node: Node) -> NSRange
     func setLength(node: Node, length: Int) -> NSRange
     static func same(node1: Node, node2: Node) -> Bool
@@ -101,7 +101,7 @@ class SimpleSequence<V>: Sequence {
         node.length = length
         return result
     }
-    func insert(value: V, length: Int, dir: WAVLTree<V>.WAVLDir, near: Node?) -> (Node, Int) {
+    func insert(value: V, length: Int, dir: WAVLDir, near: Node?) -> (Node, Int) {
         var pos: Int
         if let n = near, let p = (nodes.firstIndex{$0.index == n.index}) {
             switch dir {
@@ -163,7 +163,7 @@ class SimpleSequence<V>: Sequence {
 
 enum WAVLCommand {
     case Search(pos: Int)
-    case Insert(value: Int, length: Int, dir: WAVLTree<Int>.WAVLDir, near: Int) // length >= 1; near modulo (number of active nodes + 1); near = 0 means root
+    case Insert(value: Int, length: Int, dir: WAVLDir, near: Int) // length >= 1; near modulo (number of active nodes + 1); near = 0 means root
     case Remove(node: Int) // node module (number of active nodes + 1); node = 0 means no-op
     case SetLength(node: Int, length: Int) // node module (number of active nodes + 1); node = 0 means no-op
     case FoldPart(start: Int, length: Int?)
@@ -252,7 +252,7 @@ func generateCmd() -> WAVLCommand {
     case 1:
         let value = Int.random(in: Int.min...Int.max)
         let length = Int.random(in: 1...1000)
-        let dir: WAVLTree<Int>.WAVLDir = Bool.random() ? .Left : .Right
+        let dir: WAVLDir = Bool.random() ? .Left : .Right
         let near = Int.random(in: 0...Int.max)
         return .Insert(value: value, length: length, dir: dir, near: near)
     case 2:
