@@ -16,6 +16,7 @@ enum WAVLDir {
         case .Right: return .Left
         }
     }
+    static let all: [WAVLDir] = [.Left, .Right]
 }
 struct WAVLDirMap<V> {
     typealias Value = V
@@ -54,8 +55,7 @@ struct WAVLTree<V>: Sequence {
     class Node {
         let value: V
         private(set) var end: Int
-        private var left: SubNode? = nil
-        private var right: SubNode? = nil
+        private var subnode: WAVLDirMap<SubNode?> = WAVLDirMap{_ in nil}
         private(set) var parent: Node? = nil
         init(value: V, length: Int) {
             self.value = value
@@ -63,16 +63,10 @@ struct WAVLTree<V>: Sequence {
         }
         subscript(dir: WAVLDir) -> SubNode? {
             get {
-                switch dir {
-                case .Left: return left
-                case .Right: return right
-                }
+                return subnode[dir]
             }
             set(subNode) {
-                switch dir {
-                case .Left: left = subNode
-                case .Right: right = subNode
-                }
+                subnode[dir] = subNode
                 subNode?.node.parent = self
             }
         }
@@ -447,8 +441,7 @@ struct WAVLTree<V>: Sequence {
         while let (parent, dir, isDeep) = childInfo {
             current = parent
             childInfo = current.getChildInfo()
-            ranks[.Left] -= isDeep ? 2 : 1
-            ranks[.Right] -= isDeep ? 2 : 1
+            for d in WAVLDir.all {ranks[d] -= isDeep ? 2 : 1}
             shift += current.advance(dir: dir, length: -shift)
             let isOtherDeep = current.deep(dir: dir.other)
             current[dir] = results[dir.other]?.mkSubNode(deep: false)
