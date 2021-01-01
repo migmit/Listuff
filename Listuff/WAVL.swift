@@ -84,6 +84,11 @@ struct WAVLTree<V>: Sequence {
     private(set) var root: Node? = nil
     private(set) var rank: Int = 0
     init() {}
+    private init(root: Node?, rank: Int) {
+        self.root = root
+        self.rank = rank
+        root?.detach()
+    }
     private func searchNode(pos: Int) -> (NSRange, Node)? {
         var shift = 0
         var found: (Int, Node)? = nil
@@ -342,11 +347,65 @@ struct WAVLTree<V>: Sequence {
         shift += WAVLTree.advanceRecurse(node: current, length: -length)
         return NSMakeRange(shift, length)
     }
-    private mutating func popLeft() -> (Node, Int)? {
+    private mutating func popLeft() -> Node? {
         guard let r = root else {return nil}
         var current = r
         while let subNode = current[.Left]?.node {current = subNode}
-        let oldRange = remove(node: current)
-        return (current, oldRange.length)
+        _ = remove(node: current)
+        return current
+    }
+    private static func rebalanceHook(root: Node, lRankDrop: Int, rRankDrop: Int) -> (Node, Int) { // returned value: root rank raise
+        let lrRankDiff = rRankDrop - lRankDrop // left.rank - right.rank
+        let absRankDiff = abs(lrRankDiff)
+        if absRankDiff <= 1 {
+            let minDrop = Swift.min(lRankDrop, rRankDrop)
+            root[.Left]?.deep = lRankDrop > minDrop
+            root[.Right]?.deep = rRankDrop > minDrop
+            return (root, 1 - minDrop)
+        }
+        let (dir, initialRank) = lrRankDiff > 0 ? (Dir.Right, -lRankDrop) : (Dir.Left, -rRankDrop)
+        var tree = WAVLTree(root: root[dir.other]?.node, rank: initialRank) // real rank doesn't matter, we are only interested in relatives
+        var curRankDiff = absRankDiff
+        var isDeep: Bool
+        var parent: Node
+        var current = tree.root
+        repeat {
+            parent = current! // current.rank - other.rank == curRankDiff > 1; therefore current != nil
+            _ = root.advance(dir: dir.other, length: -parent.end) // only works if dir == .Right
+            isDeep = parent.deep(dir: dir)
+            current = parent[dir]?.node
+            curRankDiff -= isDeep ? 2 : 1
+        } while curRankDiff > 1
+        // current.rank - right.rank <= 1, but parent.rank - right.rank > 1, which means current.rank - right.rank> -1, so, current.rank - right.rank is one of {0, 1}
+        let isOtherDeep = parent.deep(dir: dir.other)
+        root[dir]?.deep = curRankDiff > 0 // which means == 1
+        root[dir.other] = current?.mkSubNode(deep: false)
+        /*
+         * Assuming root[dir] == nil:
+         * a) curRankDiff = 0; that means current == nil; both should be shallow, and that's what we get.
+         * b) curRankDiff = 1; current is a leaf, it should be shallow, while root[dir] should be deep
+         */
+        parent[dir] = root.mkSubNode(deep: false)
+        _ = tree.insertRebalance(startWith: parent, topChild: root, subDeep: isDeep, subOtherDeep: isOtherDeep, dir: dir, length: root.end) // if dir == .Right, real length doesn't matter, since dir == .Right always
+        return (tree.root!, tree.rank)
+    }
+    mutating func join(node: Node, other: inout WAVLTree) { // node.end should be the desired length
+        var size = 0
+        var current = root
+        while let c = current {
+            size += c.end
+            current = c[.Right]?.node
+        }
+        _ = node.advance(dir: .Left, length: size) // FIXME
+        node[.Left] = root?.mkSubNode(deep: false)
+        node[.Right] = other.root?.mkSubNode(deep: false)
+        let (newRoot, rankRaise) = WAVLTree.rebalanceHook(root: node, lRankDrop: 0, rRankDrop: rank - other.rank)
+        self = WAVLTree(root: newRoot, rank: rank + rankRaise)
+        other = WAVLTree()
+    }
+    mutating func union(with: inout WAVLTree) {
+        if let node = with.popLeft() {
+            join(node: node, other: &with)
+        } // no else, since it means `with` is empty, and we shouldn't do anything
     }
 }
