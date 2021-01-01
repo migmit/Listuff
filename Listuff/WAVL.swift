@@ -17,10 +17,11 @@ enum WAVLDir {
         }
     }
 }
-struct WAVLDirMap<T> {
-    private var left: T
-    private var right: T
-    subscript(dir: WAVLDir) -> T {
+struct WAVLDirMap<V> {
+    typealias Value = V
+    private var left: V
+    private var right: V
+    subscript(dir: WAVLDir) -> V {
         get {
             switch(dir) {
             case .Left: return left
@@ -34,11 +35,11 @@ struct WAVLDirMap<T> {
             }
         }
     }
-    init(dir: WAVLDir, this: T, other: T) {
+    init(dir: WAVLDir, this: V, other: V) {
         left = dir == .Left ? this : other
         right = dir == .Right ? this : other
     }
-    init(calcVal: (WAVLDir) -> T) {
+    init(calcVal: (WAVLDir) -> V) {
         left = calcVal(.Left)
         right = calcVal(.Right)
     }
