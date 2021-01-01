@@ -371,8 +371,7 @@ struct WAVLTree<V>: Sequence {
     }
     private mutating func popLeft() -> Node? {
         guard let r = root else {return nil}
-        var current = r
-        while let subNode = current[.Left]?.node {current = subNode}
+        let current = r.leftmostChild()
         _ = remove(node: current)
         return current
     }
