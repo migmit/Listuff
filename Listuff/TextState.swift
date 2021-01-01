@@ -9,7 +9,7 @@ import Foundation
 import Combine
 
 class TextState {
-    typealias Dir = WAVLTree<Item>.Dir
+    typealias Dir = WAVLDir
     typealias Chunk = WAVLTree<Item>.Node
     typealias EventPublisher = AnyPublisher<Event, Never>
     class Item {
