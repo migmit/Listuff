@@ -19,6 +19,9 @@ protocol Sequence {
     func foldLeft<T>(_ initial: T, op: (T, Value) -> T) -> T
     func foldLeftBounds<T>(_ initial: T, from: Int, to: Int?, op: (T, NSRange, Value) -> T) -> T
     func checkBalanced() -> Bool
+    func getAllNodes() -> [Node]
+    mutating func union(with: inout Self)
+    mutating func split(node: Node) -> (Self, Self)
 }
 
 extension WAVLTree: Sequence {
@@ -61,11 +64,21 @@ extension WAVLTree: Sequence {
                 return level == 0
             }
         }
-        return checkBalance(node: root, level: rank)
+        return root?.parent == nil && checkBalance(node: root, level: rank)
+    }
+    func getAllNodes() -> [Node] {
+        func getSubnodes(node: Node?) -> [Node] {
+            if let n = node {
+                return getSubnodes(node: n[.Left]?.node) + [n] + getSubnodes(node: n[.Right]?.node)
+            } else {
+                return []
+            }
+        }
+        return getSubnodes(node: root)
     }
 }
 
-class SimpleSequence<V>: Sequence {
+final class SimpleSequence<V>: Sequence {
     typealias Value = V
     class Node {
         let index: Int
@@ -159,14 +172,40 @@ class SimpleSequence<V>: Sequence {
     func checkBalanced() -> Bool {
         return true
     }
+    func union(with: inout SimpleSequence<V>) {
+        nodes += with.nodes
+    }
+    func split(node: Node) -> (SimpleSequence, SimpleSequence) {
+        if let index = (nodes.firstIndex{$0.index == node.index}) {
+            let left = SimpleSequence()
+            left.autoinc = autoinc
+            left.nodes = Array(nodes.prefix(upTo: index))
+            let right = SimpleSequence()
+            right.autoinc = autoinc
+            right.nodes = Array(nodes.suffix(from: nodes.index(after: index)))
+            return (left, right)
+        } else {
+            return (self, SimpleSequence())
+        }
+    }
+    func getAllNodes() -> [Node] {
+        return nodes
+    }
 }
 
+enum WAVLAfterSplit {
+    case Left
+    case Right
+    case Union
+    case Reverse
+}
 enum WAVLCommand {
     case Search(pos: Int)
     case Insert(value: Int, length: Int, dir: WAVLDir, near: Int) // length >= 1; near modulo (number of active nodes + 1); near = 0 means root
     case Remove(node: Int) // node module (number of active nodes + 1); node = 0 means no-op
     case SetLength(node: Int, length: Int) // node module (number of active nodes + 1); node = 0 means no-op
     case FoldPart(start: Int, length: Int?)
+    case Split(node: Int, action: WAVLAfterSplit)
 }
 class WAVLTester<S: Sequence> where S.Value == Int {
     var tree: S
@@ -176,16 +215,16 @@ class WAVLTester<S: Sequence> where S.Value == Int {
     }
     func executeCommand(cmd: WAVLCommand) -> (NSRange, Int)? {
         switch cmd {
-        case .Search(let pos):
+        case .Search(pos: let pos):
             return tree.search(pos: pos)
-        case .Insert(let value, let length, let dir, let near):
+        case .Insert(value: let value, length: let length, dir: let dir, near: let near):
             let realLength = length >= 1 ? length : 1 - length
             let index = near % (1 + nodes.count)
             let node = index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]
             let (newNode, shift) = tree.insert(value: value, length: realLength, dir: dir, near: node)
             nodes.append(newNode)
             return (NSMakeRange(shift, length), 0)
-        case .Remove(let node):
+        case .Remove(node: let node):
             let index = node % (1 + nodes.count)
             if let toRemove = (index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]) {
                 let range = tree.remove(node: toRemove)
@@ -193,7 +232,7 @@ class WAVLTester<S: Sequence> where S.Value == Int {
                 return (range, 0)
             }
             return nil
-        case .SetLength(let node, let length):
+        case .SetLength(node: let node, length: let length):
             let realLength = length >= 1 ? length : 1 - length
             let index = node % (1 + nodes.count)
             if let toChange = (index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]) {
@@ -201,13 +240,39 @@ class WAVLTester<S: Sequence> where S.Value == Int {
                 return (range, 0)
             }
             return nil
-        case .FoldPart(let start, let length):
+        case .FoldPart(start: let start, length: let length):
             return tree.foldLeftBounds((NSMakeRange(1, 1), 0), from: start, to: length.map {start &+ $0}) {acc, bounds, value in
                 let (range, sum) = acc
                 let newStart = range.location &* (1 + bounds.location)
                 let newLength = range.length &* bounds.length
                 return (NSMakeRange(newStart, newLength), sum &+ value)
             }
+        case .Split(node: let node, action: let afterSplit):
+            let index = node % (1 + nodes.count)
+            if let pivot = (index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]) {
+                var (left, right) = tree.split(node: pivot)
+                var toRemove: [S.Node]
+                switch(afterSplit) {
+                case .Left:
+                    tree = left
+                    toRemove = [pivot] + right.getAllNodes()
+                case .Right:
+                    tree = right
+                    toRemove = left.getAllNodes() + [pivot]
+                case .Union:
+                    tree = left
+                    tree.union(with: &right)
+                    toRemove = [pivot]
+                case .Reverse:
+                    tree = right
+                    tree.union(with: &left)
+                    toRemove = [pivot]
+                }
+                for n in toRemove {
+                    nodes.removeAll{S.same(node1: $0, node2: n)}
+                }
+            }
+            return nil
         }
     }
 }
@@ -222,12 +287,25 @@ func checkSame(t1: (NSRange, Int)?, t2: (NSRange, Int)?) -> Bool {
 func testCommands(cmds: [WAVLCommand]) throws {
     let tester1 = WAVLTester(tree: WAVLTree())
     let tester2 = WAVLTester(tree: SimpleSequence())
+    var index = 0
     for cmd in cmds {
         let val1 = tester1.executeCommand(cmd: cmd)
         let val2 = tester2.executeCommand(cmd: cmd)
         XCTAssert(tester1.tree.checkBalanced())
+        let foldedTree: [(NSRange, Int)] = tester1.tree.foldLeftBounds([]){$0 + [($1, $2)]}
+        var foldedNodes: [(NSRange, Int)] = []
+        var start = 0
+        for node in tester2.tree.nodes {
+            foldedNodes.append((NSMakeRange(start, node.length), node.value))
+            start += node.length
+        }
+        XCTAssertEqual(foldedTree.count, foldedNodes.count)
+        for (node1, node2) in zip(foldedTree, foldedNodes) {
+            XCTAssert(checkSame(t1: node1, t2: node2))
+        }
         XCTAssertEqual(tester1.tree.foldLeft([]){$0 + [$1]}, tester2.tree.nodes.map {$0.value})
         XCTAssert(checkSame(t1: val1, t2: val2))
+        index += 1
     }
 }
 func generatePos() -> Int {
@@ -246,7 +324,7 @@ func generatePos() -> Int {
     }
 }
 func generateCmd() -> WAVLCommand {
-    switch Int.random(in: 0...4) {
+    switch Int.random(in: 0...5) {
     case 0:
         return .Search(pos: generatePos())
     case 1:
@@ -259,10 +337,20 @@ func generateCmd() -> WAVLCommand {
         return .Remove(node: Int.random(in: Int.min...Int.max))
     case 3:
         return .SetLength(node: Int.random(in: Int.min...Int.max), length: Int.random(in: 1...1000))
-    default:
+    case 4:
         let start = generatePos()
         let length = Bool.random() ? generatePos() : nil
         return .FoldPart(start: start, length: length)
+    default:
+        let node = Int.random(in: 0...Int.max)
+        let afterSplit: WAVLAfterSplit
+        switch(Int.random(in: 0...3)) {
+        case 0: afterSplit = .Left
+        case 1: afterSplit = .Right
+        case 2: afterSplit = .Union
+        default: afterSplit = .Reverse
+        }
+        return .Split(node: node, action: afterSplit)
     }
 }
 func generateCmds() -> [WAVLCommand] {

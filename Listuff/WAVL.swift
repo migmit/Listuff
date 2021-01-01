@@ -426,7 +426,7 @@ struct WAVLTree<V>: Sequence {
             size += c.end
             current = c[.Right]?.node
         }
-        _ = node.advance(dir: .Left, length: size) // FIXME
+        _ = node.advance(dir: .Left, length: size)
         node[.Left] = root?.mkSubNode(deep: false)
         node[.Right] = other.root?.mkSubNode(deep: false)
         let (newRoot, rankRaise) = WAVLTree.rebalanceHook(root: node, ranks: WAVLDirMap(dir: .Left, this: rank, other: other.rank))
@@ -443,11 +443,13 @@ struct WAVLTree<V>: Sequence {
         var ranks = WAVLDirMap {node.deep(dir: $0) ? -2 : -1}
         var current = node
         var shift = node.end
-        while let (parent, dir, isDeep) = current.getChildInfo() {
+        var childInfo = node.getChildInfo()
+        while let (parent, dir, isDeep) = childInfo {
             current = parent
+            childInfo = current.getChildInfo()
             ranks[.Left] -= isDeep ? 2 : 1
             ranks[.Right] -= isDeep ? 2 : 1
-            shift = current.advance(dir: dir, length: -shift)
+            shift += current.advance(dir: dir, length: -shift)
             let isOtherDeep = current.deep(dir: dir.other)
             current[dir] = results[dir.other]?.mkSubNode(deep: false)
             (results[dir.other], ranks[dir.other]) = WAVLTree.rebalanceHook(root: current, ranks: WAVLDirMap(dir: dir, this: ranks[dir.other], other: isOtherDeep ? -2 : -1))
