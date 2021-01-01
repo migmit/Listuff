@@ -452,7 +452,7 @@ struct WAVLTree<V>: Sequence {
             current[dir] = results[dir.other]?.mkSubNode(deep: false)
             let (newRoot, rankRaise) = WAVLTree.rebalanceHook(root: current, ranks: WAVLDirMap(dir: dir, this: ranks[dir.other], other: isOtherDeep ? -2 : -1))
             results[dir.other] = newRoot
-            ranks[dir.other] -= rankRaise
+            ranks[dir.other] += rankRaise
         }
         let oldRank = rank
         self = WAVLTree()
