@@ -382,18 +382,18 @@ struct WAVLTree<V>: Sequence {
         _ = remove(node: current)
         return current
     }
-    private static func rebalanceHook(root: Node, rankDrops: WAVLDirMap<Int>) -> (Node, Int) { // returned value: root rank raise
-        let lRankDrop = rankDrops[.Left]
-        let rRankDrop = rankDrops[.Right]
-        let lrRankDiff = rRankDrop - lRankDrop // left.rank - right.rank
+    private static func rebalanceHook(root: Node, ranks: WAVLDirMap<Int>) -> (Node, Int) { // returned value: root rank raise
+        let lRank = ranks[.Left]
+        let rRank = ranks[.Right]
+        let lrRankDiff = lRank - rRank
         let absRankDiff = abs(lrRankDiff)
         if absRankDiff <= 1 {
-            let minDrop = Swift.min(lRankDrop, rRankDrop)
-            root[.Left]?.deep = lRankDrop > minDrop
-            root[.Right]?.deep = rRankDrop > minDrop
-            return (root, 1 - minDrop)
+            let maxRank = Swift.max(lRank, rRank)
+            root[.Left]?.deep = lRank < maxRank
+            root[.Right]?.deep = rRank < maxRank
+            return (root, maxRank + 1)
         }
-        let (dir, initialRank) = lrRankDiff > 0 ? (WAVLDir.Right, -lRankDrop) : (WAVLDir.Left, -rRankDrop)
+        let (dir, initialRank) = lrRankDiff > 0 ? (WAVLDir.Right, lRank) : (WAVLDir.Left, rRank)
         var tree = WAVLTree(root: root[dir.other]?.node, rank: initialRank) // real rank doesn't matter, we are only interested in relatives
         var curRankDiff = absRankDiff
         var isDeep: Bool
@@ -429,7 +429,7 @@ struct WAVLTree<V>: Sequence {
         _ = node.advance(dir: .Left, length: size) // FIXME
         node[.Left] = root?.mkSubNode(deep: false)
         node[.Right] = other.root?.mkSubNode(deep: false)
-        let (newRoot, rankRaise) = WAVLTree.rebalanceHook(root: node, rankDrops: WAVLDirMap(dir: .Left, this: -rank, other: -other.rank))
+        let (newRoot, rankRaise) = WAVLTree.rebalanceHook(root: node, ranks: WAVLDirMap(dir: .Left, this: rank, other: other.rank))
         self = WAVLTree(root: newRoot, rank: rankRaise)
         other = WAVLTree()
     }
@@ -440,22 +440,22 @@ struct WAVLTree<V>: Sequence {
     }
     mutating func split(node: Node) -> (WAVLTree, WAVLTree) {
         var results = WAVLDirMap {node[$0]?.node}
-        var rankDrops = WAVLDirMap {node.deep(dir: $0) ? 2 : 1}
+        var ranks = WAVLDirMap {node.deep(dir: $0) ? -2 : -1}
         var current = node
         var shift = node.end
         while let (parent, dir, isDeep) = current.getChildInfo() {
             current = parent
-            rankDrops[.Left] += isDeep ? 2 : 1
-            rankDrops[.Right] += isDeep ? 2 : 1
+            ranks[.Left] -= isDeep ? 2 : 1
+            ranks[.Right] -= isDeep ? 2 : 1
             shift = current.advance(dir: dir, length: -shift)
             let isOtherDeep = current.deep(dir: dir.other)
             current[dir] = results[dir.other]?.mkSubNode(deep: false)
-            let (newRoot, rankRaise) = WAVLTree.rebalanceHook(root: current, rankDrops: WAVLDirMap(dir: dir, this: rankDrops[dir.other], other: isOtherDeep ? 2 : 1))
+            let (newRoot, rankRaise) = WAVLTree.rebalanceHook(root: current, ranks: WAVLDirMap(dir: dir, this: ranks[dir.other], other: isOtherDeep ? -2 : -1))
             results[dir.other] = newRoot
-            rankDrops[dir.other] -= rankRaise
+            ranks[dir.other] -= rankRaise
         }
         let oldRank = rank
         self = WAVLTree()
-        return (WAVLTree(root: results[.Left], rank: oldRank - rankDrops[.Left]), WAVLTree(root: results[.Right], rank: oldRank - rankDrops[.Right]))
+        return (WAVLTree(root: results[.Left], rank: oldRank + ranks[.Left]), WAVLTree(root: results[.Right], rank: oldRank + ranks[.Right]))
     }
 }
