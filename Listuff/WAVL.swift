@@ -415,7 +415,7 @@ struct WAVLTree<V>: Sequence {
         _ = tree.insertRebalance(startWith: parent, topChild: root, subDeep: isDeep, subOtherDeep: isOtherDeep, dir: dir, length: root.end) // if dir == .Right, real length doesn't matter, since dir == .Right always
         return (tree.root!, tree.rank)
     }
-    mutating func join(node: Node, other: inout WAVLTree) { // node.end should be the desired length
+    private mutating func joinNode (node: Node, other: inout WAVLTree) { // node.end should be the desired length
         var size = 0
         var current = root
         while let c = current {
@@ -429,9 +429,14 @@ struct WAVLTree<V>: Sequence {
         self = WAVLTree(root: newRoot, rank: rankRaise)
         other = WAVLTree()
     }
+    mutating func join(value: V, length: Int, other: inout WAVLTree) -> Node {
+        let newNode = Node(value: value, length: length)
+        joinNode(node: newNode, other: &other)
+        return newNode
+    }
     mutating func union(with: inout WAVLTree) {
         if let node = with.popLeft() {
-            join(node: node, other: &with)
+            joinNode(node: node, other: &with)
         } // no else, since it means `with` is empty, and we shouldn't do anything
     }
     mutating func split(node: Node) -> (WAVLTree, NSRange, WAVLTree) {
