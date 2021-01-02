@@ -111,6 +111,20 @@ struct WAVLTree<V>: Sequence {
             }
             return result
         }
+        func near(dir: WAVLDir) -> Node? {
+            if let n = self[dir]?.node {
+                var current = n
+                while let child = current[dir.other] {current = child.node}
+                return current
+            } else {
+                var childInfo = getChildInfo()
+                while let (parent, d, _) = childInfo {
+                    if d == dir.other {return parent}
+                    childInfo = parent.getChildInfo()
+                }
+                return nil
+            }
+        }
     }
     private(set) var root: Node? = nil
     private(set) var rank: Int = 0
