@@ -25,69 +25,55 @@ class Document {
             numbered.parent = self
             numbered.this = node
         }
+        func side(dir: WAVLDir) -> Item? {
+            return items.side(dir: dir)?.value
+        }
     }
     enum Item {
         case regular(value: RegularItem)
         case numbered(value: NumberedList)
         case sublist(value: Sublist)
-        var parent: List {
-            get {
-                switch(self) {
-                case .regular(value: let value): return value.parent
-                case .numbered(value: let value): return value.parent
-                case .sublist(value: let value): return value.parent
-                }
-            }
-            set(parent) {
-                switch(self) {
-                case .regular(value: let value): value.parent = parent
-                case .numbered(value: let value): value.parent = parent
-                case .sublist(value: let value): value.parent = parent
-                }
-            }
-        }
-        var this: WAVLTree<Item>.Node? {
-            get {
-                switch(self) {
-                case .regular(value: let value): return value.this
-                case .numbered(value: let value): return value.this
-                case .sublist(value: let value): return value.this
-                }
-            }
-            set(this) {
-                switch(self) {
-                case .regular(value: let value): value.this = this
-                case .numbered(value: let value): value.this = this
-                case .sublist(value: let value): value.this = this
-                }
+        var impl: ListItem {
+            switch(self) {
+            case .regular(value: let value): return value
+            case .numbered(value: let value): return value
+            case .sublist(value: let value): return value
             }
         }
     }
-    class RegularItem {
+    class ListItem {
+        weak var this: WAVLTree<Item>.Node? = nil
+        var parent: List
+        init(parent: List) {
+            self.parent = parent
+        }
+        var item: Item? {
+            return this?.value
+        }
+        func near(dir: WAVLDir) -> Item? {
+            return this?.near(dir: dir)?.value
+        }
+    }
+    class RegularItem: ListItem {
         var content: Line
         var style: LineStyle?
-        var parent: List
-        weak var this: WAVLTree<Item>.Node? = nil
         init(content: Line, style: LineStyle?, parent: List) {
             self.content = content
             self.style = style
-            self.parent = parent
+            super.init(parent: parent)
         }
     }
-    class NumberedList {
+    class NumberedList: ListItem {
         var items: WAVLTree<NumberedItem>
-        var parent: List
-        weak var this: WAVLTree<Item>.Node? = nil
-        init(parent: List) {
-            self.items = WAVLTree()
-            self.parent = parent
-        }
         init(content: Line, parent: List) {
             self.items = WAVLTree()
-            self.parent = parent
+            super.init(parent: parent)
             let item = NumberedItem(content: content, parent: self)
             let (node, _) = self.items.insert(value: item, length: 1)
             item.this = node
+        }
+        func side(dir: WAVLDir) -> NumberedItem? {
+            return items.side(dir: dir)?.value
         }
     }
     class NumberedItem {
@@ -99,14 +85,15 @@ class Document {
             self.content = content
             self.parent = parent
         }
+        func near(dir: WAVLDir) -> NumberedItem? {
+            return this.flatMap{$0.near(dir: dir).map{$0.value}}
+        }
     }
-    class Sublist {
+    class Sublist: ListItem {
         var list: List
-        var parent: List
-        weak var this: WAVLTree<Item>.Node? = nil
         init(list: List, parent: List) {
             self.list = list
-            self.parent = parent
+            super.init(parent: parent)
         }
     }
     class Line {
