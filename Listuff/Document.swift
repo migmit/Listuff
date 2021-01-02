@@ -11,14 +11,18 @@ class Document {
     class List {
         var items: WAVLTree<Item>
         var parent: ListParent?
-        init(regular: RegularItem, parent: ListParentContainer? = nil) {
+        init(content: Line, style: LineStyle?, parent: ListParentContainer? = nil) {
             self.items = WAVLTree()
-            _ = self.items.insert(value: .regular(value: regular), length: 1)
             self.parent = parent.map{ListParent(container: $0)}
+            let regular = RegularItem(content: content, style: style, parent: self)
+            let (node, _) = self.items.insert(value: .regular(value: regular), length: 1)
+            regular.this = node
         }
         init(numbered: NumberedList, parent: ListParentContainer? = nil) {
             self.items = WAVLTree()
-            _ = self.items.insert(value: .numbered(value: numbered), length: 1)
+            self.parent = parent.map{ListParent(container: $0)}
+            let (node, _) = self.items.insert(value: .numbered(value: numbered), length: 1)
+            numbered.this = node
         }
     }
     enum Item {
@@ -60,10 +64,10 @@ class Document {
     }
     class RegularItem {
         var content: Line
-        var style: LineStyle
+        var style: LineStyle?
         var parent: List
         weak var this: WAVLTree<Item>.Node? = nil
-        init(content: Line, style: LineStyle, parent: List) {
+        init(content: Line, style: LineStyle?, parent: List) {
             self.content = content
             self.style = style
             self.parent = parent
