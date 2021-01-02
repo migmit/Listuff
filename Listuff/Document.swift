@@ -11,17 +11,18 @@ class Document {
     class List {
         var items: WAVLTree<Item>
         var parent: ListParent?
-        init(content: Line, style: LineStyle?, parent: ListParentContainer? = nil) {
+        init(regular: RegularItem, parent: ListParentContainer? = nil) {
             self.items = WAVLTree()
             self.parent = parent.map{ListParent(container: $0)}
-            let regular = RegularItem(content: content, style: style, parent: self)
             let (node, _) = self.items.insert(value: .regular(value: regular), length: 1)
+            regular.parent = self
             regular.this = node
         }
         init(numbered: NumberedList, parent: ListParentContainer? = nil) {
             self.items = WAVLTree()
             self.parent = parent.map{ListParent(container: $0)}
             let (node, _) = self.items.insert(value: .numbered(value: numbered), length: 1)
+            numbered.parent = self
             numbered.this = node
         }
     }
