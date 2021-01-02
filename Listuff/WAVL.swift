@@ -102,6 +102,15 @@ struct WAVLTree<V>: Sequence {
             while let child = current[.Left]?.node {current = child}
             return current
         }
+        func totalLength() -> Int {
+            var result = end
+            var current = self
+            while let sub = current[.Right]?.node {
+                current = sub
+                result += current.end
+            }
+            return result
+        }
     }
     private(set) var root: Node? = nil
     private(set) var rank: Int = 0
@@ -184,17 +193,11 @@ struct WAVLTree<V>: Sequence {
         return result
     }
     static func setLength(node: Node, length: Int) -> NSRange {
-        var shift = 0
-        var subNode = node[.Left]?.node
-        while let child = subNode {
-            shift += child.end
-            subNode = child[.Right]?.node
-        }
+        let shift = node[.Left]?.node.totalLength() ?? 0
         let oldLength = node.end - shift
         let advance = length - oldLength
         _ = node.advance(dir: .Left, length: advance)
-        shift += advanceRecurse(node: node, length: advance)
-        return NSMakeRange(shift, oldLength)
+        return NSMakeRange(shift + advanceRecurse(node: node, length: advance), oldLength)
     }
     private mutating func insertRebalance(startWith: Node, topChild: Node, subDeep: Bool, subOtherDeep: Bool, dir: WAVLDir, length: Int) -> Int {
         var current = startWith
@@ -431,12 +434,19 @@ struct WAVLTree<V>: Sequence {
             join(node: node, other: &with)
         } // no else, since it means `with` is empty, and we shouldn't do anything
     }
-    mutating func split(node: Node) -> (WAVLTree, WAVLTree) {
+    mutating func split(node: Node) -> (WAVLTree, NSRange, WAVLTree) {
+        defer {
+            node[.Left] = nil
+            node[.Right] = nil
+            node.detach()
+        }
         var results = WAVLDirMap {node[$0]?.node}
         var ranks = WAVLDirMap {node.deep(dir: $0) ? -2 : -1}
         var current = node
         var shift = node.end
         var childInfo = node.getChildInfo()
+        let oldRank = rank
+        let length = shift - (results[.Left]?.totalLength() ?? 0)
         while let (parent, dir, isDeep) = childInfo {
             current = parent
             childInfo = current.getChildInfo()
@@ -446,8 +456,7 @@ struct WAVLTree<V>: Sequence {
             current[dir] = results[dir.other]?.mkSubNode(deep: false)
             (results[dir.other], ranks[dir.other]) = WAVLTree.rebalanceHook(root: current, ranks: WAVLDirMap(dir: dir, this: ranks[dir.other], other: isOtherDeep ? -2 : -1))
         }
-        let oldRank = rank
         if current === root {self = WAVLTree()}
-        return (WAVLTree(root: results[.Left], rank: oldRank + ranks[.Left]), WAVLTree(root: results[.Right], rank: oldRank + ranks[.Right]))
+        return (WAVLTree(root: results[.Left], rank: oldRank + ranks[.Left]), NSMakeRange(shift - length, length), WAVLTree(root: results[.Right], rank: oldRank + ranks[.Right]))
     }
 }

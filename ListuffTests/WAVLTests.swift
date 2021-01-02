@@ -21,7 +21,7 @@ protocol Sequence {
     func checkBalanced() -> Bool
     func getAllNodes() -> [Node]
     mutating func union(with: inout Self)
-    mutating func split(node: Node) -> (Self, Self)
+    mutating func split(node: Node) -> (Self, NSRange, Self)
 }
 
 extension WAVLTree: Sequence {
@@ -175,7 +175,7 @@ final class SimpleSequence<V>: Sequence {
     func union(with: inout SimpleSequence<V>) {
         nodes += with.nodes
     }
-    func split(node: Node) -> (SimpleSequence, SimpleSequence) {
+    func split(node: Node) -> (SimpleSequence, NSRange, SimpleSequence) {
         if let index = (nodes.firstIndex{$0.index == node.index}) {
             let left = SimpleSequence()
             left.autoinc = autoinc
@@ -183,9 +183,9 @@ final class SimpleSequence<V>: Sequence {
             let right = SimpleSequence()
             right.autoinc = autoinc
             right.nodes = Array(nodes.suffix(from: nodes.index(after: index)))
-            return (left, right)
+            return (left, NSMakeRange(left.nodes.map{$0.length}.reduce(0){$0 + $1}, node.length), right)
         } else {
-            return (self, SimpleSequence())
+            return (self, NSMakeRange(0, 0), SimpleSequence())
         }
     }
     func getAllNodes() -> [Node] {
@@ -250,7 +250,7 @@ class WAVLTester<S: Sequence> where S.Value == Int {
         case .Split(node: let node, action: let afterSplit):
             let index = node % (1 + nodes.count)
             if let pivot = (index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]) {
-                var (left, right) = tree.split(node: pivot)
+                var (left, range, right) = tree.split(node: pivot)
                 var toRemove: [S.Node]
                 switch(afterSplit) {
                 case .Left:
@@ -271,8 +271,10 @@ class WAVLTester<S: Sequence> where S.Value == Int {
                 for n in toRemove {
                     nodes.removeAll{S.same(node1: $0, node2: n)}
                 }
+                return (range, 0)
+            } else {
+                return nil
             }
-            return nil
         }
     }
 }
