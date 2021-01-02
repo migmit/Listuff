@@ -1,5 +1,5 @@
 //
-//  Document.swift
+//  swift
 //  Listuff
 //
 //  Created by MigMit on 02.01.2021.
@@ -11,8 +11,8 @@ class Document {
     class List {
         var items: WAVLTree<Item>
         var parent: ListParent?
-        init(items: WAVLTree<Item>, parent: ListParentContainer? = nil) {
-            self.items = items
+        init(parent: ListParentContainer? = nil) {
+            self.items = WAVLTree()
             self.parent = parent.map{ListParent(container: $0)}
         }
     }
@@ -58,7 +58,7 @@ class Document {
         var style: LineStyle
         var parent: List
         weak var this: WAVLTree<Item>.Node? = nil
-        init(content: Document.Line, style: Document.LineStyle, parent: Document.List) {
+        init(content: Line, style: LineStyle, parent: List) {
             self.content = content
             self.style = style
             self.parent = parent
@@ -68,8 +68,8 @@ class Document {
         var items: WAVLTree<NumberedItem>
         var parent: List
         weak var this: WAVLTree<Item>.Node? = nil
-        internal init(items: WAVLTree<Document.NumberedItem>, parent: Document.List) {
-            self.items = items
+        internal init(parent: List) {
+            self.items = WAVLTree()
             self.parent = parent
         }
     }
@@ -78,7 +78,7 @@ class Document {
         var sublist: List
         var parent: NumberedList
         weak var this: WAVLTree<NumberedItem>.Node? = nil
-        init(content: Document.Line, sublist: Document.List, parent: Document.NumberedList) {
+        init(content: Line, sublist: List, parent: NumberedList) {
             self.content = content
             self.sublist = sublist
             self.parent = parent
@@ -88,7 +88,7 @@ class Document {
         var list: List
         var parent: List
         weak var this: WAVLTree<Item>.Node? = nil
-        init(list: Document.List, parent: Document.List) {
+        init(list: List, parent: List) {
             self.list = list
             self.parent = parent
         }
@@ -97,7 +97,7 @@ class Document {
         weak var content: WAVLTree<Line>.Node? = nil
         var checked: Checked?
         var parent: LineParent
-        init(checked: Document.Checked? = nil, parent: Document.LineParent) { // TOFIX
+        init(checked: Checked? = nil, parent: LineParent) {
             self.checked = checked
             self.parent = parent
         }
