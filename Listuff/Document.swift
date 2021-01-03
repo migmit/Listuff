@@ -69,6 +69,9 @@ enum Document {
         }
         func debugPrint(prefix: String) {
             for (_, item) in items {
+                if item.impl.parent !== self {
+                    print("ERROR0")
+                }
                 item.debugPrint(prefix: prefix)
             }
         }
@@ -120,6 +123,10 @@ enum Document {
             super.init(parent: parent)
         }
         func debugPrint(prefix: String) {
+            if case .regular(value: let rv) = content.parent, rv.value === self {
+            } else {
+                print("ERROR1")
+            }
             content.debugPrint(prefix: prefix + (style.map{"\($0) "} ?? ""))
         }
     }
@@ -137,6 +144,9 @@ enum Document {
         }
         func debugPrint(prefix: String) {
             for (_, item) in items {
+                if item.parent !== self {
+                    print("ERROR2")
+                }
                 item.debugPrint(prefix: prefix + "| ")
             }
         }
@@ -157,7 +167,15 @@ enum Document {
             return parent
         }
         func debugPrint(prefix: String) {
+            if case .numbered(value: let ni) = content.parent, ni.value === self {
+            } else {
+                print("ERROR3")
+            }
             content.debugPrint(prefix: prefix)
+            if case .numbered(value: let ni) = sublist?.parent?.container, ni.value === self {
+            } else {
+                print("ERROR4")
+            }
             sublist?.debugPrint(prefix: prefix + "  ")
         }
     }
@@ -168,6 +186,10 @@ enum Document {
             super.init(parent: parent)
         }
         func debugPrint(prefix: String) {
+            if case .sublist(value: let sl) = list.parent?.container, sl.value === self {
+            } else {
+                print("ERROR5")
+            }
             list.debugPrint(prefix: prefix + "  ")
         }
     }
