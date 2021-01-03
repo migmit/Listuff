@@ -206,12 +206,15 @@ struct ContentView: View {
         NavigationView {
             List {
                 ForEach(testDocument.items, id: \.self) {node in
-                    Text(node.trimmingCharacters(in: .whitespacesAndNewlines))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .onTapGesture{
-                            print(node)
-                        }
+                    HStack {
+                        Text(node.trimmingCharacters(in: .whitespacesAndNewlines))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                    }.contentShape(Rectangle())
+                    .onTapGesture{
+                        print(node)
+                    }
                 }
             }
             .listStyle(PlainListStyle())
