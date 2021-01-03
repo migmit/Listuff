@@ -131,12 +131,9 @@ enum Document {
     }
     class NumberedList: ListItem, DebugPrint {
         var items: WAVLTree<NumberedItem>
-        init(content: Line, parent: List) {
+        override init(parent: List) {
             self.items = WAVLTree()
             super.init(parent: parent)
-            let item = NumberedItem(content: content, parent: self)
-            let (node, _) = self.items.insert(value: item, length: 1)
-            item.this = node
         }
         func side(dir: WAVLDir) -> NumberedItem? {
             return items.side(dir: dir)?.value
