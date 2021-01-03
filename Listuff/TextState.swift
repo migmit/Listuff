@@ -44,12 +44,24 @@ class TextState {
             return {self.content.insert(value: $0, length: text.count, dir: $1, near: $2).0}
         }
         func appendNode(list: Document.List, after: (Document.Item, Document.Line)?, node: Node) -> (Document.Item, Document.Line) {
-            let insertedLine = list.insertLine(checked: nil, style: nil, dir: .Right, nearLine: after?.1, nearItem: after?.0, callback: callback(node.text))
+            let style: Document.LineStyle?
+            switch(node.style) {
+            case .bullet: style = .bullet
+            case .dash: style = .dash
+            default: style = nil
+            }
+            let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearLine: after?.1, nearItem: after?.0, callback: callback(node.text))
             return appendSublist(list: list, after: (Document.Item.regular(value: insertedLine), insertedLine.content), nodes: node.children)
         }
         func appendSublist(list: Document.List, after: (Document.Item, Document.Line), nodes: [Node]) -> (Document.Item, Document.Line) {
             guard let firstNode = nodes.first else {return after}
-            let (sublist, item) = list.insertLineSublist(checked: nil, style: nil, dir: .Right, nearLine: after.1, nearItem: after.0, callback: callback(firstNode.text))
+            let style: Document.LineStyle?
+            switch(firstNode.style) {
+            case .bullet: style = .bullet
+            case .dash: style = .dash
+            default: style = nil
+            }
+            let (sublist, item) = list.insertLineSublist(checked: firstNode.checked, style: style, dir: .Right, nearLine: after.1, nearItem: after.0, callback: callback(firstNode.text))
             var lastInserted = (Document.Item.regular(value: item), item.content)
             lastInserted = appendSublist(list: sublist.list, after: lastInserted, nodes: firstNode.children)
             for node in nodes.suffix(from: nodes.index(after: nodes.startIndex)) {
@@ -64,6 +76,7 @@ class TextState {
         for node in nodes {
             lastInserted = appendNode(list: self.document, after: lastInserted, node: node)
         }
+        self.document.debugLog()
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
         let range = WAVLTree.setLength(node: node, length: length)
@@ -93,9 +106,16 @@ class TextState {
 }
 
 struct Node {
+    enum Style {
+        case dash
+        case bullet
+        case number
+    }
     var id: Int
     var text: String
     var children: [Node] = []
+    var checked: Bool? = nil
+    var style: Style? = nil
     
     func allNodes() -> [Node] {
         var result = [self]

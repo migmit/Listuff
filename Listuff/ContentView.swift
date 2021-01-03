@@ -21,11 +21,13 @@ var testDocument = TextState(
                     children: [
                         Node(
                             id: 2,
-                            text: "Third node and some more awesome stuff"
+                            text: "Third node and some more awesome stuff",
+                            style: .bullet
                         ),
                         Node(
                             id: 3,
-                            text: "Fourth node"
+                            text: "Fourth node",
+                            style: .dash
                         )
                     ]
                 ),
