@@ -37,11 +37,6 @@ class TextState {
     var events: EventPublisher {
         return eventsPublisher.eraseToAnyPublisher()
     }
-    init(text: String, chunks: WAVLTree<Item>, root: Item) {
-        self.string = text
-        self.content = WAVLTree()
-        self.document = Document.List()
-    }
     init(node: Node) {
         func callback(_ content: String) -> ((Document.Line, WAVLDir, WAVLTree<Document.Line>.Node?) -> WAVLTree<Document.Line>.Node) {
             let text = content + "\n"
