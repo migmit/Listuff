@@ -9,30 +9,34 @@ import Combine
 import SwiftUI
 //import CoreData
 
-var testDocument = TextState(node: Node(
-    id: 0,
-    text: "First node",
-    children: [
+var testDocument = TextState(
+    nodes: [
         Node(
-            id: 1,
-            text: "Second node",
+            id: 0,
+            text: "First node",
             children: [
                 Node(
-                    id: 2,
-                    text: "Third node and some more awesome stuff"
+                    id: 1,
+                    text: "Second node",
+                    children: [
+                        Node(
+                            id: 2,
+                            text: "Third node and some more awesome stuff"
+                        ),
+                        Node(
+                            id: 3,
+                            text: "Fourth node"
+                        )
+                    ]
                 ),
                 Node(
-                    id: 3,
-                    text: "Fourth node"
+                    id: 4,
+                    text: "Fifth node"
                 )
             ]
-        ),
-        Node(
-            id: 4,
-            text: "Fifth node"
         )
     ]
-))
+)
 
 let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
 let systemColor = UIColor.label

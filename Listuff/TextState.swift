@@ -37,29 +37,33 @@ class TextState {
     var events: EventPublisher {
         return eventsPublisher.eraseToAnyPublisher()
     }
-    init(node: Node) {
+    init(nodes: [Node]) {
         func callback(_ content: String) -> ((Document.Line, WAVLDir, WAVLTree<Document.Line>.Node?) -> WAVLTree<Document.Line>.Node) {
             let text = content + "\n"
             self.string += text
             return {self.content.insert(value: $0, length: text.count, dir: $1, near: $2).0}
         }
-        func appendSublist(list: Document.List, after: (Document.Item, Document.Line)?, nodes: [Node]) -> (Document.Item, Document.Line)? {
-            guard let firstNode = nodes.first else {return nil}
-            let (sublist, item) = list.insertLineSublist(checked: nil, style: nil, dir: .Right, nearLine: after?.1, nearItem: after?.0, callback: callback(firstNode.text))
+        func appendNode(list: Document.List, after: (Document.Item, Document.Line)?, node: Node) -> (Document.Item, Document.Line) {
+            let insertedLine = list.insertLine(checked: nil, style: nil, dir: .Right, nearLine: after?.1, nearItem: after?.0, callback: callback(node.text))
+            return appendSublist(list: list, after: (Document.Item.regular(value: insertedLine), insertedLine.content), nodes: node.children)
+        }
+        func appendSublist(list: Document.List, after: (Document.Item, Document.Line), nodes: [Node]) -> (Document.Item, Document.Line) {
+            guard let firstNode = nodes.first else {return after}
+            let (sublist, item) = list.insertLineSublist(checked: nil, style: nil, dir: .Right, nearLine: after.1, nearItem: after.0, callback: callback(firstNode.text))
             var lastInserted = (Document.Item.regular(value: item), item.content)
-            lastInserted = appendSublist(list: sublist.list, after: lastInserted, nodes: firstNode.children) ?? lastInserted
+            lastInserted = appendSublist(list: sublist.list, after: lastInserted, nodes: firstNode.children)
             for node in nodes.suffix(from: nodes.index(after: nodes.startIndex)) {
-                let insertedLine = sublist.list.insertLine(checked: nil, style: nil, dir: .Right, nearLine: lastInserted.1, nearItem: lastInserted.0, callback: callback(node.text))
-                lastInserted = (Document.Item.regular(value: insertedLine), insertedLine.content)
-                lastInserted = appendSublist(list: sublist.list, after: lastInserted, nodes: node.children) ?? lastInserted
+                lastInserted = appendNode(list: sublist.list, after: lastInserted, node: node)
             }
             return (Document.Item.sublist(value: sublist), lastInserted.1)
         }
         self.string = ""
         self.content = WAVLTree()
         self.document = Document.List()
-        let firstLine = self.document.insertLine(checked: nil, style: nil, dir: .Right, nearLine: nil, nearItem: nil, callback: callback(node.text))
-        _ = appendSublist(list: self.document, after: (Document.Item.regular(value: firstLine), firstLine.content), nodes: node.children)
+        var lastInserted: (Document.Item, Document.Line)? = nil
+        for node in nodes {
+            lastInserted = appendNode(list: self.document, after: lastInserted, node: node)
+        }
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
         let range = WAVLTree.setLength(node: node, length: length)
