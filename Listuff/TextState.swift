@@ -66,17 +66,17 @@ class TextState {
         eventsPublisher.send(.SetLength(value: node.value, length: length, oldRange: range))
         return range
     }
-//    func insertChunk(value: Item, length: Int, dir: Dir = .Right, near: Chunk? = nil) -> (Chunk, Int) {
-//        let (node, start) = chunks.insert(value: value, length: length, dir: dir, near: near)
-//        eventsPublisher.send(.Insert(node: node, range: NSMakeRange(start, length)))
-//        return (node, start)
-//    }
-//    func removeChunk(node: Chunk) -> NSRange {
-//        let value = node.value
-//        let range = chunks.remove(node: node)
-//        eventsPublisher.send(.Remove(value: value, oldRange: range))
-//        return range
-//    }
+    func insertChunk(value: Document.Line, length: Int, dir: Dir = .Right, near: Chunk? = nil) -> (Chunk, Int) {
+        let (node, start) = content.insert(value: value, length: length, dir: dir, near: near)
+        eventsPublisher.send(.Insert(node: node, range: NSMakeRange(start, length)))
+        return (node, start)
+    }
+    func removeChunk(node: Chunk) -> NSRange {
+        let value = node.value
+        let range = content.remove(node: node)
+        eventsPublisher.send(.Remove(value: value, oldRange: range))
+        return range
+    }
     func replaceCharacters(in range: NSRange, with str: String) -> (NSRange, Int) { // changed range (could be wider than "in range"), change in length
         return (range, 0) // TOFIX
     }
