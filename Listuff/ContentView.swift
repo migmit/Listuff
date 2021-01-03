@@ -102,7 +102,7 @@ struct HierarchyView: UIViewRepresentable {
             return nil
         }
         override var string: String {
-            return content.text
+            return content.string
         }
         override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
             guard let listItemInfo = content.listItemInfo(pos: location) else {
@@ -201,12 +201,12 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             List {
-                ForEach(testDocument.items, id: \.0) {node in
-                    Text(node.1.trimmingCharacters(in: .whitespacesAndNewlines))
+                ForEach(testDocument.items, id: \.self) {node in
+                    Text(node.trimmingCharacters(in: .whitespacesAndNewlines))
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .onTapGesture{
-                            print(node.0)
+                            print(node)
                         }
                 }
             }

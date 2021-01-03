@@ -10,45 +10,25 @@ import Combine
 
 class TextState {
     typealias Dir = WAVLDir
-    typealias Chunk = WAVLTree<Item>.Node
+    typealias Chunk = WAVLTree<Document.Line>.Node
     typealias EventPublisher = AnyPublisher<Event, Never>
-    class Item {
-        var id: Int
-        weak var text: WAVLTree<Item>.Node!
-        var children: WAVLTree<Item> = WAVLTree()
-        weak var parent: Item?
-        init(id: Int, text: String, chunks: inout WAVLTree<Item>, parent: Item?) {
-            self.id = id
-            self.text = chunks.insert(value: self, length: text.utf16.count, dir: .Left, near: nil).0
-            self.parent = parent
-        }
-        var depth: Int {
-            var result = 0
-            var current = self
-            while let p = current.parent {
-                result += 1
-                current = p
-            }
-            return result
-        }
-    }
     enum Event {
         case Insert(node: Chunk, range: NSRange)
-        case Remove(value: Item, oldRange: NSRange)
-        case SetLength(value: Item, length: Int, oldRange: NSRange)
+        case Remove(value: Document.Line, oldRange: NSRange)
+        case SetLength(value: Document.Line, length: Int, oldRange: NSRange)
     }
     struct ListItemInfo {
         let range: NSRange
         let depth: Int
     }
-    var text: String
-    var chunks: WAVLTree<Item>
-    var root: Item
-    var items: [(Int, Substring)] {
-        var result: [(Int, Substring)] = []
-        for (bounds, item) in chunks {
-            if let r = Range(bounds, in: text) {
-                result.append((item.id, text[r]))
+    var string: String
+    var content: WAVLTree<Document.Line>
+    var document: Document.List
+    var items: [Substring] {
+        var result: [Substring] = []
+        for (bounds, _) in content {
+            if let r = Range(bounds, in: string) {
+                result.append(string[r])
             }
         }
         return result
@@ -58,51 +38,57 @@ class TextState {
         return eventsPublisher.eraseToAnyPublisher()
     }
     init(text: String, chunks: WAVLTree<Item>, root: Item) {
-        self.text = text
-        self.chunks = chunks
-        self.root = root
+        self.string = text
+        self.content = WAVLTree()
+        self.document = Document.List()
     }
     init(node: Node) {
-        var chunks: WAVLTree<Item> = WAVLTree()
-        var text = node.text + "\n"
-        var root = Item(id: node.id, text: text, chunks: &chunks, parent: nil)
-        func appendChildren(current: inout Item, children: [Node]) {
-            for child in children {
-                let childText = child.text + "\n"
-                text += childText
-                var item = Item(id: child.id, text: childText, chunks: &chunks, parent: current)
-                let _ = current.children.insert(value: item, length: 1, dir: .Left, near: nil)
-                appendChildren(current: &item, children: child.children)
-            }
+        func callback(_ content: String) -> ((Document.Line, WAVLDir, WAVLTree<Document.Line>.Node?) -> WAVLTree<Document.Line>.Node) {
+            let text = content + "\n"
+            self.string += text
+            return {self.content.insert(value: $0, length: text.count, dir: $1, near: $2).0}
         }
-        appendChildren(current: &root, children: node.children)
-        self.text = text
-        self.chunks = chunks
-        self.root = root
+        func appendSublist(list: Document.List, after: (Document.Item, Document.Line)?, nodes: [Node]) -> (Document.Item, Document.Line)? {
+            guard let firstNode = nodes.first else {return nil}
+            let (sublist, item) = list.insertLineSublist(checked: nil, style: nil, dir: .Right, nearLine: after?.1, nearItem: after?.0, callback: callback(firstNode.text))
+            var lastInserted = (Document.Item.regular(value: item), item.content)
+            lastInserted = appendSublist(list: sublist.list, after: lastInserted, nodes: firstNode.children) ?? lastInserted
+            for node in nodes.suffix(from: nodes.index(after: nodes.startIndex)) {
+                let insertedLine = sublist.list.insertLine(checked: nil, style: nil, dir: .Right, nearLine: lastInserted.1, nearItem: lastInserted.0, callback: callback(node.text))
+                lastInserted = (Document.Item.regular(value: insertedLine), insertedLine.content)
+                lastInserted = appendSublist(list: sublist.list, after: lastInserted, nodes: node.children) ?? lastInserted
+            }
+            return (Document.Item.sublist(value: sublist), lastInserted.1)
+        }
+        self.string = ""
+        self.content = WAVLTree()
+        self.document = Document.List()
+        let firstLine = self.document.insertLine(checked: nil, style: nil, dir: .Right, nearLine: nil, nearItem: nil, callback: callback(node.text))
+        _ = appendSublist(list: self.document, after: (Document.Item.regular(value: firstLine), firstLine.content), nodes: node.children)
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
         let range = WAVLTree.setLength(node: node, length: length)
         eventsPublisher.send(.SetLength(value: node.value, length: length, oldRange: range))
         return range
     }
-    func insertChunk(value: Item, length: Int, dir: Dir = .Right, near: Chunk? = nil) -> (Chunk, Int) {
-        let (node, start) = chunks.insert(value: value, length: length, dir: dir, near: near)
-        eventsPublisher.send(.Insert(node: node, range: NSMakeRange(start, length)))
-        return (node, start)
-    }
-    func removeChunk(node: Chunk) -> NSRange {
-        let value = node.value
-        let range = chunks.remove(node: node)
-        eventsPublisher.send(.Remove(value: value, oldRange: range))
-        return range
-    }
+//    func insertChunk(value: Item, length: Int, dir: Dir = .Right, near: Chunk? = nil) -> (Chunk, Int) {
+//        let (node, start) = chunks.insert(value: value, length: length, dir: dir, near: near)
+//        eventsPublisher.send(.Insert(node: node, range: NSMakeRange(start, length)))
+//        return (node, start)
+//    }
+//    func removeChunk(node: Chunk) -> NSRange {
+//        let value = node.value
+//        let range = chunks.remove(node: node)
+//        eventsPublisher.send(.Remove(value: value, oldRange: range))
+//        return range
+//    }
     func replaceCharacters(in range: NSRange, with str: String) -> (NSRange, Int) { // changed range (could be wider than "in range"), change in length
         return (range, 0) // TOFIX
     }
     func listItemInfo(pos: Int) -> ListItemInfo? {
-        return chunks.search(pos: pos).map{ListItemInfo(
+        return content.search(pos: pos).map{ListItemInfo(
             range: $0.0,
-            depth: $0.1.depth
+            depth: $0.1.depth()
         )}
     }
 }
