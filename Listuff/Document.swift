@@ -43,21 +43,14 @@ enum Document {
             return items.side(dir: dir)?.value
         }
         func insertLine(checked: Bool?, style: LineStyle?, dir: WAVLDir, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> RegularItem {
-            let itemProxy = WeakProxy<RegularItem>()
-            let line = Line(checked: checked.map{Checked(value: $0)}, parent: .regular(value: itemProxy))
-            let item = RegularItem(content: line, style: style, parent: self)
-            itemProxy.value = item
-            line.content = callback(line, dir, nearLine?.content)
+            let item = RegularItem(checked: checked, style: style, dir: dir, nearLine: nearLine, parent: self, callback: callback)
             item.this = items.insert(value: .regular(value: item), length: 1, dir: dir, near: nearItem?.impl.this).0
             return item
         }
         func insertLineSublist(checked: Bool?, style: LineStyle?, dir: WAVLDir, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> (Sublist, RegularItem) {
-            let listProxy = WeakProxy<Sublist>()
-            let list = List(parent: .sublist(value: listProxy))
-            let sublist = Sublist(list: list, parent: self)
-            listProxy.value = sublist
+            let sublist = Sublist(parentList: self)
             sublist.this = items.insert(value: .sublist(value: sublist), length: 1, dir: dir, near: nearItem?.impl.this).0
-            let item = list.insertLine(checked: checked, style: style, dir: dir, nearLine: nearLine, nearItem: nil, callback: callback)
+            let item = sublist.list.insertLine(checked: checked, style: style, dir: dir, nearLine: nearLine, nearItem: nil, callback: callback)
             return (sublist, item)
         }
         func levelUp() -> Level? {
@@ -129,6 +122,12 @@ enum Document {
             }
             content.debugPrint(prefix: prefix + (style.map{"\($0) "} ?? ""))
         }
+        convenience init(checked: Bool?, style: LineStyle?, dir: WAVLDir, nearLine: Line?, parent: List, callback: LineCallback) {
+            let itemProxy = WeakProxy<RegularItem>()
+            let line = Line(checked: checked, dir: dir, nearLine: nearLine, parent: .regular(value: itemProxy), callback: callback)
+            self.init(content: line, style: style, parent: parent)
+            itemProxy.value = self
+        }
     }
     class NumberedList: ListItem, DebugPrint {
         var items: WAVLTree<NumberedItem>
@@ -185,6 +184,12 @@ enum Document {
             self.list = list
             super.init(parent: parent)
         }
+        convenience init(parentList: List) {
+            let listProxy = WeakProxy<Sublist>()
+            let list = List(parent: .sublist(value: listProxy))
+            self.init(list: list, parent: parentList)
+            listProxy.value = self
+        }
         func debugPrint(prefix: String) {
             if case .sublist(value: let sl) = list.parent?.container, sl.value === self {
             } else {
@@ -200,6 +205,10 @@ enum Document {
         init(checked: Checked? = nil, parent: LineParent) {
             self.checked = checked
             self.parent = parent
+        }
+        convenience init(checked: Bool?, dir: WAVLDir, nearLine: Line?, parent: LineParent, callback: LineCallback) {
+            self.init(checked: checked.map{Checked(value: $0)}, parent: parent)
+            self.content = callback(self, dir, nearLine?.content)
         }
         func levelUp() -> Level? {
             switch parent {
