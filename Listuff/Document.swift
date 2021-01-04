@@ -35,9 +35,9 @@ enum Document {
     class List: DebugPrint {
         var items: WAVLTree<Item>
         var parent: ListParent?
-        init(parent: ListParentContainer? = nil) {
+        init(parent: ListParent? = nil) {
             self.items = WAVLTree()
-            self.parent = parent.map{ListParent(container: $0)}
+            self.parent = parent
         }
         func side(dir: WAVLDir) -> Item? {
             return items.side(dir: dir)?.value
@@ -53,8 +53,20 @@ enum Document {
             let item = sublist.list.insertLine(checked: checked, style: style, dir: dir, nearLine: nearLine, nearItem: nil, callback: callback)
             return (sublist, item)
         }
+        func insertLineNumberedList(checked: Bool?, dir: WAVLDir, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> (NumberedList, NumberedItem) {
+            let numberedList = NumberedList(parent: self)
+            numberedList.this = items.insert(value: .numbered(value: numberedList), length: 1, dir: dir, near: nearItem?.impl.this).0
+            let item = numberedList.insertLine(checked: checked, dir: dir, nearLine: nearLine, nearItem: nil, callback: callback)
+            return (numberedList, item)
+        }
+        func insertLineNumberedSublist(checked: Bool?, dir: WAVLDir, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> (Sublist, NumberedList, NumberedItem) {
+            let sublist = Sublist(parentList: self)
+            sublist.this = items.insert(value: .sublist(value: sublist), length: 1, dir: dir, near: nearItem?.impl.this).0
+            let (numberedList, numberedItem) = sublist.list.insertLineNumberedList(checked: checked, dir: dir, nearLine: nearLine, nearItem: nil, callback: callback)
+            return (sublist, numberedList, numberedItem)
+        }
         func levelUp() -> Level? {
-            switch parent?.container {
+            switch parent {
             case .sublist(value: let value): return value.value
             case .numbered(value: let value): return value.value
             case nil: return nil
@@ -138,12 +150,17 @@ enum Document {
         func side(dir: WAVLDir) -> NumberedItem? {
             return items.side(dir: dir)?.value
         }
+        func insertLine(checked: Bool?, dir: WAVLDir, nearLine: Line?, nearItem: NumberedItem?, callback: LineCallback) -> NumberedItem {
+            let item = NumberedItem(checked: checked, dir: dir, nearLine: nearLine, parent: self, callback: callback)
+            item.this = items.insert(value: item, length: 1, dir: dir, near: nearItem?.this).0
+            return item
+        }
         func debugPrint(prefix: String) {
             for (_, item) in items {
                 if item.parent !== self {
                     print("ERROR2")
                 }
-                item.debugPrint(prefix: prefix + "| ")
+                item.debugPrint(prefix: prefix + " |")
             }
         }
     }
@@ -155,6 +172,23 @@ enum Document {
         init(content: Line, parent: NumberedList) {
             self.content = content
             self.parent = parent
+        }
+        convenience init(checked: Bool?, dir: WAVLDir, nearLine: Line?, parent: NumberedList, callback: LineCallback) {
+            let itemProxy = WeakProxy<NumberedItem>()
+            let line = Line(checked: checked, dir: dir, nearLine: nearLine, parent: .numbered(value: itemProxy), callback: callback)
+            self.init(content: line, parent: parent)
+            itemProxy.value = self
+        }
+        func addSublistStub() -> List {
+            if let sl = sublist {
+                return sl
+            } else {
+                let itemProxy = WeakProxy<NumberedItem>()
+                itemProxy.value = self
+                let sl = List(parent: .numbered(value: itemProxy))
+                sublist = sl
+                return sl
+            }
         }
         func near(dir: WAVLDir) -> NumberedItem? {
             return this.flatMap{$0.near(dir: dir).map{$0.value}}
@@ -168,9 +202,11 @@ enum Document {
                 print("ERROR3")
             }
             content.debugPrint(prefix: prefix)
-            if case .numbered(value: let ni) = sublist?.parent?.container, ni.value === self {
-            } else {
-                print("ERROR4")
+            if let sl = sublist {
+                if case .numbered(value: let ni) = sl.parent, ni.value === self {
+                } else {
+                    print("ERROR4")
+                }
             }
             sublist?.debugPrint(prefix: prefix + "  ")
         }
@@ -188,7 +224,7 @@ enum Document {
             listProxy.value = self
         }
         func debugPrint(prefix: String) {
-            if case .sublist(value: let sl) = list.parent?.container, sl.value === self {
+            if case .sublist(value: let sl) = list.parent, sl.value === self {
             } else {
                 print("ERROR5")
             }
@@ -224,14 +260,7 @@ enum Document {
         case dash
         case bullet
     }
-    class ListParent {
-        var container: ListParentContainer
-        weak var this: WAVLTree<List>.Node? = nil
-        init(container: ListParentContainer) {
-            self.container = container
-        }
-    }
-    enum ListParentContainer {
+    enum ListParent {
         case sublist(value: WeakProxy<Sublist>)
         case numbered(value: WeakProxy<NumberedItem>)
     }

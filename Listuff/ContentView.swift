@@ -12,29 +12,49 @@ import SwiftUI
 var testDocument = TextState(
     nodes: [
         Node(
-            id: 0,
             text: "First node",
             children: [
                 Node(
-                    id: 1,
                     text: "Second node",
                     children: [
-                        Node(
-                            id: 2,
-                            text: "Third node and some more awesome stuff",
-                            style: .bullet
-                        ),
-                        Node(
-                            id: 3,
-                            text: "Fourth node",
-                            style: .dash
-                        )
+                        Node(text: "Third node and some more awesome stuff", style: .bullet),
+                        Node(text: "Fourth node", style: .dash)
                     ]
                 ),
+                Node(text: "Fifth node")
+            ]
+        ),
+        Node(
+            text: "Numbered list:",
+            children: [
                 Node(
-                    id: 4,
-                    text: "Fifth node"
-                )
+                    text: "First item",
+                    children: [
+                        Node(text: "First child"),
+                        Node(text: "Second child")
+                    ],
+                    style: .number
+                ),
+                Node(text: "Second item", style: .number),
+                Node(text: "Back to normal")
+            ]
+        ),
+        Node(
+            text: "Another numbered list:",
+            children: [
+                Node(
+                    text: "Wait for it..."
+                ),
+                Node(text: "Another first item", style: .number),
+                Node(
+                    text: "Another second item",
+                    children: [
+                        Node(text: "Another first child"),
+                        Node(text: "Another second child")
+                    ],
+                    style: .number
+                ),
+                Node(text: "Back to normal again")
             ]
         )
     ]

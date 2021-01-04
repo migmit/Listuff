@@ -37,8 +37,20 @@ class TextState {
     var events: EventPublisher {
         return eventsPublisher.eraseToAnyPublisher()
     }
+    enum AppendedItem {
+        case regular(value: Document.RegularItem)
+        case sublist(value: Document.Sublist)
+        case numbered(value: Document.NumberedList, item: Document.NumberedItem)
+        var it: Document.Item {
+            switch self {
+            case .regular(value: let value): return .regular(value: value)
+            case .sublist(value: let value): return .sublist(value: value)
+            case .numbered(value: let value, item: _): return .numbered(value: value)
+            }
+        }
+    }
     struct NodeAppendingState {
-        let item: Document.Item
+        let item: AppendedItem?
         let line: Document.Line
     }
     init(nodes: [Node]) {
@@ -47,40 +59,63 @@ class TextState {
             self.string += text
             return {self.content.insert(value: $0, length: text.count, dir: $1, near: $2).0}
         }
+        func appendNodeChildren(numberedList: Document.NumberedList, numberedItem: Document.NumberedItem, nodes: [Node]) -> NodeAppendingState {
+            if nodes.isEmpty {
+                return NodeAppendingState(item: .numbered(value: numberedList, item: numberedItem), line: numberedItem.content)
+            } else {
+                let sublist = numberedItem.addSublistStub()
+                var lastAppended = NodeAppendingState(item: nil, line: numberedItem.content)
+                nodes.forEach{lastAppended = appendNode(list: sublist, after: lastAppended, node: $0)}
+                return NodeAppendingState(item: .numbered(value: numberedList, item: numberedItem), line: lastAppended.line)
+            }
+        }
         func appendNode(list: Document.List, after: NodeAppendingState?, node: Node) -> NodeAppendingState {
             let style: Document.LineStyle?
             switch node.style {
             case .bullet: style = .bullet
             case .dash: style = .dash
-            default: style = nil
+            case .number:
+                let numberedList: Document.NumberedList
+                let numberedItem: Document.NumberedItem
+                if case .numbered(value: let value, item: let item) = after?.item {
+                    numberedList = value
+                    numberedItem = numberedList.insertLine(checked: node.checked, dir: .Right, nearLine: after?.line, nearItem: item, callback: callback(node.text))
+                } else {
+                    (numberedList, numberedItem) = list.insertLineNumberedList(checked: node.checked, dir: .Right, nearLine: after?.line, nearItem: after?.item?.it, callback: callback(node.text))
+                }
+                return appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children)
+            case nil: style = nil
             }
-            let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearLine: after?.line, nearItem: after?.item, callback: callback(node.text))
-            let lastAppended = NodeAppendingState(item: Document.Item.regular(value: insertedLine), line: insertedLine.content)
+            let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearLine: after?.line, nearItem: after?.item?.it, callback: callback(node.text))
+            let lastAppended = NodeAppendingState(item: .regular(value: insertedLine), line: insertedLine.content)
             return appendSublist(list: list, after: lastAppended, nodes: node.children)
+        }
+        func appendSublistFirst(list: Document.List, after: NodeAppendingState, node: Node) -> (Document.Sublist, NodeAppendingState) {
+            let style: Document.LineStyle?
+            switch node.style {
+            case .bullet: style = .bullet
+            case .dash: style = .dash
+            case .number:
+                let (sublist, numberedList, numberedItem) = list.insertLineNumberedSublist(checked: node.checked, dir: .Right, nearLine: after.line, nearItem: after.item?.it, callback: callback(node.text))
+                return (sublist, appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children))
+            case nil: style = nil
+            }
+            let (sublist, item) = list.insertLineSublist(checked: node.checked, style: style, dir: .Right, nearLine: after.line, nearItem: after.item?.it, callback: callback(node.text))
+            let lastInserted = appendSublist(list: sublist.list, after: NodeAppendingState(item: .regular(value: item), line: item.content), nodes: node.children)
+            return (sublist, lastInserted)
         }
         func appendSublist(list: Document.List, after: NodeAppendingState, nodes: [Node]) -> NodeAppendingState {
             guard let firstNode = nodes.first else {return after}
-            let style: Document.LineStyle?
-            switch firstNode.style {
-            case .bullet: style = .bullet
-            case .dash: style = .dash
-            default: style = nil
-            }
-            let (sublist, item) = list.insertLineSublist(checked: firstNode.checked, style: style, dir: .Right, nearLine: after.line, nearItem: after.item, callback: callback(firstNode.text))
-            var lastInserted = NodeAppendingState(item: Document.Item.regular(value: item), line: item.content)
-            lastInserted = appendSublist(list: sublist.list, after: lastInserted, nodes: firstNode.children)
-            for node in nodes.suffix(from: nodes.index(after: nodes.startIndex)) {
-                lastInserted = appendNode(list: sublist.list, after: lastInserted, node: node)
-            }
-            return NodeAppendingState(item: Document.Item.sublist(value: sublist), line: lastInserted.line)
+            let (sublist, afterSublistAppended) = appendSublistFirst(list: list, after: after, node: firstNode)
+            var lastInserted = afterSublistAppended
+            nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{lastInserted = appendNode(list: sublist.list, after: lastInserted, node: $0)}
+            return NodeAppendingState(item: .sublist(value: sublist), line: lastInserted.line)
         }
         self.string = ""
         self.content = WAVLTree()
         self.document = Document.List()
         var lastInserted: NodeAppendingState? = nil
-        for node in nodes {
-            lastInserted = appendNode(list: self.document, after: lastInserted, node: node)
-        }
+        nodes.forEach {lastInserted = appendNode(list: self.document, after: lastInserted, node: $0)}
         self.document.debugLog()
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
@@ -116,7 +151,6 @@ struct Node {
         case bullet
         case number
     }
-    var id: Int
     var text: String
     var children: [Node] = []
     var checked: Bool? = nil
