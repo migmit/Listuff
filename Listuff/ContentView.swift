@@ -161,7 +161,7 @@ func debugPrintNote(note: Note, prefix: String = "") {
         if let url = chunk.linkUrl {print("\(prefix)  Link: \(url)")}
         if let color = chunk.color {print("\(prefix)  Color: \(color)")}
         if let attachment = chunk.attachment {
-            switch(attachment) {
+            switch attachment {
             case .table(table: let table):
                 print("\(prefix)  Table:")
                 for row in table {
