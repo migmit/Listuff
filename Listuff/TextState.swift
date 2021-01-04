@@ -37,23 +37,28 @@ class TextState {
     var events: EventPublisher {
         return eventsPublisher.eraseToAnyPublisher()
     }
+    struct NodeAppendingState {
+        let item: Document.Item
+        let line: Document.Line
+    }
     init(nodes: [Node]) {
         func callback(_ content: String) -> (Document.Line, WAVLDir, WAVLTree<Document.Line>.Node?) -> WAVLTree<Document.Line>.Node {
             let text = content + "\n"
             self.string += text
             return {self.content.insert(value: $0, length: text.count, dir: $1, near: $2).0}
         }
-        func appendNode(list: Document.List, after: (Document.Item, Document.Line)?, node: Node) -> (Document.Item, Document.Line) {
+        func appendNode(list: Document.List, after: NodeAppendingState?, node: Node) -> NodeAppendingState {
             let style: Document.LineStyle?
             switch node.style {
             case .bullet: style = .bullet
             case .dash: style = .dash
             default: style = nil
             }
-            let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearLine: after?.1, nearItem: after?.0, callback: callback(node.text))
-            return appendSublist(list: list, after: (Document.Item.regular(value: insertedLine), insertedLine.content), nodes: node.children)
+            let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearLine: after?.line, nearItem: after?.item, callback: callback(node.text))
+            let lastAppended = NodeAppendingState(item: Document.Item.regular(value: insertedLine), line: insertedLine.content)
+            return appendSublist(list: list, after: lastAppended, nodes: node.children)
         }
-        func appendSublist(list: Document.List, after: (Document.Item, Document.Line), nodes: [Node]) -> (Document.Item, Document.Line) {
+        func appendSublist(list: Document.List, after: NodeAppendingState, nodes: [Node]) -> NodeAppendingState {
             guard let firstNode = nodes.first else {return after}
             let style: Document.LineStyle?
             switch firstNode.style {
@@ -61,18 +66,18 @@ class TextState {
             case .dash: style = .dash
             default: style = nil
             }
-            let (sublist, item) = list.insertLineSublist(checked: firstNode.checked, style: style, dir: .Right, nearLine: after.1, nearItem: after.0, callback: callback(firstNode.text))
-            var lastInserted = (Document.Item.regular(value: item), item.content)
+            let (sublist, item) = list.insertLineSublist(checked: firstNode.checked, style: style, dir: .Right, nearLine: after.line, nearItem: after.item, callback: callback(firstNode.text))
+            var lastInserted = NodeAppendingState(item: Document.Item.regular(value: item), line: item.content)
             lastInserted = appendSublist(list: sublist.list, after: lastInserted, nodes: firstNode.children)
             for node in nodes.suffix(from: nodes.index(after: nodes.startIndex)) {
                 lastInserted = appendNode(list: sublist.list, after: lastInserted, node: node)
             }
-            return (Document.Item.sublist(value: sublist), lastInserted.1)
+            return NodeAppendingState(item: Document.Item.sublist(value: sublist), line: lastInserted.line)
         }
         self.string = ""
         self.content = WAVLTree()
         self.document = Document.List()
-        var lastInserted: (Document.Item, Document.Line)? = nil
+        var lastInserted: NodeAppendingState? = nil
         for node in nodes {
             lastInserted = appendNode(list: self.document, after: lastInserted, node: node)
         }
