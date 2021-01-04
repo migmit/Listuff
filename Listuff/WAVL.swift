@@ -24,13 +24,13 @@ struct WAVLDirMap<V> {
     private var right: V
     subscript(dir: WAVLDir) -> V {
         get {
-            switch(dir) {
+            switch dir {
             case .Left: return left
             case .Right: return right
             }
         }
         set(value) {
-            switch(dir) {
+            switch dir {
             case .Left: left = value
             case .Right: right = value
             }
@@ -74,7 +74,7 @@ struct WAVLTree<V>: Sequence {
             return SubNode(deep: deep, node: self)
         }
         func advance(dir: WAVLDir, length: Int) -> Int {
-            switch(dir) {
+            switch dir {
             case .Left:
                 end += length
                 return 0

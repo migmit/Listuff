@@ -252,7 +252,7 @@ class WAVLTester<S: Sequence> where S.Value == Int {
             if let pivot = (index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]) {
                 var (left, range, right) = tree.split(node: pivot)
                 var toRemove: [S.Node]
-                switch(afterSplit) {
+                switch afterSplit {
                 case .Left:
                     tree = left
                     toRemove = [pivot] + right.getAllNodes()
@@ -346,7 +346,7 @@ func generateCmd() -> WAVLCommand {
     default:
         let node = Int.random(in: 0...Int.max)
         let afterSplit: WAVLAfterSplit
-        switch(Int.random(in: 0...3)) {
+        switch Int.random(in: 0...3) {
         case 0: afterSplit = .Left
         case 1: afterSplit = .Right
         case 2: afterSplit = .Union

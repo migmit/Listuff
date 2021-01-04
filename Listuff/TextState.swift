@@ -38,14 +38,14 @@ class TextState {
         return eventsPublisher.eraseToAnyPublisher()
     }
     init(nodes: [Node]) {
-        func callback(_ content: String) -> ((Document.Line, WAVLDir, WAVLTree<Document.Line>.Node?) -> WAVLTree<Document.Line>.Node) {
+        func callback(_ content: String) -> (Document.Line, WAVLDir, WAVLTree<Document.Line>.Node?) -> WAVLTree<Document.Line>.Node {
             let text = content + "\n"
             self.string += text
             return {self.content.insert(value: $0, length: text.count, dir: $1, near: $2).0}
         }
         func appendNode(list: Document.List, after: (Document.Item, Document.Line)?, node: Node) -> (Document.Item, Document.Line) {
             let style: Document.LineStyle?
-            switch(node.style) {
+            switch node.style {
             case .bullet: style = .bullet
             case .dash: style = .dash
             default: style = nil
@@ -56,7 +56,7 @@ class TextState {
         func appendSublist(list: Document.List, after: (Document.Item, Document.Line), nodes: [Node]) -> (Document.Item, Document.Line) {
             guard let firstNode = nodes.first else {return after}
             let style: Document.LineStyle?
-            switch(firstNode.style) {
+            switch firstNode.style {
             case .bullet: style = .bullet
             case .dash: style = .dash
             default: style = nil
