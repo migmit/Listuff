@@ -49,8 +49,8 @@ var testDocument = TextState(
                 Node(
                     text: "Another second item",
                     children: [
-                        Node(text: "Another first child"),
-                        Node(text: "Another second child")
+                        Node(text: "Another first child", style: .number),
+                        Node(text: "Another second child", style: .number)
                     ],
                     style: .number
                 ),
