@@ -69,6 +69,8 @@ let unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolC
 let checkmarkWidth = max(checkmark.size.width, unchecked.size.width)
 let checkmarkPadding = CGFloat(5.0)
 let checkmarkHeight = max(checkmark.size.height, unchecked.size.height)
+let bullet = "◦"
+let dash = "-"
 
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
