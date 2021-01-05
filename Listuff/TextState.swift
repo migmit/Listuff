@@ -20,15 +20,16 @@ class TextState {
     struct ListItemInfo {
         let range: NSRange
         let depth: Int
+        let checked: Bool?
     }
-    var string: String
-    var content: WAVLTree<Document.Line>
-    var document: Document.List
+    var text: String
+    var chunks: WAVLTree<Document.Line>
+    var structure: Document.List
     var items: [Substring] {
         var result: [Substring] = []
-        for (bounds, _) in content {
-            if let r = Range(bounds, in: string) {
-                result.append(string[r])
+        for (bounds, _) in chunks {
+            if let r = Range(bounds, in: text) {
+                result.append(text[r])
             }
         }
         return result
@@ -56,8 +57,8 @@ class TextState {
     init(nodes: [Node]) {
         func callback(_ content: String) -> (Document.Line, WAVLDir, WAVLTree<Document.Line>.Node?) -> WAVLTree<Document.Line>.Node {
             let text = content + "\n"
-            self.string += text
-            return {self.content.insert(value: $0, length: text.count, dir: $1, near: $2).0}
+            self.text += text
+            return {self.chunks.insert(value: $0, length: text.count, dir: $1, near: $2).0}
         }
         func appendNodeChildren(numberedList: Document.NumberedList, numberedItem: Document.NumberedItem, nodes: [Node]) -> NodeAppendingState {
             if nodes.isEmpty {
@@ -111,12 +112,12 @@ class TextState {
             nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{lastInserted = appendNode(list: sublist.list, after: lastInserted, node: $0)}
             return NodeAppendingState(item: .sublist(value: sublist), line: lastInserted.line)
         }
-        self.string = ""
-        self.content = WAVLTree()
-        self.document = Document.List()
+        self.text = ""
+        self.chunks = WAVLTree()
+        self.structure = Document.List()
         var lastInserted: NodeAppendingState? = nil
-        nodes.forEach {lastInserted = appendNode(list: self.document, after: lastInserted, node: $0)}
-        self.document.debugLog()
+        nodes.forEach {lastInserted = appendNode(list: self.structure, after: lastInserted, node: $0)}
+        self.structure.debugLog()
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
         let range = WAVLTree.setLength(node: node, length: length)
@@ -124,13 +125,13 @@ class TextState {
         return range
     }
     func insertChunk(value: Document.Line, length: Int, dir: Dir = .Right, near: Chunk? = nil) -> (Chunk, Int) {
-        let (node, start) = content.insert(value: value, length: length, dir: dir, near: near)
+        let (node, start) = chunks.insert(value: value, length: length, dir: dir, near: near)
         eventsPublisher.send(.Insert(node: node, range: NSMakeRange(start, length)))
         return (node, start)
     }
     func removeChunk(node: Chunk) -> NSRange {
         let value = node.value
-        let range = content.remove(node: node)
+        let range = chunks.remove(node: node)
         eventsPublisher.send(.Remove(value: value, oldRange: range))
         return range
     }
@@ -138,9 +139,10 @@ class TextState {
         return (range, 0) // TOFIX
     }
     func listItemInfo(pos: Int) -> ListItemInfo? {
-        return content.search(pos: pos).map{ListItemInfo(
+        return chunks.search(pos: pos).map{ListItemInfo(
             range: $0.0,
-            depth: $0.1.depth()
+            depth: $0.1.depth(),
+            checked: $0.1.checked?.value
         )}
     }
 }

@@ -30,8 +30,8 @@ var testDocument = TextState(
                 Node(
                     text: "First item",
                     children: [
-                        Node(text: "First child", checked: false),
-                        Node(text: "Second child", checked: true)
+                        Node(text: "First child oeiuryhg qoieurhg oqeiyruhg qoeiurygh qoeiuryghq oeirugh qpeirugh pqieurhg pqeiurhg pqeiurgh pqeiurgh pqieurhg qpeiurhg pqieurhqg", checked: false),
+                        Node(text: "Second child oeiuryhg qoieurhg oqeiyruhg qoeiurygh qoeiuryghq oeirugh qpeirugh pqieurhg pqeiurhg pqeiurgh pqeiurgh pqieurhg qpeiurhg pqieurhqg", checked: true)
                     ],
                     style: .number
                 ),
@@ -64,6 +64,11 @@ let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weigh
 let systemColor = UIColor.label
 let indentationStep = 35.0
 let paragraphSpacing = 5.0
+let checkmark = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
+let unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
+let checkmarkWidth = max(checkmark.size.width, unchecked.size.width)
+let checkmarkPadding = CGFloat(5.0)
+let checkmarkHeight = max(checkmark.size.height, unchecked.size.height)
 
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
@@ -74,7 +79,7 @@ struct HierarchyView: UIViewRepresentable {
 
     init(content: TextState) {
         textStorage = TextStorage(content: content)
-        layoutManager = NSLayoutManager()
+        layoutManager = LayoutManager(content: content)
         textContainer = NSTextContainer()
         textStorage.addLayoutManager(layoutManager)
         layoutManager.addTextContainer(textContainer)
@@ -128,7 +133,7 @@ struct HierarchyView: UIViewRepresentable {
             return nil
         }
         override var string: String {
-            return content.string
+            return content.text
         }
         override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
             guard let listItemInfo = content.listItemInfo(pos: location) else {
@@ -140,7 +145,10 @@ struct HierarchyView: UIViewRepresentable {
             }
             let paragraphIndentation = CGFloat(Double(listItemInfo.depth) * indentationStep)
             let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.firstLineHeadIndent = paragraphIndentation
+            paragraphStyle.firstLineHeadIndent = listItemInfo.checked == nil ? paragraphIndentation : (paragraphIndentation + checkmarkWidth + checkmarkPadding * 2)
+            if listItemInfo.checked != nil {
+                paragraphStyle.minimumLineHeight = checkmarkHeight
+            }
             paragraphStyle.headIndent = paragraphIndentation
             paragraphStyle.paragraphSpacing = CGFloat(paragraphSpacing)
             return [
@@ -156,6 +164,37 @@ struct HierarchyView: UIViewRepresentable {
         override func setAttributes(_ attrs: [NSAttributedString.Key : Any]?, range: NSRange) {
             // TOFIX
             edited(.editedAttributes, range: range, changeInLength: 0)
+        }
+    }
+    class LayoutManager: NSLayoutManager {
+        let content: TextState
+        init(content: TextState) {
+            self.content = content
+            super.init()
+            self.allowsNonContiguousLayout = true
+        }
+        required init?(coder: NSCoder) {
+            return nil
+        }
+        override func drawGlyphs(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
+            super.drawGlyphs(forGlyphRange: glyphsToShow, at: origin)
+            let charRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
+            for (range, line) in content.chunks.covering(from: charRange.location, to: charRange.location + charRange.length) {
+                if let checked = line.checked {
+                    let glRange = glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+                    if glRange.length <= 0 {continue}
+                    let image = checked.value ? checkmark : unchecked
+                    enumerateLineFragments(forGlyphRange: NSMakeRange(glRange.location, 1)) {_, usedRect, textContainer, _, ptrStop in
+                        let imageOrigin = CGPoint(
+                            x: usedRect.origin.x - checkmarkPadding - (checkmarkWidth + image.size.width) / 2 + textContainer.lineFragmentPadding + origin.x,
+                            y: usedRect.origin.y + (usedRect.size.height - image.size.height) / 2 + origin.y
+                        )
+                        image.draw(at: imageOrigin)
+                        ptrStop.pointee = true
+                    }
+                    
+                }
+            }
         }
     }
 }
