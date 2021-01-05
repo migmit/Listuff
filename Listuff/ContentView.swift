@@ -18,7 +18,7 @@ var testDocument = TextState(
                     text: "Second node",
                     children: [
                         Node(text: "Third node and some more awesome stuff", style: .bullet),
-                        Node(text: "Fourth node", style: .dash)
+                        Node(text: "Fourth node", checked: true, style: .dash)
                     ]
                 ),
                 Node(text: "Fifth node")
@@ -30,8 +30,8 @@ var testDocument = TextState(
                 Node(
                     text: "First item",
                     children: [
-                        Node(text: "First child"),
-                        Node(text: "Second child")
+                        Node(text: "First child", checked: false),
+                        Node(text: "Second child", checked: true)
                     ],
                     style: .number
                 ),
@@ -49,7 +49,7 @@ var testDocument = TextState(
                 Node(
                     text: "Another second item",
                     children: [
-                        Node(text: "Another first child", style: .number),
+                        Node(text: "Another first child", checked: false, style: .number),
                         Node(text: "Another second child", style: .number)
                     ],
                     style: .number
