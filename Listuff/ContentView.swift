@@ -71,6 +71,8 @@ let checkmarkPadding = CGFloat(5.0)
 let checkmarkHeight = max(checkmark.size.height, unchecked.size.height)
 let bullet = "◦"
 let dash = "-"
+let bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.font: systemFont]).width}.max()!
+let bulletPadding = CGFloat(5.0)
 
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
@@ -142,11 +144,13 @@ struct HierarchyView: UIViewRepresentable {
             }
             let paragraphIndentation = CGFloat(Double(listItemInfo.depth) * indentationStep)
             let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.firstLineHeadIndent = listItemInfo.checked == nil ? paragraphIndentation : (paragraphIndentation + checkmarkWidth + checkmarkPadding * 2)
-            if listItemInfo.checked != nil {
+            let checkedAddition = listItemInfo.hasChekmark ? checkmarkWidth + checkmarkPadding * 2 : 0
+            let bulletAddition = listItemInfo.hasBullet ? bulletWidth + bulletPadding * 2 : 0
+            if listItemInfo.hasChekmark {
                 paragraphStyle.minimumLineHeight = checkmarkHeight
             }
-            paragraphStyle.headIndent = paragraphIndentation
+            paragraphStyle.headIndent = paragraphIndentation + bulletAddition
+            paragraphStyle.firstLineHeadIndent = paragraphStyle.headIndent + checkedAddition
             paragraphStyle.paragraphSpacing = CGFloat(paragraphSpacing)
             return [
                 .font: systemFont,
@@ -177,19 +181,40 @@ struct HierarchyView: UIViewRepresentable {
             super.drawGlyphs(forGlyphRange: glyphsToShow, at: origin)
             let charRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
             for (range, line) in content.chunks.covering(from: charRange.location, to: charRange.location + charRange.length) {
-                if let checked = line.checked {
-                    let glRange = glyphRange(forCharacterRange: range, actualCharacterRange: nil)
-                    if glRange.length <= 0 {continue}
-                    let image = checked.value ? checkmark : unchecked
-                    enumerateLineFragments(forGlyphRange: NSMakeRange(glRange.location, 1)) {_, usedRect, textContainer, _, ptrStop in
+                let bulletStyle: String?
+                switch line.parent {
+                case .numbered(value: _): bulletStyle = nil
+                case .regular(value: let value):
+                    switch value.value?.style {
+                    case .bullet: bulletStyle = bullet
+                    case .dash: bulletStyle = dash
+                    case nil: bulletStyle = nil
+                    }
+                }
+                let glRange = glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+                if glRange.length <= 0 {continue}
+                enumerateLineFragments(forGlyphRange: NSMakeRange(glRange.location, 1)) {_, usedRect, textContainer, _, ptrStop in
+                    let paragraphIndent: CGFloat
+                    if let checked = line.checked {
+                        paragraphIndent = usedRect.origin.x + textContainer.lineFragmentPadding - checkmarkWidth - checkmarkPadding * 2
+                        let image = checked.value ? checkmark : unchecked
                         let imageOrigin = CGPoint(
                             x: usedRect.origin.x - checkmarkPadding - (checkmarkWidth + image.size.width) / 2 + textContainer.lineFragmentPadding + origin.x,
                             y: usedRect.origin.y + (usedRect.size.height - image.size.height) / 2 + origin.y
                         )
                         image.draw(at: imageOrigin)
                         ptrStop.pointee = true
+                    } else {
+                        paragraphIndent = usedRect.origin.x + textContainer.lineFragmentPadding
                     }
-                    
+                    if let bstyle = bulletStyle {
+                        let bsize = (bstyle as NSString).size(withAttributes: [.font: systemFont])
+                        let borigin = CGPoint(
+                            x: paragraphIndent - bulletPadding - (bulletWidth + bsize.width) / 2 + origin.x,
+                            y: usedRect.origin.y + (usedRect.size.height - bsize.height) / 2 + origin.y
+                        )
+                        (bstyle as NSString).draw(at: borigin, withAttributes: [.font: systemFont])
+                    }
                 }
             }
         }

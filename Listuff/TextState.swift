@@ -20,7 +20,8 @@ class TextState {
     struct ListItemInfo {
         let range: NSRange
         let depth: Int
-        let checked: Bool?
+        let hasChekmark: Bool
+        let hasBullet: Bool
     }
     var text: String
     var chunks: WAVLTree<Document.Line>
@@ -139,11 +140,20 @@ class TextState {
         return (range, 0) // TOFIX
     }
     func listItemInfo(pos: Int) -> ListItemInfo? {
-        return chunks.search(pos: pos).map{ListItemInfo(
-            range: $0.0,
-            depth: $0.1.depth(),
-            checked: $0.1.checked?.value
-        )}
+        return chunks.search(pos: pos).map{(rl) in
+            let (range, line) = rl
+            let hasBullet: Bool
+            switch line.parent {
+            case .numbered(value: _): hasBullet = false
+            case .regular(value: let value): hasBullet = value.value?.style != nil
+            }
+            return ListItemInfo(
+                range: range,
+                depth: line.depth(),
+                hasChekmark: line.checked != nil,
+                hasBullet: hasBullet
+            )
+        }
     }
 }
 
