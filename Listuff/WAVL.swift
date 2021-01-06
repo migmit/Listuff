@@ -196,6 +196,12 @@ struct Partition<V>: Sequence {
     func search(pos: Int) -> (NSRange, V)? {
         return searchNode(pos: pos).map {($0.0, $0.1.value)}
     }
+    func totalLength() -> Int {
+        return root?.totalLength() ?? 0
+    }
+    func isEmpty() -> Bool {
+        return root == nil
+    }
     mutating func replace(node: Node, with: Node?) {
         if let (parent, dir, isDeep) = node.getChildInfo() {
             parent[dir] = with?.mkSubNode(deep: isDeep)
