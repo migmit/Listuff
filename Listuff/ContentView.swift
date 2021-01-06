@@ -66,13 +66,13 @@ let indentationStep = 35.0
 let paragraphSpacing = 5.0
 let checkmark = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
 let unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
-let checkmarkWidth = max(checkmark.size.width, unchecked.size.width)
 let checkmarkPadding = CGFloat(5.0)
+let checkmarkWidth = max(checkmark.size.width, unchecked.size.width) + 2 * checkmarkPadding
 let checkmarkHeight = max(checkmark.size.height, unchecked.size.height)
 let bullet = "◦"
 let dash = "-"
-let bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.font: systemFont]).width}.max()!
 let bulletPadding = CGFloat(5.0)
+let bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.font: systemFont]).width}.max()! + 2 * bulletPadding
 
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
@@ -144,8 +144,8 @@ struct HierarchyView: UIViewRepresentable {
             }
             let paragraphIndentation = CGFloat(Double(listItemInfo.depth) * indentationStep)
             let paragraphStyle = NSMutableParagraphStyle()
-            let checkedAddition = listItemInfo.hasChekmark ? checkmarkWidth + checkmarkPadding * 2 : 0
-            let bulletAddition = listItemInfo.hasBullet ? bulletWidth + bulletPadding * 2 : 0
+            let checkedAddition = listItemInfo.hasChekmark ? checkmarkWidth : 0
+            let bulletAddition = listItemInfo.hasBullet ? bulletWidth : 0
             if listItemInfo.hasChekmark {
                 paragraphStyle.minimumLineHeight = checkmarkHeight
             }
@@ -196,10 +196,10 @@ struct HierarchyView: UIViewRepresentable {
                 enumerateLineFragments(forGlyphRange: NSMakeRange(glRange.location, 1)) {_, usedRect, textContainer, _, ptrStop in
                     let paragraphIndent: CGFloat
                     if let checked = line.checked {
-                        paragraphIndent = usedRect.origin.x + textContainer.lineFragmentPadding - checkmarkWidth - checkmarkPadding * 2
+                        paragraphIndent = usedRect.origin.x + textContainer.lineFragmentPadding - checkmarkWidth
                         let image = checked.value ? checkmark : unchecked
                         let imageOrigin = CGPoint(
-                            x: usedRect.origin.x - checkmarkPadding - (checkmarkWidth + image.size.width) / 2 + textContainer.lineFragmentPadding + origin.x,
+                            x: usedRect.origin.x - (checkmarkWidth + image.size.width) / 2 + textContainer.lineFragmentPadding + origin.x,
                             y: usedRect.origin.y + (usedRect.size.height - image.size.height) / 2 + origin.y
                         )
                         image.draw(at: imageOrigin)
@@ -210,7 +210,7 @@ struct HierarchyView: UIViewRepresentable {
                     if let bstyle = bulletStyle {
                         let bsize = (bstyle as NSString).size(withAttributes: [.font: systemFont])
                         let borigin = CGPoint(
-                            x: paragraphIndent - bulletPadding - (bulletWidth + bsize.width) / 2 + origin.x,
+                            x: paragraphIndent - (bulletWidth + bsize.width) / 2 + origin.x,
                             y: usedRect.origin.y + (usedRect.size.height - bsize.height) / 2 + origin.y
                         )
                         (bstyle as NSString).draw(at: borigin, withAttributes: [.font: systemFont])
