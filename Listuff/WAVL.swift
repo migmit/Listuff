@@ -7,22 +7,22 @@
 
 import Foundation
 
-enum WAVLDir {
+enum Direction {
     case Left
     case Right
-    var other: WAVLDir {
+    var other: Direction {
         switch self {
         case .Left: return .Right
         case .Right: return .Left
         }
     }
-    static let all: [WAVLDir] = [.Left, .Right]
+    static let all: [Direction] = [.Left, .Right]
 }
-struct WAVLDirMap<V> {
+struct DirectionMap<V> {
     typealias Value = V
     private var left: V
     private var right: V
-    subscript(dir: WAVLDir) -> V {
+    subscript(dir: Direction) -> V {
         get {
             switch dir {
             case .Left: return left
@@ -36,17 +36,17 @@ struct WAVLDirMap<V> {
             }
         }
     }
-    init(dir: WAVLDir, this: V, other: V) {
+    init(dir: Direction, this: V, other: V) {
         left = dir == .Left ? this : other
         right = dir == .Right ? this : other
     }
-    init(calcVal: (WAVLDir) -> V) {
+    init(calcVal: (Direction) -> V) {
         left = calcVal(.Left)
         right = calcVal(.Right)
     }
 }
 
-struct WAVLTree<V>: Sequence {
+struct Partition<V>: Sequence {
     typealias Value = V
     struct SubNode {
         var deep: Bool
@@ -55,13 +55,13 @@ struct WAVLTree<V>: Sequence {
     class Node {
         let value: V
         private(set) var end: Int
-        private var subnode: WAVLDirMap<SubNode?> = WAVLDirMap{_ in nil}
+        private var subnode: DirectionMap<SubNode?> = DirectionMap{_ in nil}
         private(set) var parent: Node? = nil
         init(value: V, length: Int) {
             self.value = value
             self.end = length
         }
-        subscript(dir: WAVLDir) -> SubNode? {
+        subscript(dir: Direction) -> SubNode? {
             get {
                 return subnode[dir]
             }
@@ -73,7 +73,7 @@ struct WAVLTree<V>: Sequence {
         func mkSubNode(deep: Bool) -> SubNode {
             return SubNode(deep: deep, node: self)
         }
-        func advance(dir: WAVLDir, length: Int) -> Int {
+        func advance(dir: Direction, length: Int) -> Int {
             switch dir {
             case .Left:
                 end += length
@@ -88,13 +88,13 @@ struct WAVLTree<V>: Sequence {
         func detach() {
             parent = nil
         }
-        func getChildInfo() -> (Node, WAVLDir, Bool)? {
+        func getChildInfo() -> (Node, Direction, Bool)? {
             return parent.map {p in
-                let dir: WAVLDir = p[.Left]?.node === self ? .Left : .Right
+                let dir: Direction = p[.Left]?.node === self ? .Left : .Right
                 return (p, dir, p.deep(dir: dir))
             }
         }
-        func deep(dir: WAVLDir) -> Bool { // non-encoded invariant: if self[dir] = nil, then either self is a leaf or self[dir.other] is not deep
+        func deep(dir: Direction) -> Bool { // non-encoded invariant: if self[dir] = nil, then either self is a leaf or self[dir.other] is not deep
             return self[dir]?.deep ?? (self[dir.other] != nil)
         }
         func leftmostChild() -> Node {
@@ -111,7 +111,7 @@ struct WAVLTree<V>: Sequence {
             }
             return result
         }
-        func near(dir: WAVLDir) -> Node? {
+        func near(dir: Direction) -> Node? {
             if let n = self[dir]?.node {
                 var current = n
                 while let child = current[dir.other] {current = child.node}
@@ -134,7 +134,7 @@ struct WAVLTree<V>: Sequence {
         self.rank = rank
         root?.detach()
     }
-    func side(dir: WAVLDir) -> Node? {
+    func side(dir: Direction) -> Node? {
         if let r = root {
             var current = r
             while let child = current[dir]?.node {current = child}
@@ -222,7 +222,7 @@ struct WAVLTree<V>: Sequence {
         _ = node.advance(dir: .Left, length: advance)
         return NSMakeRange(shift + advanceRecurse(node: node, length: advance), oldLength)
     }
-    private mutating func insertRebalance(startWith: Node, topChild: Node, subDeep: Bool, subOtherDeep: Bool, dir: WAVLDir, length: Int) -> Int {
+    private mutating func insertRebalance(startWith: Node, topChild: Node, subDeep: Bool, subOtherDeep: Bool, dir: Direction, length: Int) -> Int {
         var current = startWith
         var child = topChild
         var isDeep = subDeep
@@ -243,7 +243,7 @@ struct WAVLTree<V>: Sequence {
         if (isDeep) {
             current[side]?.deep = false
             shift += current.advance(dir: side, length: length)
-            shift += WAVLTree.advanceRecurse(node: current, length: length)
+            shift += Partition.advanceRecurse(node: current, length: length)
         } else if (child.deep(dir: side)) {
             let grandchild = child[side.other]!.node // if child[side.other] = nil, then child is a leaf (then child.deep(_) = false) or child[side] is a leaf (then child.deep(side) = false)
             replace(node: current, with: grandchild)
@@ -257,7 +257,7 @@ struct WAVLTree<V>: Sequence {
             current[side.other]?.deep = false
             grandchild[side] = child.mkSubNode(deep: false)
             grandchild[side.other] = current.mkSubNode(deep: false)
-            shift += WAVLTree.advanceRecurse(node: grandchild, length: length)
+            shift += Partition.advanceRecurse(node: grandchild, length: length)
         } else {
             replace(node: current, with: child)
             shift += current.advance(dir: side, length: length - child.end)
@@ -265,11 +265,11 @@ struct WAVLTree<V>: Sequence {
             current[side] = child[side.other]?.node.mkSubNode(deep: false)
             current[side.other]?.deep = false
             child[side.other] = current.mkSubNode(deep: false)
-            shift += WAVLTree.advanceRecurse(node: child, length: length)
+            shift += Partition.advanceRecurse(node: child, length: length)
         }
         return shift
     }
-    mutating func insert(value: V, length: Int, dir: WAVLDir = .Right, near: Node? = nil) -> (Node, Int) {
+    mutating func insert(value: V, length: Int, dir: Direction = .Right, near: Node? = nil) -> (Node, Int) {
         let newNode = Node(value: value, length: length)
         guard let r = root else {
             rank = 1
@@ -285,7 +285,7 @@ struct WAVLTree<V>: Sequence {
     }
     mutating func remove(node: Node) -> NSRange {
         var current: Node
-        var dir: WAVLDir
+        var dir: Direction
         var isDeep: Bool
         var length = node.end
         var shift = 0
@@ -374,7 +374,7 @@ struct WAVLTree<V>: Sequence {
                         child[dir.other]?.deep = false
                         grandchild[dir] = current.mkSubNode(deep: true)
                         grandchild[dir.other] = child.mkSubNode(deep: true)
-                        shift += WAVLTree.advanceRecurse(node: grandchild, length: -length)
+                        shift += Partition.advanceRecurse(node: grandchild, length: -length)
                         return NSMakeRange(shift, length)
                     }
                 } else {
@@ -385,14 +385,14 @@ struct WAVLTree<V>: Sequence {
                     current[dir.other] = child[dir]
                     child[dir.other]?.deep = true
                     child[dir] = current.mkSubNode(deep: current[.Left] == nil && current[.Right] == nil)
-                    shift += WAVLTree.advanceRecurse(node: child, length: -length)
+                    shift += Partition.advanceRecurse(node: child, length: -length)
                     return NSMakeRange(shift, length)
                 }
             }
         }
         current[dir]?.deep = true
         shift += current.advance(dir: dir, length: -length)
-        shift += WAVLTree.advanceRecurse(node: current, length: -length)
+        shift += Partition.advanceRecurse(node: current, length: -length)
         return NSMakeRange(shift, length)
     }
     private mutating func popLeft() -> Node? {
@@ -401,7 +401,7 @@ struct WAVLTree<V>: Sequence {
         _ = remove(node: current)
         return current
     }
-    private static func rebalanceHook(root: Node, ranks: WAVLDirMap<Int>) -> (Node, Int) { // returned value: root rank raise
+    private static func rebalanceHook(root: Node, ranks: DirectionMap<Int>) -> (Node, Int) { // returned value: root rank raise
         let lRank = ranks[.Left]
         let rRank = ranks[.Right]
         let lrRankDiff = lRank - rRank
@@ -412,8 +412,8 @@ struct WAVLTree<V>: Sequence {
             root[.Right]?.deep = rRank < maxRank
             return (root, maxRank + 1)
         }
-        let (dir, initialRank) = lrRankDiff > 0 ? (WAVLDir.Right, lRank) : (WAVLDir.Left, rRank)
-        var tree = WAVLTree(root: root[dir.other]?.node, rank: initialRank) // real rank doesn't matter, we are only interested in relatives
+        let (dir, initialRank) = lrRankDiff > 0 ? (Direction.Right, lRank) : (Direction.Left, rRank)
+        var tree = Partition(root: root[dir.other]?.node, rank: initialRank) // real rank doesn't matter, we are only interested in relatives
         var curRankDiff = absRankDiff
         var isDeep: Bool
         var parent: Node
@@ -438,7 +438,7 @@ struct WAVLTree<V>: Sequence {
         _ = tree.insertRebalance(startWith: parent, topChild: root, subDeep: isDeep, subOtherDeep: isOtherDeep, dir: dir, length: root.end) // if dir == .Right, real length doesn't matter, since dir == .Right always
         return (tree.root!, tree.rank)
     }
-    private mutating func joinNode (node: Node, other: inout WAVLTree) { // node.end should be the desired length
+    private mutating func joinNode (node: Node, other: inout Partition) { // node.end should be the desired length
         var size = 0
         var current = root
         while let c = current {
@@ -448,28 +448,28 @@ struct WAVLTree<V>: Sequence {
         _ = node.advance(dir: .Left, length: size)
         node[.Left] = root?.mkSubNode(deep: false)
         node[.Right] = other.root?.mkSubNode(deep: false)
-        let (newRoot, rankRaise) = WAVLTree.rebalanceHook(root: node, ranks: WAVLDirMap(dir: .Left, this: rank, other: other.rank))
-        self = WAVLTree(root: newRoot, rank: rankRaise)
-        other = WAVLTree()
+        let (newRoot, rankRaise) = Partition.rebalanceHook(root: node, ranks: DirectionMap(dir: .Left, this: rank, other: other.rank))
+        self = Partition(root: newRoot, rank: rankRaise)
+        other = Partition()
     }
-    mutating func join(value: V, length: Int, other: inout WAVLTree) -> Node {
+    mutating func join(value: V, length: Int, other: inout Partition) -> Node {
         let newNode = Node(value: value, length: length)
         joinNode(node: newNode, other: &other)
         return newNode
     }
-    mutating func union(with: inout WAVLTree) {
+    mutating func union(with: inout Partition) {
         if let node = with.popLeft() {
             joinNode(node: node, other: &with)
         } // no else, since it means `with` is empty, and we shouldn't do anything
     }
-    mutating func split(node: Node) -> (WAVLTree, NSRange, WAVLTree) {
+    mutating func split(node: Node) -> (Partition, NSRange, Partition) {
         defer {
             node[.Left] = nil
             node[.Right] = nil
             node.detach()
         }
-        var results = WAVLDirMap {node[$0]?.node}
-        var ranks = WAVLDirMap {node.deep(dir: $0) ? -2 : -1}
+        var results = DirectionMap {node[$0]?.node}
+        var ranks = DirectionMap {node.deep(dir: $0) ? -2 : -1}
         var current = node
         var shift = node.end
         var childInfo = node.getChildInfo()
@@ -478,13 +478,13 @@ struct WAVLTree<V>: Sequence {
         while let (parent, dir, isDeep) = childInfo {
             current = parent
             childInfo = current.getChildInfo()
-            for d in WAVLDir.all {ranks[d] -= isDeep ? 2 : 1}
+            for d in Direction.all {ranks[d] -= isDeep ? 2 : 1}
             shift += current.advance(dir: dir, length: -shift)
             let isOtherDeep = current.deep(dir: dir.other)
             current[dir] = results[dir.other]?.mkSubNode(deep: false)
-            (results[dir.other], ranks[dir.other]) = WAVLTree.rebalanceHook(root: current, ranks: WAVLDirMap(dir: dir, this: ranks[dir.other], other: isOtherDeep ? -2 : -1))
+            (results[dir.other], ranks[dir.other]) = Partition.rebalanceHook(root: current, ranks: DirectionMap(dir: dir, this: ranks[dir.other], other: isOtherDeep ? -2 : -1))
         }
-        if current === root {self = WAVLTree()}
-        return (WAVLTree(root: results[.Left], rank: oldRank + ranks[.Left]), NSMakeRange(shift - length, length), WAVLTree(root: results[.Right], rank: oldRank + ranks[.Right]))
+        if current === root {self = Partition()}
+        return (Partition(root: results[.Left], rank: oldRank + ranks[.Left]), NSMakeRange(shift - length, length), Partition(root: results[.Right], rank: oldRank + ranks[.Right]))
     }
 }

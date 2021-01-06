@@ -28,38 +28,38 @@ extension DebugPrint {
     func debugLog() {debugPrint(prefix: "")}
 }
 enum Document {
-    typealias LineCallback = (Line, WAVLDir, WAVLTree<Line>.Node?) -> WAVLTree<Line>.Node
+    typealias LineCallback = (Line, Direction, Partition<Line>.Node?) -> Partition<Line>.Node
     class WeakProxy<C: AnyObject> {
         weak var value: C?
     }
     class List: DebugPrint {
-        var items: WAVLTree<Item>
+        var items: Partition<Item>
         var parent: ListParent?
         init(parent: ListParent? = nil) {
-            self.items = WAVLTree()
+            self.items = Partition()
             self.parent = parent
         }
-        func side(dir: WAVLDir) -> Item? {
+        func side(dir: Direction) -> Item? {
             return items.side(dir: dir)?.value
         }
-        func insertLine(checked: Bool?, style: LineStyle?, dir: WAVLDir, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> RegularItem {
+        func insertLine(checked: Bool?, style: LineStyle?, dir: Direction, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> RegularItem {
             let item = RegularItem(checked: checked, style: style, dir: dir, nearLine: nearLine, parent: self, callback: callback)
             item.this = items.insert(value: .regular(value: item), length: 1, dir: dir, near: nearItem?.impl.this).0
             return item
         }
-        func insertLineSublist(checked: Bool?, style: LineStyle?, dir: WAVLDir, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> (Sublist, RegularItem) {
+        func insertLineSublist(checked: Bool?, style: LineStyle?, dir: Direction, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> (Sublist, RegularItem) {
             let sublist = Sublist(parentList: self)
             sublist.this = items.insert(value: .sublist(value: sublist), length: 1, dir: dir, near: nearItem?.impl.this).0
             let item = sublist.list.insertLine(checked: checked, style: style, dir: dir, nearLine: nearLine, nearItem: nil, callback: callback)
             return (sublist, item)
         }
-        func insertLineNumberedList(checked: Bool?, dir: WAVLDir, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> (NumberedList, NumberedItem) {
+        func insertLineNumberedList(checked: Bool?, dir: Direction, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> (NumberedList, NumberedItem) {
             let numberedList = NumberedList(parent: self)
             numberedList.this = items.insert(value: .numbered(value: numberedList), length: 1, dir: dir, near: nearItem?.impl.this).0
             let item = numberedList.insertLine(checked: checked, dir: dir, nearLine: nearLine, nearItem: nil, callback: callback)
             return (numberedList, item)
         }
-        func insertLineNumberedSublist(checked: Bool?, dir: WAVLDir, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> (Sublist, NumberedList, NumberedItem) {
+        func insertLineNumberedSublist(checked: Bool?, dir: Direction, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> (Sublist, NumberedList, NumberedItem) {
             let sublist = Sublist(parentList: self)
             sublist.this = items.insert(value: .sublist(value: sublist), length: 1, dir: dir, near: nearItem?.impl.this).0
             let (numberedList, numberedItem) = sublist.list.insertLineNumberedList(checked: checked, dir: dir, nearLine: nearLine, nearItem: nil, callback: callback)
@@ -104,7 +104,7 @@ enum Document {
         }
     }
     class ListItem: Level {
-        weak var this: WAVLTree<Item>.Node? = nil
+        weak var this: Partition<Item>.Node? = nil
         weak var parent: List?
         init(parent: List) {
             self.parent = parent
@@ -112,7 +112,7 @@ enum Document {
         var item: Item? {
             return this?.value
         }
-        func near(dir: WAVLDir) -> Item? {
+        func near(dir: Direction) -> Item? {
             return this?.near(dir: dir)?.value
         }
         func levelUp() -> Level? {
@@ -134,7 +134,7 @@ enum Document {
             }
             content.debugPrint(prefix: prefix + (style.map{"\($0) "} ?? ""))
         }
-        convenience init(checked: Bool?, style: LineStyle?, dir: WAVLDir, nearLine: Line?, parent: List, callback: LineCallback) {
+        convenience init(checked: Bool?, style: LineStyle?, dir: Direction, nearLine: Line?, parent: List, callback: LineCallback) {
             let itemProxy = WeakProxy<RegularItem>()
             let line = Line(checked: checked, dir: dir, nearLine: nearLine, parent: .regular(value: itemProxy), callback: callback)
             self.init(content: line, style: style, parent: parent)
@@ -142,15 +142,15 @@ enum Document {
         }
     }
     class NumberedList: ListItem, DebugPrint {
-        var items: WAVLTree<NumberedItem>
+        var items: Partition<NumberedItem>
         override init(parent: List) {
-            self.items = WAVLTree()
+            self.items = Partition()
             super.init(parent: parent)
         }
-        func side(dir: WAVLDir) -> NumberedItem? {
+        func side(dir: Direction) -> NumberedItem? {
             return items.side(dir: dir)?.value
         }
-        func insertLine(checked: Bool?, dir: WAVLDir, nearLine: Line?, nearItem: NumberedItem?, callback: LineCallback) -> NumberedItem {
+        func insertLine(checked: Bool?, dir: Direction, nearLine: Line?, nearItem: NumberedItem?, callback: LineCallback) -> NumberedItem {
             let item = NumberedItem(checked: checked, dir: dir, nearLine: nearLine, parent: self, callback: callback)
             item.this = items.insert(value: item, length: 1, dir: dir, near: nearItem?.this).0
             return item
@@ -168,12 +168,12 @@ enum Document {
         var content: Line
         var sublist: List? = nil
         var parent: NumberedList
-        weak var this: WAVLTree<NumberedItem>.Node? = nil
+        weak var this: Partition<NumberedItem>.Node? = nil
         init(content: Line, parent: NumberedList) {
             self.content = content
             self.parent = parent
         }
-        convenience init(checked: Bool?, dir: WAVLDir, nearLine: Line?, parent: NumberedList, callback: LineCallback) {
+        convenience init(checked: Bool?, dir: Direction, nearLine: Line?, parent: NumberedList, callback: LineCallback) {
             let itemProxy = WeakProxy<NumberedItem>()
             let line = Line(checked: checked, dir: dir, nearLine: nearLine, parent: .numbered(value: itemProxy), callback: callback)
             self.init(content: line, parent: parent)
@@ -190,7 +190,7 @@ enum Document {
                 return sl
             }
         }
-        func near(dir: WAVLDir) -> NumberedItem? {
+        func near(dir: Direction) -> NumberedItem? {
             return this.flatMap{$0.near(dir: dir).map{$0.value}}
         }
         func levelUp() -> Level? {
@@ -232,14 +232,14 @@ enum Document {
         }
     }
     class Line: Level, DebugPrint {
-        weak var content: WAVLTree<Line>.Node? = nil
+        weak var content: Partition<Line>.Node? = nil
         var checked: Checked?
         var parent: LineParent
         init(checked: Checked? = nil, parent: LineParent) {
             self.checked = checked
             self.parent = parent
         }
-        convenience init(checked: Bool?, dir: WAVLDir, nearLine: Line?, parent: LineParent, callback: LineCallback) {
+        convenience init(checked: Bool?, dir: Direction, nearLine: Line?, parent: LineParent, callback: LineCallback) {
             self.init(checked: checked.map{Checked(value: $0)}, parent: parent)
             self.content = callback(self, dir, nearLine?.content)
         }

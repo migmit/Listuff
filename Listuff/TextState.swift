@@ -9,8 +9,8 @@ import Foundation
 import Combine
 
 class TextState {
-    typealias Dir = WAVLDir
-    typealias Chunk = WAVLTree<Document.Line>.Node
+    typealias Dir = Direction
+    typealias Chunk = Partition<Document.Line>.Node
     typealias EventPublisher = AnyPublisher<Event, Never>
     enum Event {
         case Insert(node: Chunk, range: NSRange)
@@ -24,7 +24,7 @@ class TextState {
         let hasBullet: Bool
     }
     var text: String
-    var chunks: WAVLTree<Document.Line>
+    var chunks: Partition<Document.Line>
     var structure: Document.List
     var items: [Substring] {
         var result: [Substring] = []
@@ -56,7 +56,7 @@ class TextState {
         let line: Document.Line
     }
     init(nodes: [Node]) {
-        func callback(_ content: String) -> (Document.Line, WAVLDir, WAVLTree<Document.Line>.Node?) -> WAVLTree<Document.Line>.Node {
+        func callback(_ content: String) -> (Document.Line, Direction, Partition<Document.Line>.Node?) -> Partition<Document.Line>.Node {
             let text = content + "\n"
             self.text += text
             return {self.chunks.insert(value: $0, length: text.count, dir: $1, near: $2).0}
@@ -114,14 +114,14 @@ class TextState {
             return NodeAppendingState(item: .sublist(value: sublist), line: lastInserted.line)
         }
         self.text = ""
-        self.chunks = WAVLTree()
+        self.chunks = Partition()
         self.structure = Document.List()
         var lastInserted: NodeAppendingState? = nil
         nodes.forEach {lastInserted = appendNode(list: self.structure, after: lastInserted, node: $0)}
         self.structure.debugLog()
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
-        let range = WAVLTree.setLength(node: node, length: length)
+        let range = Partition.setLength(node: node, length: length)
         eventsPublisher.send(.SetLength(value: node.value, length: length, oldRange: range))
         return range
     }
