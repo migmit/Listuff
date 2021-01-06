@@ -75,35 +75,30 @@ let dash = "-"
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
     
-    let textStorage: TextStorage
-    let layoutManager: NSLayoutManager
-    let textContainer: NSTextContainer
-
+    let content: TextState
+    
     init(content: TextState) {
-        textStorage = TextStorage(content: content)
-        layoutManager = LayoutManager(content: content)
-        textContainer = NSTextContainer()
-        textStorage.addLayoutManager(layoutManager)
-        layoutManager.addTextContainer(textContainer)
+        self.content = content
     }
     
     func makeUIView(context: Context) -> TextView {
-        if layoutManager.textStorage == nil {
-            textStorage.addLayoutManager(layoutManager)
-        }
-        if textContainer.layoutManager == nil {
-            layoutManager.addTextContainer(textContainer)
-        }
-        let view = TextView(frame: .zero, textContainer: textContainer)
-        return view
+        return TextView(frame: .zero, content: content)
     }
     
     func updateUIView(_ uiView: TextView, context: Context) {
     }
     
     class TextView: UITextView {
-        override init(frame: CGRect, textContainer: NSTextContainer?) {
-            super.init(frame: frame, textContainer: textContainer)
+        let storage: TextStorage
+        let manager: LayoutManager
+        let container: NSTextContainer
+        init(frame: CGRect, content: TextState) {
+            storage = TextStorage(content: content)
+            manager = LayoutManager(content: content)
+            container = NSTextContainer()
+            storage.addLayoutManager(manager)
+            manager.addTextContainer(container)
+            super.init(frame: frame, textContainer: container)
         }
         
         required init?(coder: NSCoder) {
