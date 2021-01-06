@@ -163,6 +163,9 @@ enum Document {
                 item.debugPrint(prefix: prefix + " |")
             }
         }
+        var count: Int {
+            return items.totalLength()
+        }
     }
     class NumberedItem: Level, DebugPrint {
         var content: Line
