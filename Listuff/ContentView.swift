@@ -56,7 +56,26 @@ var testDocument = TextState(
                 ),
                 Node(text: "Back to normal again")
             ]
-        )
+        ),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa"),
+        Node(text: "aaa")
     ]
 )
 
@@ -90,21 +109,37 @@ struct HierarchyView: UIViewRepresentable {
     func updateUIView(_ uiView: TextView, context: Context) {
     }
     
-    class TextView: UITextView {
+    class TextView: UITextView, UIGestureRecognizerDelegate {
         let storage: TextStorage
         let manager: LayoutManager
         let container: NSTextContainer
+        var gesture: UIGestureRecognizer? = nil
         init(frame: CGRect, content: TextState) {
-            storage = TextStorage(content: content)
-            manager = LayoutManager(content: content)
-            container = NSTextContainer()
-            storage.addLayoutManager(manager)
-            manager.addTextContainer(container)
+            self.storage = TextStorage(content: content)
+            self.manager = LayoutManager(content: content)
+            self.container = NSTextContainer()
+            self.storage.addLayoutManager(self.manager)
+            self.manager.addTextContainer(self.container)
             super.init(frame: frame, textContainer: container)
+            let gesture = UITapGestureRecognizer(target: self, action: #selector(tapped))
+            self.gesture = gesture
+            gesture.delegate = self
+            self.addGestureRecognizer(gesture)
         }
         
         required init?(coder: NSCoder) {
             return nil
+        }
+        
+        @objc func tapped(gestureRecognizer: UIGestureRecognizer) {
+            let idx = layoutManager.characterIndex(for: gestureRecognizer.location(in: self), in: container, fractionOfDistanceBetweenInsertionPoints: nil)
+            if let (_, line) = storage.content.chunks.search(pos: idx) {
+                print(String(describing: line.checked))
+            }
+            print("TAPPED")
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            return true
         }
         
         override func copy(_ sender: Any?) {

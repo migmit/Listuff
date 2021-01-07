@@ -27,8 +27,8 @@ protocol DebugPrint {
 extension DebugPrint {
     func debugLog() {debugPrint(prefix: "")}
 }
-enum Document {
-    typealias LineCallback = (Line, Direction, Partition<Line>.Node?) -> Partition<Line>.Node
+enum Document<LineData> {
+    typealias LineCallback = (Line, Direction, LineData?) -> LineData
     class WeakProxy<C: AnyObject> {
         weak var value: C?
     }
@@ -235,7 +235,7 @@ enum Document {
         }
     }
     class Line: Level, DebugPrint {
-        weak var content: Partition<Line>.Node? = nil
+        var content: LineData? = nil
         var checked: Checked?
         var parent: LineParent
         init(checked: Checked? = nil, parent: LineParent) {
@@ -253,7 +253,7 @@ enum Document {
             }
         }
         func debugPrint(prefix: String) {
-            print(prefix + (checked.map{$0.value ? "v " : "_ "} ?? "") + String(content!.end))
+            print(prefix + (checked.map{$0.value ? "v " : "_ "} ?? "") + "---")
         }
     }
     struct Checked {
