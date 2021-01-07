@@ -137,13 +137,7 @@ struct Partition<V>: Sequence {
             return result
         }
         func length() -> Int {
-            var result = end
-            var current = self[.Left]?.node
-            while let curNode = current {
-                result -= curNode.end
-                current = curNode[.Right]?.node
-            }
-            return result
+            return end - (self[.Left]?.node.totalLength() ?? 0)
         }
     }
     private(set) var root: Node? = nil
