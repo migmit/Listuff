@@ -81,7 +81,7 @@ var testDocument = TextState(
 
 let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
 let systemColor = UIColor.label
-let indentationStep = 35.0
+let indentationStep = CGFloat(35.0)
 let paragraphSpacing = 5.0
 let checkmark = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
 let unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
@@ -110,11 +110,13 @@ struct HierarchyView: UIViewRepresentable {
     }
     
     class TextView: UITextView, UIGestureRecognizerDelegate {
+        let content: TextState
         let storage: TextStorage
         let manager: LayoutManager
         let container: NSTextContainer
         var gesture: UIGestureRecognizer? = nil
         init(frame: CGRect, content: TextState) {
+            self.content = content
             self.storage = TextStorage(content: content)
             self.manager = LayoutManager(content: content)
             self.container = NSTextContainer()
@@ -132,11 +134,34 @@ struct HierarchyView: UIViewRepresentable {
         }
         
         @objc func tapped(gestureRecognizer: UIGestureRecognizer) {
-            let idx = layoutManager.characterIndex(for: gestureRecognizer.location(in: self), in: container, fractionOfDistanceBetweenInsertionPoints: nil)
-            if let (_, line) = storage.content.chunks.search(pos: idx) {
-                print(String(describing: line.checked))
+            let location = gestureRecognizer.location(in: self)
+            let realLocation = CGPoint(x: location.x - textContainerInset.left, y: location.y - textContainerInset.top)
+            let idx = layoutManager.characterIndex(for: realLocation, in: container, fractionOfDistanceBetweenInsertionPoints: nil)
+            if let (range, line) = content.chunks.search(pos: idx), let checked = line.checked {
+                let paragraphIndent = content.calculateIndent(line: line)
+                let afterBullet: CGFloat
+                switch line.parent {
+                case .numbered(value: _): afterBullet = paragraphIndent
+                case .regular(value: let value): afterBullet = value.value?.style == nil ? paragraphIndent : paragraphIndent + bulletWidth
+                }
+                let glRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+                if glRange.length <= 0 {return}
+                layoutManager.enumerateLineFragments(forGlyphRange: NSMakeRange(glRange.location, 1)) {_, usedRect, textContainer, _, ptrStop in
+                    let fragmentPadding = textContainer.lineFragmentPadding
+                    let image = checked.value ? checkmark : unchecked
+                    let imageOrigin = CGPoint(
+                        x: afterBullet + (checkmarkWidth - image.size.width) / 2 + fragmentPadding,
+                        y: usedRect.midY - image.size.height / 2
+                    )
+                    let imageRect = CGRect(origin: imageOrigin, size: image.size)
+                    if imageRect.contains(realLocation) {
+                        line.checked = TextState.Doc.Checked(value: !checked.value)
+                        self.layoutManager.invalidateDisplay(forCharacterRange: range)
+                        self.selectedRange = NSMakeRange(range.location, 0)
+                    }
+                    ptrStop.pointee = true
+                }
             }
-            print("TAPPED")
         }
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
             return true
@@ -170,14 +195,14 @@ struct HierarchyView: UIViewRepresentable {
             return content.text
         }
         override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
-            guard let listItemInfo = content.listItemInfo(pos: location) else {
+            guard let (currentLine, listItemInfo) = content.listItemInfo(pos: location) else {
                 NSException(name: .rangeException, reason: "Position \(location) out of bounds", userInfo: [:]).raise()
                 return [:] // Never happens
             }
             if let rangePtr = range {
                 rangePtr[0] = listItemInfo.range
             }
-            let paragraphIndentation = CGFloat(Double(listItemInfo.depth) * indentationStep)
+            let paragraphIndentation: CGFloat = content.calculateIndent(line: currentLine)
             let paragraphStyle = NSMutableParagraphStyle()
             let checkedAddition = listItemInfo.hasChekmark ? checkmarkWidth : 0
             let bulletAddition = listItemInfo.hasBullet ? bulletWidth : 0
@@ -228,28 +253,35 @@ struct HierarchyView: UIViewRepresentable {
                 }
                 let glRange = glyphRange(forCharacterRange: range, actualCharacterRange: nil)
                 if glRange.length <= 0 {continue}
+                let paragraphIndent = content.calculateIndent(line: line)
                 enumerateLineFragments(forGlyphRange: NSMakeRange(glRange.location, 1)) {_, usedRect, textContainer, _, ptrStop in
-                    let paragraphIndent: CGFloat
+                    let midpoint = usedRect.midY + origin.y
+                    let fragmentPadding = textContainer.lineFragmentPadding
+                    let afterBullet: CGFloat
+                    if let bstyle = bulletStyle {
+                        let bsize = (bstyle as NSString).size(withAttributes: [.font: systemFont])
+                        afterBullet = paragraphIndent + bulletWidth
+                        let borigin = CGPoint(
+                            x: paragraphIndent + (bulletWidth - bsize.width + fragmentPadding) / 2 + origin.x,
+                            y: midpoint - bsize.height / 2
+                        )
+                        (bstyle as NSString).draw(at: borigin, withAttributes: [.font: systemFont])
+                    } else {
+                        afterBullet = paragraphIndent
+                    }
                     if let checked = line.checked {
-                        paragraphIndent = usedRect.origin.x + textContainer.lineFragmentPadding - checkmarkWidth
                         let image = checked.value ? checkmark : unchecked
                         let imageOrigin = CGPoint(
-                            x: usedRect.origin.x - (checkmarkWidth + image.size.width) / 2 + textContainer.lineFragmentPadding + origin.x,
-                            y: usedRect.origin.y + (usedRect.size.height - image.size.height) / 2 + origin.y
+                            x: afterBullet + (checkmarkWidth - image.size.width) / 2 + fragmentPadding + origin.x,
+                            y: midpoint - image.size.height / 2
                         )
                         image.draw(at: imageOrigin)
                         ptrStop.pointee = true
-                    } else {
-                        paragraphIndent = usedRect.origin.x + textContainer.lineFragmentPadding
                     }
-                    if let bstyle = bulletStyle {
-                        let bsize = (bstyle as NSString).size(withAttributes: [.font: systemFont])
-                        let borigin = CGPoint(
-                            x: paragraphIndent - (bulletWidth + bsize.width) / 2 + origin.x,
-                            y: usedRect.origin.y + (usedRect.size.height - bsize.height) / 2 + origin.y
-                        )
-                        (bstyle as NSString).draw(at: borigin, withAttributes: [.font: systemFont])
-                    }
+//                    let gc = UIGraphicsGetCurrentContext()!
+//                    UIColor.red.set()
+//                    gc.addRect(CGRect(x: paragraphIndent + origin.x, y: usedRect.origin.y + origin.y, width: usedRect.origin.x - paragraphIndent, height: usedRect.height))
+//                    gc.strokePath()
                 }
             }
         }

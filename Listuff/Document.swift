@@ -7,36 +7,30 @@
 
 import Foundation
 
-protocol Level {
-    func levelUp() -> Level?
+protocol DocumentTypes {
+    associatedtype Line
+    associatedtype List
+    associatedtype NumberedList
 }
-extension Level {
-    func depth() -> Int {
-        var result = 0
-        var current: Level = self
-        while let parent = current.levelUp() {
-            current = parent
-            result += 1
-        }
-        return result
-    }
-}
+
 protocol DebugPrint {
     func debugPrint(prefix: String)
 }
 extension DebugPrint {
     func debugLog() {debugPrint(prefix: "")}
 }
-enum Document<LineData> {
-    typealias LineCallback = (Line, Direction, LineData?) -> LineData
+enum Document<DT: DocumentTypes> {
+    typealias LineCallback = (Line, Direction, DT.Line?) -> DT.Line
     class WeakProxy<C: AnyObject> {
         weak var value: C?
     }
     class List: DebugPrint {
         var items: Partition<Item>
         var parent: ListParent?
-        init(parent: ListParent? = nil) {
+        var listData: DT.List
+        init(listData: DT.List, parent: ListParent? = nil) {
             self.items = Partition()
+            self.listData = listData
             self.parent = parent
         }
         func side(dir: Direction) -> Item? {
@@ -47,30 +41,23 @@ enum Document<LineData> {
             item.this = items.insert(value: .regular(value: item), length: 1, dir: dir, near: nearItem?.impl.this).0
             return item
         }
-        func insertLineSublist(checked: Bool?, style: LineStyle?, dir: Direction, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> (Sublist, RegularItem) {
-            let sublist = Sublist(parentList: self)
+        func insertLineSublist(checked: Bool?, style: LineStyle?, dir: Direction, nearLine: Line?, nearItem: Item?, listData: DT.List, callback: LineCallback) -> (Sublist, RegularItem) {
+            let sublist = Sublist(listData: listData, parentList: self)
             sublist.this = items.insert(value: .sublist(value: sublist), length: 1, dir: dir, near: nearItem?.impl.this).0
             let item = sublist.list.insertLine(checked: checked, style: style, dir: dir, nearLine: nearLine, nearItem: nil, callback: callback)
             return (sublist, item)
         }
-        func insertLineNumberedList(checked: Bool?, dir: Direction, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> (NumberedList, NumberedItem) {
-            let numberedList = NumberedList(parent: self)
+        func insertLineNumberedList(checked: Bool?, dir: Direction, nearLine: Line?, nearItem: Item?, nlistData: DT.NumberedList, callback: LineCallback) -> (NumberedList, NumberedItem) {
+            let numberedList = NumberedList(listData: nlistData, parent: self)
             numberedList.this = items.insert(value: .numbered(value: numberedList), length: 1, dir: dir, near: nearItem?.impl.this).0
             let item = numberedList.insertLine(checked: checked, dir: dir, nearLine: nearLine, nearItem: nil, callback: callback)
             return (numberedList, item)
         }
-        func insertLineNumberedSublist(checked: Bool?, dir: Direction, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> (Sublist, NumberedList, NumberedItem) {
-            let sublist = Sublist(parentList: self)
+        func insertLineNumberedSublist(checked: Bool?, dir: Direction, nearLine: Line?, nearItem: Item?, listData: DT.List, nlistData: DT.NumberedList, callback: LineCallback) -> (Sublist, NumberedList, NumberedItem) {
+            let sublist = Sublist(listData: listData, parentList: self)
             sublist.this = items.insert(value: .sublist(value: sublist), length: 1, dir: dir, near: nearItem?.impl.this).0
-            let (numberedList, numberedItem) = sublist.list.insertLineNumberedList(checked: checked, dir: dir, nearLine: nearLine, nearItem: nil, callback: callback)
+            let (numberedList, numberedItem) = sublist.list.insertLineNumberedList(checked: checked, dir: dir, nearLine: nearLine, nearItem: nil, nlistData: nlistData, callback: callback)
             return (sublist, numberedList, numberedItem)
-        }
-        func levelUp() -> Level? {
-            switch parent {
-            case .sublist(value: let value): return value.value
-            case .numbered(value: let value): return value.value
-            case nil: return nil
-            }
         }
         func debugPrint(prefix: String) {
             for (_, item) in items {
@@ -81,7 +68,7 @@ enum Document<LineData> {
             }
         }
     }
-    enum Item: Level, DebugPrint {
+    enum Item: DebugPrint {
         case regular(value: RegularItem)
         case numbered(value: NumberedList)
         case sublist(value: Sublist)
@@ -92,9 +79,6 @@ enum Document<LineData> {
             case .sublist(value: let value): return value
             }
         }
-        func levelUp() -> Level? {
-            return impl.levelUp()
-        }
         func debugPrint(prefix: String) {
             switch self {
             case .regular(value: let value): value.debugPrint(prefix: prefix)
@@ -103,7 +87,7 @@ enum Document<LineData> {
             }
         }
     }
-    class ListItem: Level {
+    class ListItem {
         weak var this: Partition<Item>.Node? = nil
         weak var parent: List?
         init(parent: List) {
@@ -114,9 +98,6 @@ enum Document<LineData> {
         }
         func near(dir: Direction) -> Item? {
             return this?.near(dir: dir)?.value
-        }
-        func levelUp() -> Level? {
-            return parent?.levelUp()
         }
     }
     class RegularItem: ListItem, DebugPrint {
@@ -143,8 +124,10 @@ enum Document<LineData> {
     }
     class NumberedList: ListItem, DebugPrint {
         var items: Partition<NumberedItem>
-        override init(parent: List) {
+        var listData: DT.NumberedList
+        init(listData: DT.NumberedList, parent: List) {
             self.items = Partition()
+            self.listData = listData
             super.init(parent: parent)
         }
         func side(dir: Direction) -> NumberedItem? {
@@ -167,7 +150,7 @@ enum Document<LineData> {
             return items.totalLength()
         }
     }
-    class NumberedItem: Level, DebugPrint {
+    class NumberedItem: DebugPrint {
         var content: Line
         var sublist: List? = nil
         var parent: NumberedList
@@ -182,22 +165,19 @@ enum Document<LineData> {
             self.init(content: line, parent: parent)
             itemProxy.value = self
         }
-        func addSublistStub() -> List {
+        func addSublistStub(listData: DT.List) -> List {
             if let sl = sublist {
                 return sl
             } else {
                 let itemProxy = WeakProxy<NumberedItem>()
                 itemProxy.value = self
-                let sl = List(parent: .numbered(value: itemProxy))
+                let sl = List(listData: listData, parent: .numbered(value: itemProxy))
                 sublist = sl
                 return sl
             }
         }
         func near(dir: Direction) -> NumberedItem? {
             return this.flatMap{$0.near(dir: dir).map{$0.value}}
-        }
-        func levelUp() -> Level? {
-            return parent
         }
         func debugPrint(prefix: String) {
             if case .numbered(value: let ni) = content.parent, ni.value === self {
@@ -220,9 +200,9 @@ enum Document<LineData> {
             self.list = list
             super.init(parent: parent)
         }
-        convenience init(parentList: List) {
+        convenience init(listData: DT.List, parentList: List) {
             let listProxy = WeakProxy<Sublist>()
-            let list = List(parent: .sublist(value: listProxy))
+            let list = List(listData: listData, parent: .sublist(value: listProxy))
             self.init(list: list, parent: parentList)
             listProxy.value = self
         }
@@ -234,8 +214,8 @@ enum Document<LineData> {
             list.debugPrint(prefix: prefix + "  ")
         }
     }
-    class Line: Level, DebugPrint {
-        var content: LineData? = nil
+    class Line: DebugPrint {
+        var content: DT.Line? = nil
         var checked: Checked?
         var parent: LineParent
         init(checked: Checked? = nil, parent: LineParent) {
@@ -245,12 +225,6 @@ enum Document<LineData> {
         convenience init(checked: Bool?, dir: Direction, nearLine: Line?, parent: LineParent, callback: LineCallback) {
             self.init(checked: checked.map{Checked(value: $0)}, parent: parent)
             self.content = callback(self, dir, nearLine?.content)
-        }
-        func levelUp() -> Level? {
-            switch parent {
-            case .regular(value: let value): return value.value?.levelUp()
-            case .numbered(value: let value): return value.value?.levelUp()
-            }
         }
         func debugPrint(prefix: String) {
             print(prefix + (checked.map{$0.value ? "v " : "_ "} ?? "") + "---")
