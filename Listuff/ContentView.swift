@@ -96,14 +96,24 @@ let bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.fon
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
     
+    class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            return true
+        }
+    }
+    
     let content: TextState
     
     init(content: TextState) {
         self.content = content
     }
     
+    func makeCoordinator() -> Coordinator {
+        return Coordinator()
+    }
+    
     func makeUIView(context: Context) -> TextView {
-        return TextView(frame: .zero, content: content)
+        return TextView(frame: .zero, content: content, context: context)
     }
     
     func updateUIView(_ uiView: TextView, context: Context) {
@@ -115,7 +125,7 @@ struct HierarchyView: UIViewRepresentable {
         let manager: LayoutManager
         let container: NSTextContainer
         var gesture: UIGestureRecognizer? = nil
-        init(frame: CGRect, content: TextState) {
+        init(frame: CGRect, content: TextState, context: Context) {
             self.content = content
             self.storage = TextStorage(content: content)
             self.manager = LayoutManager(content: content)
@@ -125,7 +135,7 @@ struct HierarchyView: UIViewRepresentable {
             super.init(frame: frame, textContainer: container)
             let gesture = UITapGestureRecognizer(target: self, action: #selector(tapped))
             self.gesture = gesture
-            gesture.delegate = self
+            gesture.delegate = context.coordinator
             self.addGestureRecognizer(gesture)
         }
         
@@ -157,14 +167,11 @@ struct HierarchyView: UIViewRepresentable {
                     if imageRect.contains(realLocation) {
                         line.checked = TextState.Doc.Checked(value: !checked.value)
                         self.layoutManager.invalidateDisplay(forCharacterRange: range)
-                        self.selectedRange = NSMakeRange(range.location, 0)
+                        self.selectedRange = NSMakeRange(range.location + range.length - 1, 0)
                     }
                     ptrStop.pointee = true
                 }
             }
-        }
-        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-            return true
         }
         
         override func copy(_ sender: Any?) {
