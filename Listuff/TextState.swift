@@ -15,6 +15,7 @@ class TextState {
     typealias EventPublisher = AnyPublisher<Event, Never>
     struct LineData {
         weak var text: Chunk?
+        weak var line: Partition<()>.Node?
     }
     enum Event {
         case Insert(node: Chunk, range: NSRange)
@@ -29,6 +30,7 @@ class TextState {
     }
     var text: String
     var chunks: Partition<Doc.Line>
+    var lines: Partition<()>
     var structure: Doc.List
     var items: [Substring] {
         var result: [Substring] = []
@@ -64,7 +66,8 @@ class TextState {
             let text = content + "\n"
             self.text += text
             return {LineData(
-                text: self.chunks.insert(value: $0, length: text.count, dir: $1, near: $2?.text).0
+                text: self.chunks.insert(value: $0, length: text.count, dir: $1, near: $2?.text).0,
+                line: self.lines.insert(value: (), length: 1, dir: $1, near: $2?.line).0
             )}
         }
         func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) -> NodeAppendingState {
@@ -121,6 +124,7 @@ class TextState {
         }
         self.text = ""
         self.chunks = Partition()
+        self.lines = Partition()
         self.structure = Document.List()
         var lastInserted: NodeAppendingState? = nil
         nodes.forEach {lastInserted = appendNode(list: self.structure, after: lastInserted, node: $0)}

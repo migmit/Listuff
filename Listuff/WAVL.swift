@@ -125,6 +125,17 @@ struct Partition<V>: Sequence {
                 return nil
             }
         }
+        func position() -> Int {
+            var result = 0
+            var current = self
+            while let (parent, dir, _) = current.getChildInfo() {
+                if dir == .Right {
+                    result += parent.end
+                }
+                current = parent
+            }
+            return result
+        }
     }
     private(set) var root: Node? = nil
     private(set) var rank: Int = 0
