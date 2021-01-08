@@ -151,7 +151,7 @@ struct HierarchyView: UIViewRepresentable {
                         self.layoutManager.invalidateDisplay(forGlyphRange: correctedGlyphRange)
                         self.selectedRange = NSMakeRange(range.location + range.length - 1, 0)
                     }
-                    ptrStop.pointee = true
+                    ptrStop.assign(repeating: true, count: 1)
                 }
             }
         }
@@ -250,7 +250,7 @@ struct HierarchyView: UIViewRepresentable {
                             y: usedRect.midY + origin.y - checkmark.size.height / 2
                         )
                         checkmark.draw(at: imageOrigin)
-                        ptrStop.pointee = true
+                        ptrStop.assign(repeating: true, count: 1)
                     }
 //                    let gc = UIGraphicsGetCurrentContext()!
 //                    UIColor.green.set()
