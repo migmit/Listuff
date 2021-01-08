@@ -254,7 +254,7 @@ class TextState {
             if let parent = current.parent {
                 switch parent {
                 case .numbered(value: let value):
-                    indentStack.append((current, indentationStep + calculateIndentStep(nlist: value.value!.parent)))
+                    indentStack.append((current, numIndentStep + calculateIndentStep(nlist: value.value!.parent)))
                     current = value.value!.parent.parent!
                 case .sublist(value: let value):
                     indentStack.append((current, indentationStep))
