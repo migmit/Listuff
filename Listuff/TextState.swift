@@ -57,6 +57,10 @@ class TextState {
     struct RenderingCache {
         var version: Int
         var numWidths: Partition<CGFloat>
+        init(version: Int) {
+            self.version = version
+            self.numWidths = Partition()
+        }
         mutating func numWidth(num: Int, font: UIFont) -> CGFloat {
             if let (_, width) = numWidths.search(pos: num-1) {
                 return width
@@ -231,7 +235,7 @@ class TextState {
         let bulletFont = self.bulletFont // to avoid capturing self by closure
         self.bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.font: bulletFont]).width}.max()!
         
-        self.renderingCache = RenderingCache(version: 0, numWidths: Partition())
+        self.renderingCache = RenderingCache(version: 0)
         self.text = ""
         self.chunks = Partition()
         self.lines = Partition()
@@ -272,7 +276,7 @@ class TextState {
         switch line.parent {
         case .numbered(value: let value):
             let item = value.value!
-            let width = renderingCache.numWidth(num: item.parent.items.totalLength(), font: systemFont)
+            let width = calculateIndentStep(nlist: item.parent)
             let index = item.this!.position() + 1
             paragraphIndent = calculateIndent(list: value.value!.parent.parent!)
             indexIndent = width + numListPadding
