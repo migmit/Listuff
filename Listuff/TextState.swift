@@ -54,6 +54,23 @@ class TextState {
         case bullet(value: String, indent: CGFloat, height: CGFloat, font: UIFont)
         case number(value: String, indent: CGFloat, width: CGFloat, font: UIFont)
     }
+    let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
+    //let systemFont = UIFont(name: "Noteworthy", size: UIFont.labelFontSize)!
+    let systemColor = UIColor.label
+    let indentationStep = CGFloat(35.0)
+    let numIndentStep = CGFloat(25.0)
+    let paragraphSpacing = 7.0
+    let checked = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
+    let unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
+    let checkmarkPadding = CGFloat(5.0)
+    let checkmarkSize: CGSize
+    let bullet = "◦"
+    let dash = "-"
+    let bulletPadding = CGFloat(5.0)
+    let bulletFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
+    let bulletWidth: CGFloat
+    let numListPadding = CGFloat(5.0)
+
     var text: String
     var chunks: Partition<Doc.Line>
     var lines: Partition<()>
@@ -176,6 +193,10 @@ class TextState {
             nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{lastInserted = appendNode(list: sublist.list, after: lastInserted, node: $0)}
             return NodeAppendingState(item: .sublist(value: sublist), line: lastInserted.line)
         }
+        self.checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
+        let bulletFont = self.bulletFont // to avoid capturing self by closure
+        self.bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.font: bulletFont]).width}.max()!
+
         self.text = ""
         self.chunks = Partition()
         self.lines = Partition()
@@ -234,11 +255,11 @@ class TextState {
             indexIndent = 0
             accessory = bulletString.map{.bullet(value: $0, indent: paragraphIndent, height: ($0 as NSString).size(withAttributes: [.font: bulletFont]).height, font: bulletFont)}
         }
-        let checkedAddition = line.checked != nil ? checkmarkWidth + checkmarkPadding : 0
+        let checkedAddition = line.checked != nil ? checkmarkSize.width + checkmarkPadding : 0
         let textIndent = paragraphIndent + indexIndent + bulletAddition
         let info = ListItemInfo(
             range: range,
-            checkmark: line.checked.map{$0.value ? checkmark : unchecked},
+            checkmark: line.checked.map{$0.value ? checked : unchecked},
             textIndent: textIndent,
             firstLineIndent: textIndent + checkedAddition,
             accessory: accessory

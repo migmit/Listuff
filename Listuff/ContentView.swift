@@ -80,24 +80,6 @@ var testDocument = TextState(
     ]
 )
 
-let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
-//let systemFont = UIFont(name: "Noteworthy", size: UIFont.labelFontSize)!
-let systemColor = UIColor.label
-let indentationStep = CGFloat(35.0)
-let numIndentStep = CGFloat(25.0)
-let paragraphSpacing = 7.0
-let checkmark = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
-let unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
-let checkmarkPadding = CGFloat(5.0)
-let checkmarkWidth = max(checkmark.size.width, unchecked.size.width)
-let checkmarkHeight = max(checkmark.size.height, unchecked.size.height)
-let bullet = "◦"
-let dash = "-"
-let bulletPadding = CGFloat(5.0)
-let bulletFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
-let bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.font: bulletFont]).width}.max()!
-let numListPadding = CGFloat(5.0)
-
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
     
@@ -161,9 +143,9 @@ struct HierarchyView: UIViewRepresentable {
                     let fragmentPadding = textContainer.lineFragmentPadding
                     let imageOrigin = CGPoint(
                         x: lineInfo.textIndent + fragmentPadding,
-                        y: usedRect.midY - checkmarkHeight / 2
+                        y: usedRect.midY - self.content.checkmarkSize.height / 2
                     )
-                    let imageRect = CGRect(origin: imageOrigin, size: CGSize(width: checkmarkWidth, height: checkmarkHeight))
+                    let imageRect = CGRect(origin: imageOrigin, size: self.content.checkmarkSize)
                     if imageRect.contains(realLocation) {
                         line.checked = TextState.Doc.Checked(value: !checked.value)
                         self.layoutManager.invalidateDisplay(forGlyphRange: correctedGlyphRange)
@@ -208,14 +190,14 @@ struct HierarchyView: UIViewRepresentable {
                 }
                 let paragraphStyle = NSMutableParagraphStyle()
                 if lineInfo.checkmark != nil {
-                    paragraphStyle.minimumLineHeight = checkmarkHeight
+                    paragraphStyle.minimumLineHeight = content.checkmarkSize.height
                 }
                 paragraphStyle.headIndent = lineInfo.textIndent
                 paragraphStyle.firstLineHeadIndent = lineInfo.firstLineIndent
-                paragraphStyle.paragraphSpacing = CGFloat(paragraphSpacing)
+                paragraphStyle.paragraphSpacing = CGFloat(content.paragraphSpacing)
                 return [
-                    .font: systemFont,
-                    .foregroundColor: systemColor,
+                    .font: content.systemFont,
+                    .foregroundColor: content.systemColor,
                     .paragraphStyle: paragraphStyle
                 ]
             }
