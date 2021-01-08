@@ -12,10 +12,10 @@ import SwiftUI
 var testDocument = TextState(
     nodes: [
         Node(
-            text: "First node",
+            text: "First node \u{1f602}éüő",
             children: [
                 Node(
-                    text: "Second node",
+                    text: "😂éüő Second node",
                     children: [
                         Node(text: "Third node and some more awesome stuff", style: .bullet),
                         Node(text: "Fourth node", checked: true, style: .dash)

@@ -55,7 +55,9 @@ class TextState {
         case number(value: String, indent: CGFloat, width: CGFloat, font: UIFont)
     }
     let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
-    //let systemFont = UIFont(name: "Noteworthy", size: UIFont.labelFontSize)!
+//    let systemFont = UIFont(name: "Arial", size: UIFont.labelFontSize)!
+//    let systemFont = UIFont.systemFont(ofSize: UIFont.labelFontSize, weight: .regular)
+//    let systemFont = UIFont(name: "Apple Color Emoji", size: UIFont.labelFontSize)!
     let systemColor = UIColor.label
     let indentationStep = CGFloat(35.0)
     let numIndentStep = CGFloat(25.0)
@@ -111,7 +113,7 @@ class TextState {
             let text = content + "\n"
             self.text += text
             return {DocData.Line(
-                text: self.chunks.insert(value: $0, length: text.count, dir: $1, near: $2?.text).0,
+                text: self.chunks.insert(value: $0, length: text.utf16.count, dir: $1, near: $2?.text).0,
                 line: self.lines.insert(value: (), length: 1, dir: $1, near: $2?.line).0
             )}
         }
