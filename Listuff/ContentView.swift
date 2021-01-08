@@ -12,7 +12,7 @@ import SwiftUI
 var testDocument = TextState(
     nodes: [
         Node(
-            text: "First node \u{1f602}éüő",
+            text: "First node \u{1f602}👩‍👩‍👧‍👦éüő",
             children: [
                 Node(
                     text: "☼😂éüő Second node",
