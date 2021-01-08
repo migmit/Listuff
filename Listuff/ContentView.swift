@@ -30,8 +30,8 @@ var testDocument = TextState(
                 Node(
                     text: "First item",
                     children: [
-                        Node(text: "First child oeiuryhg qoieurhg oqeiyruhg qoeiurygh qoeiuryghq oeirugh qpeirugh pqieurhg pqeiurhg pqeiurgh pqeiurgh pqieurhg qpeiurhg pqieurhqg", checked: false),
-                        Node(text: "Second child", checked: true),
+                        Node(text: "First child oeiuryhg qoieurhg oqeiyruhg qoeiurygh qoeiuryghq oeirugh qpeirugh pqieurhg pqeiurhg pqeiurgh pqeiurgh pqieurhg qpeiurhg pqieurhqw", checked: false),
+                        Node(text: "Second child oeiuryhg qoieurhg oqeiyruhg qoeiurygh qoeiuryghq oeirugh qpeirugh pqieurhg pqeiurhg pqeiurgh pqeiurgh pqieurhg qpeiurhg pqieurhqw", checked: true),
                         Node(text: "Third child")
                     ],
                     style: .number
@@ -81,6 +81,7 @@ var testDocument = TextState(
 )
 
 let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
+//let systemFont = UIFont(name: "Arial", size: UIFont.labelFontSize)!
 let systemColor = UIColor.label
 let indentationStep = CGFloat(35.0)
 let paragraphSpacing = 5.0
@@ -92,7 +93,8 @@ let checkmarkHeight = max(checkmark.size.height, unchecked.size.height)
 let bullet = "◦"
 let dash = "-"
 let bulletPadding = CGFloat(5.0)
-let bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.font: systemFont]).width}.max()!
+let bulletFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
+let bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.font: bulletFont]).width}.max()!
 let numListPadding = CGFloat(5.0)
 
 struct HierarchyView: UIViewRepresentable {
@@ -291,10 +293,10 @@ struct HierarchyView: UIViewRepresentable {
                         let bsize = (bstyle as NSString).size(withAttributes: [.font: systemFont])
                         afterBullet = parIndent + bulletWidth + bulletPadding
                         let borigin = CGPoint(
-                            x: parIndent + origin.x,
+                            x: parIndent + (bulletWidth - bsize.width) / 2 + origin.x,
                             y: midpoint - bsize.height / 2
                         )
-                        (bstyle as NSString).draw(at: borigin, withAttributes: [.font: systemFont])
+                        (bstyle as NSString).draw(at: borigin, withAttributes: [.font: bulletFont])
                     } else {
                         afterBullet = parIndent + afterIndexIndent
                     }
