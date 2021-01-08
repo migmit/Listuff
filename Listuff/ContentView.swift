@@ -15,7 +15,7 @@ var testDocument = TextState(
             text: "First node \u{1f602}éüő",
             children: [
                 Node(
-                    text: "😂éüő Second node",
+                    text: "☼😂éüő Second node",
                     children: [
                         Node(text: "Third node and some more awesome stuff", style: .bullet),
                         Node(text: "Fourth node", checked: true, style: .dash)
