@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		B52D57F8258C346C0024FA43 /* NotePaste.swift in Sources */ = {isa = PBXBuildFile; fileRef = B52D57F7258C346C0024FA43 /* NotePaste.swift */; };
-		B53348822573156D0008FB49 /* WAVL.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53348812573156D0008FB49 /* WAVL.swift */; };
+		B53348822573156D0008FB49 /* Partition.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53348812573156D0008FB49 /* Partition.swift */; };
 		B533488725732B820008FB49 /* WAVLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B533488625732B820008FB49 /* WAVLTests.swift */; };
 		B533488C2573D1570008FB49 /* ObservableProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B533488B2573D1570008FB49 /* ObservableProxy.swift */; };
 		B53C4C7325992EC900DCED26 /* TextState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53C4C7225992EC900DCED26 /* TextState.swift */; };
@@ -20,7 +20,7 @@
 		B56B369225515B1C006C1FA6 /* Listuff.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = B56B369025515B1C006C1FA6 /* Listuff.xcdatamodeld */; };
 		B56B369D25515B1C006C1FA6 /* ListuffTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B56B369C25515B1C006C1FA6 /* ListuffTests.swift */; };
 		B56B36A825515B1C006C1FA6 /* ListuffUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B56B36A725515B1C006C1FA6 /* ListuffUITests.swift */; };
-		B5A165CE25A0A63200B483E3 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5A165CD25A0A63200B483E3 /* Document.swift */; };
+		B5A165CE25A0A63200B483E3 /* Structure.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5A165CD25A0A63200B483E3 /* Structure.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -42,7 +42,7 @@
 
 /* Begin PBXFileReference section */
 		B52D57F7258C346C0024FA43 /* NotePaste.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotePaste.swift; sourceTree = "<group>"; };
-		B53348812573156D0008FB49 /* WAVL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WAVL.swift; sourceTree = "<group>"; };
+		B53348812573156D0008FB49 /* Partition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Partition.swift; sourceTree = "<group>"; };
 		B533488625732B820008FB49 /* WAVLTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WAVLTests.swift; sourceTree = "<group>"; };
 		B533488B2573D1570008FB49 /* ObservableProxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableProxy.swift; sourceTree = "<group>"; };
 		B53C4C7225992EC900DCED26 /* TextState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextState.swift; sourceTree = "<group>"; };
@@ -60,7 +60,7 @@
 		B56B36A325515B1C006C1FA6 /* ListuffUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ListuffUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B56B36A725515B1C006C1FA6 /* ListuffUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListuffUITests.swift; sourceTree = "<group>"; };
 		B56B36A925515B1C006C1FA6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		B5A165CD25A0A63200B483E3 /* Document.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
+		B5A165CD25A0A63200B483E3 /* Structure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Structure.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -113,7 +113,7 @@
 			children = (
 				B56B368925515B1C006C1FA6 /* Assets.xcassets */,
 				B56B368725515B1B006C1FA6 /* ContentView.swift */,
-				B5A165CD25A0A63200B483E3 /* Document.swift */,
+				B5A165CD25A0A63200B483E3 /* Structure.swift */,
 				B56B369325515B1C006C1FA6 /* Info.plist */,
 				B56B369025515B1C006C1FA6 /* Listuff.xcdatamodeld */,
 				B56B368525515B1B006C1FA6 /* ListuffApp.swift */,
@@ -122,7 +122,7 @@
 				B56B368E25515B1C006C1FA6 /* Persistence.swift */,
 				B56B368B25515B1C006C1FA6 /* Preview Content */,
 				B53C4C7225992EC900DCED26 /* TextState.swift */,
-				B53348812573156D0008FB49 /* WAVL.swift */,
+				B53348812573156D0008FB49 /* Partition.swift */,
 			);
 			path = Listuff;
 			sourceTree = "<group>";
@@ -287,8 +287,8 @@
 				B56B368F25515B1C006C1FA6 /* Persistence.swift in Sources */,
 				B56B369225515B1C006C1FA6 /* Listuff.xcdatamodeld in Sources */,
 				B52D57F8258C346C0024FA43 /* NotePaste.swift in Sources */,
-				B53348822573156D0008FB49 /* WAVL.swift in Sources */,
-				B5A165CE25A0A63200B483E3 /* Document.swift in Sources */,
+				B53348822573156D0008FB49 /* Partition.swift in Sources */,
+				B5A165CE25A0A63200B483E3 /* Structure.swift in Sources */,
 				B56B368825515B1B006C1FA6 /* ContentView.swift in Sources */,
 				B56B368625515B1B006C1FA6 /* ListuffApp.swift in Sources */,
 				B533488C2573D1570008FB49 /* ObservableProxy.swift in Sources */,
