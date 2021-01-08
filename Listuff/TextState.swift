@@ -6,8 +6,7 @@
 //
 
 import Combine
-import CoreGraphics
-import Foundation
+import UIKit
 
 class TextState {
     typealias Dir = Direction
@@ -35,10 +34,25 @@ class TextState {
     }
     struct ListItemInfo {
         let range: NSRange
-        let paragraphIndent: CGFloat
-        let indexIndent: CGFloat
-        let hasChekmark: Bool
-        let hasBullet: Bool
+        let checkmark: UIImage?
+        let textIndent: CGFloat
+        let firstLineIndent: CGFloat
+        let accessory: Accessory?
+    }
+    struct ListItemInfoIterator: Sequence, IteratorProtocol {
+        var lineIterator: Partition<Doc.Line>.Iterator
+        let textState: TextState
+        init(textState: TextState, charRange: NSRange) {
+            self.textState = textState
+            self.lineIterator = textState.chunks.covering(from: charRange.location, to: charRange.location + charRange.length)
+        }
+        mutating func next() -> ListItemInfo? {
+            return lineIterator.next().map{textState.lineInfo(range: $0.0, line: $0.1)}
+        }
+    }
+    enum Accessory {
+        case bullet(value: String, indent: CGFloat, height: CGFloat, font: UIFont)
+        case number(value: String, indent: CGFloat, width: CGFloat, font: UIFont)
     }
     var text: String
     var chunks: Partition<Doc.Line>
@@ -171,6 +185,69 @@ class TextState {
         var lastInserted: NodeAppendingState? = nil
         nodes.forEach {lastInserted = appendNode(list: self.structure, after: lastInserted, node: $0)}
     }
+    func setChunkLength(node: Chunk, length: Int) -> NSRange {
+        let range = Partition.setLength(node: node, length: length)
+        eventsPublisher.send(.SetLength(value: node.value, length: length, oldRange: range))
+        return range
+    }
+    func insertChunk(value: Doc.Line, length: Int, dir: Dir = .Right, near: Chunk? = nil) -> (Chunk, Int) {
+        let (node, start) = chunks.insert(value: value, length: length, dir: dir, near: near)
+        eventsPublisher.send(.Insert(node: node, range: NSMakeRange(start, length)))
+        return (node, start)
+    }
+    func removeChunk(node: Chunk) -> NSRange {
+        let value = node.value
+        let range = chunks.remove(node: node)
+        eventsPublisher.send(.Remove(value: value, oldRange: range))
+        return range
+    }
+    func replaceCharacters(in range: NSRange, with str: String) -> (NSRange, Int) { // changed range (could be wider than "in range"), change in length
+        return (range, 0) // TOFIX
+    }
+    func lineInfo(range: NSRange, line: Doc.Line) -> ListItemInfo {
+        let hasBullet: Bool
+        switch line.parent {
+        case .numbered(value: _): hasBullet = false
+        case .regular(value: let value): hasBullet = value.value?.style != nil
+        }
+        let bulletAddition: CGFloat = hasBullet ? bulletWidth + bulletPadding : 0
+        //let (paragraphIndent, indexIndent) = calculateIndent(line: line)
+        let paragraphIndent: CGFloat
+        let indexIndent: CGFloat
+        let accessory: Accessory?
+        switch line.parent {
+        case .numbered(value: let value):
+            let item = value.value!
+            let width = calcNumWidth(num: item.parent.items.totalLength())
+            let index = item.this!.position() + 1
+            paragraphIndent = calculateIndent(list: value.value!.parent.parent!)
+            indexIndent = calculateIndentStep(nlist: value.value!.parent) + numListPadding
+            accessory = .number(value: "\(index).", indent: paragraphIndent, width: width, font: systemFont)
+        case .regular(value: let value):
+            let bulletString: String?
+            switch value.value!.style {
+            case .bullet: bulletString = bullet
+            case .dash: bulletString = dash
+            case nil: bulletString = nil
+            }
+            paragraphIndent = calculateIndent(list: value.value!.parent!)
+            indexIndent = 0
+            accessory = bulletString.map{.bullet(value: $0, indent: paragraphIndent, height: ($0 as NSString).size(withAttributes: [.font: bulletFont]).height, font: bulletFont)}
+        }
+        let checkedAddition = line.checked != nil ? checkmarkWidth + checkmarkPadding : 0
+        let textIndent = paragraphIndent + indexIndent + bulletAddition
+        let info = ListItemInfo(
+            range: range,
+            checkmark: line.checked.map{$0.value ? checkmark : unchecked},
+            textIndent: textIndent,
+            firstLineIndent: textIndent + checkedAddition,
+            accessory: accessory
+        )
+        return info
+    }
+    func lineInfos(charRange: NSRange) -> ListItemInfoIterator {
+        return ListItemInfoIterator(textState: self, charRange: charRange)
+    }
     func calcNumWidth(num: Int) -> CGFloat {
         if let (_, width) = numWidthCache.search(pos: num-1) {
             return width
@@ -196,44 +273,6 @@ class TextState {
                 _ = Partition.setLength(node: ln, length: ln.length() + extendCount)
             }
             return maxWidth
-        }
-    }
-    func setChunkLength(node: Chunk, length: Int) -> NSRange {
-        let range = Partition.setLength(node: node, length: length)
-        eventsPublisher.send(.SetLength(value: node.value, length: length, oldRange: range))
-        return range
-    }
-    func insertChunk(value: Doc.Line, length: Int, dir: Dir = .Right, near: Chunk? = nil) -> (Chunk, Int) {
-        let (node, start) = chunks.insert(value: value, length: length, dir: dir, near: near)
-        eventsPublisher.send(.Insert(node: node, range: NSMakeRange(start, length)))
-        return (node, start)
-    }
-    func removeChunk(node: Chunk) -> NSRange {
-        let value = node.value
-        let range = chunks.remove(node: node)
-        eventsPublisher.send(.Remove(value: value, oldRange: range))
-        return range
-    }
-    func replaceCharacters(in range: NSRange, with str: String) -> (NSRange, Int) { // changed range (could be wider than "in range"), change in length
-        return (range, 0) // TOFIX
-    }
-    func listItemInfo(pos: Int) -> ListItemInfo? {
-        return chunks.search(pos: pos).map{(rl) in
-            let (range, line) = rl
-            let hasBullet: Bool
-            switch line.parent {
-            case .numbered(value: _): hasBullet = false
-            case .regular(value: let value): hasBullet = value.value?.style != nil
-            }
-            let (paragraphIndent, indexIndent) = calculateIndent(line: line)
-            let info = ListItemInfo(
-                range: range,
-                paragraphIndent: paragraphIndent,
-                indexIndent: indexIndent,
-                hasChekmark: line.checked != nil,
-                hasBullet: hasBullet
-            )
-            return info
         }
     }
     func calculateIndentStep(nlist: Doc.NumberedList) -> CGFloat {
@@ -275,14 +314,6 @@ class TextState {
             list.listData.indent = result
         }
         return result
-    }
-    func calculateIndent(line: TextState.Doc.Line) -> (CGFloat, CGFloat) {
-        switch line.parent {
-        case .numbered(value: let value):
-            return (calculateIndent(list: value.value!.parent.parent!), calculateIndentStep(nlist: value.value!.parent) + numListPadding)
-        case .regular(value: let value):
-            return (calculateIndent(list: value.value!.parent!), 0)
-        }
     }
 }
 
