@@ -56,34 +56,19 @@ class TextState {
     }
     struct RenderingCache {
         var version: Int
-        var numWidths: Partition<CGFloat>
+        var numWidths: [CGFloat]
         init(version: Int) {
             self.version = version
-            self.numWidths = Partition()
+            self.numWidths = []
         }
         mutating func numWidth(num: Int, font: UIFont) -> CGFloat {
-            if let (_, width) = numWidths.search(pos: num-1) {
-                return width
+            if num <= numWidths.count {
+                return numWidths[num-1]
             } else {
-                let maxNumFoundWidth = numWidths.totalLength()
-                var lastNode = numWidths.side(dir: .Right)
-                var maxWidth = lastNode?.value ?? 0
-                var extendCount = 0
-                for n in maxNumFoundWidth..<num {
-                    let width = ("\(n+1)." as NSString).size(withAttributes: [.font: font]).width
-                    if width > maxWidth {
-                        maxWidth = width
-                        if let ln = lastNode {
-                            _ = Partition.setLength(node: ln, length: ln.length() + extendCount)
-                        }
-                        extendCount = 0
-                        (lastNode, _) = numWidths.insert(value: width, length: 1, dir: .Left, near: nil)
-                    } else {
-                        extendCount += 1
-                    }
-                }
-                if let ln = lastNode, extendCount > 0 {
-                    _ = Partition.setLength(node: ln, length: ln.length() + extendCount)
+                var maxWidth = numWidths.last ?? 0
+                for n in numWidths.count ..< num {
+                    maxWidth = max(("\(n+1)." as NSString).size(withAttributes: [.font: font]).width, maxWidth)
+                    numWidths.append(maxWidth)
                 }
                 return maxWidth
             }
