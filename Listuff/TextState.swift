@@ -24,7 +24,7 @@ class TextState {
             var indentStep: CGFloat?
         }
     }
-    typealias Doc = Document<DocData>
+    typealias Doc = Structure<DocData>
     typealias Chunk = Partition<Doc.Line>.Node
     typealias EventPublisher = AnyPublisher<Event, Never>
     enum Event {
@@ -224,7 +224,7 @@ class TextState {
         self.text = ""
         self.chunks = Partition()
         self.lines = Partition()
-        self.structure = Document.List(listData: DocData.List(version: renderingCache.version, indent: 0))
+        self.structure = Structure.List(listData: DocData.List(version: renderingCache.version, indent: 0))
         var lastInserted: NodeAppendingState? = nil
         nodes.forEach {lastInserted = appendNode(list: self.structure, after: lastInserted, node: $0)}
     }

@@ -13,7 +13,7 @@ protocol DocumentTypes {
     associatedtype NumberedList
 }
 
-enum Document<DT: DocumentTypes> {
+enum Structure<DT: DocumentTypes> {
     typealias LineCallback = (Line, Direction, DT.Line?) -> DT.Line
     class WeakProxy<C: AnyObject> {
         weak var value: C?
