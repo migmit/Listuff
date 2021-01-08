@@ -57,7 +57,9 @@ class TextState {
     let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
 //    let systemFont = UIFont(name: "Arial", size: UIFont.labelFontSize)!
 //    let systemFont = UIFont.systemFont(ofSize: UIFont.labelFontSize, weight: .regular)
-//    let systemFont = UIFont(name: "Apple Color Emoji", size: UIFont.labelFontSize)!
+//    let systemFont = UIFont(name: "Apple Color Emoji", size: UIFont.labelFontSize)! // <-- what should be instead of .AppleColorEmojiUI (name) or .Apple Color Emoji UI (family)
+//    let systemFont = UIFont(name: ".AppleSystemUIFontMonospaced", size: UIFont.labelFontSize)!
+//    let systemFont = UIFont(name: "TimesNewRomanPSMT", size: UIFont.labelFontSize)!
     let systemColor = UIColor.label
     let indentationStep = CGFloat(35.0)
     let numIndentStep = CGFloat(25.0)
