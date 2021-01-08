@@ -54,6 +54,37 @@ class TextState {
         case bullet(value: String, indent: CGFloat, height: CGFloat, font: UIFont)
         case number(value: String, indent: CGFloat, width: CGFloat, font: UIFont)
     }
+    struct RenderingCache {
+        var version: Int
+        var numWidths: Partition<CGFloat>
+        mutating func numWidth(num: Int, font: UIFont) -> CGFloat {
+            if let (_, width) = numWidths.search(pos: num-1) {
+                return width
+            } else {
+                let maxNumFoundWidth = numWidths.totalLength()
+                var lastNode = numWidths.side(dir: .Right)
+                var maxWidth = lastNode?.value ?? 0
+                var extendCount = 0
+                for n in maxNumFoundWidth..<num {
+                    let width = ("\(n+1)." as NSString).size(withAttributes: [.font: font]).width
+                    if width > maxWidth {
+                        maxWidth = width
+                        if let ln = lastNode {
+                            _ = Partition.setLength(node: ln, length: ln.length() + extendCount)
+                        }
+                        extendCount = 0
+                        (lastNode, _) = numWidths.insert(value: width, length: 1, dir: .Left, near: nil)
+                    } else {
+                        extendCount += 1
+                    }
+                }
+                if let ln = lastNode, extendCount > 0 {
+                    _ = Partition.setLength(node: ln, length: ln.length() + extendCount)
+                }
+                return maxWidth
+            }
+        }
+    }
     let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
 //    let systemFont = UIFont(name: "Arial", size: UIFont.labelFontSize)!
 //    let systemFont = UIFont.systemFont(ofSize: UIFont.labelFontSize, weight: .regular)
@@ -79,7 +110,7 @@ class TextState {
     var chunks: Partition<Doc.Line>
     var lines: Partition<()>
     var structure: Doc.List
-    var indentVersion: Int
+    var renderingCache: RenderingCache
     var items: [Substring] {
         var result: [Substring] = []
         for (bounds, _) in chunks {
@@ -93,7 +124,6 @@ class TextState {
     var events: EventPublisher {
         return eventsPublisher.eraseToAnyPublisher()
     }
-    var numWidthCache: Partition<CGFloat>
     enum AppendedItem {
         case regular(value: Doc.RegularItem)
         case sublist(value: Doc.Sublist)
@@ -123,7 +153,7 @@ class TextState {
             if nodes.isEmpty {
                 return NodeAppendingState(item: .numbered(value: numberedList, item: numberedItem), line: numberedItem.content)
             } else {
-                let sublist = numberedItem.addSublistStub(listData: DocData.List(version: indentVersion, indent: nil))
+                let sublist = numberedItem.addSublistStub(listData: DocData.List(version: renderingCache.version, indent: nil))
                 var lastAppended = NodeAppendingState(item: nil, line: numberedItem.content)
                 nodes.forEach{lastAppended = appendNode(list: sublist, after: lastAppended, node: $0)}
                 return NodeAppendingState(item: .numbered(value: numberedList, item: numberedItem), line: lastAppended.line)
@@ -147,7 +177,7 @@ class TextState {
                             dir: .Right,
                             nearLine: after?.line,
                             nearItem: after?.item?.it,
-                            nlistData: DocData.NumberedList(version: indentVersion, indentStep: nil),
+                            nlistData: DocData.NumberedList(version: renderingCache.version, indentStep: nil),
                             callback: callback(node.text)
                         )
                 }
@@ -170,8 +200,8 @@ class TextState {
                         dir: .Right,
                         nearLine: after.line,
                         nearItem: after.item?.it,
-                        listData: DocData.List(version: indentVersion, indent: nil),
-                        nlistData: DocData.NumberedList(version: indentVersion, indentStep: nil),
+                        listData: DocData.List(version: renderingCache.version, indent: nil),
+                        nlistData: DocData.NumberedList(version: renderingCache.version, indentStep: nil),
                         callback: callback(node.text)
                     )
                 return (sublist, appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children))
@@ -184,7 +214,7 @@ class TextState {
                     dir: .Right,
                     nearLine: after.line,
                     nearItem: after.item?.it,
-                    listData: DocData.List(version: indentVersion, indent: nil),
+                    listData: DocData.List(version: renderingCache.version, indent: nil),
                     callback: callback(node.text)
                 )
             let lastInserted = appendSublist(list: sublist.list, after: NodeAppendingState(item: .regular(value: item), line: item.content), nodes: node.children)
@@ -200,13 +230,12 @@ class TextState {
         self.checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
         let bulletFont = self.bulletFont // to avoid capturing self by closure
         self.bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.font: bulletFont]).width}.max()!
-
+        
+        self.renderingCache = RenderingCache(version: 0, numWidths: Partition())
         self.text = ""
         self.chunks = Partition()
         self.lines = Partition()
-        self.indentVersion = 0
-        self.structure = Document.List(listData: DocData.List(version: indentVersion, indent: 0))
-        self.numWidthCache = Partition()
+        self.structure = Document.List(listData: DocData.List(version: renderingCache.version, indent: 0))
         var lastInserted: NodeAppendingState? = nil
         nodes.forEach {lastInserted = appendNode(list: self.structure, after: lastInserted, node: $0)}
     }
@@ -243,10 +272,10 @@ class TextState {
         switch line.parent {
         case .numbered(value: let value):
             let item = value.value!
-            let width = calcNumWidth(num: item.parent.items.totalLength())
+            let width = renderingCache.numWidth(num: item.parent.items.totalLength(), font: systemFont)
             let index = item.this!.position() + 1
             paragraphIndent = calculateIndent(list: value.value!.parent.parent!)
-            indexIndent = calculateIndentStep(nlist: value.value!.parent) + numListPadding
+            indexIndent = width + numListPadding
             accessory = .number(value: "\(index).", indent: paragraphIndent, width: width, font: systemFont)
         case .regular(value: let value):
             let bulletString: String?
@@ -273,39 +302,12 @@ class TextState {
     func lineInfos(charRange: NSRange) -> ListItemInfoIterator {
         return ListItemInfoIterator(textState: self, charRange: charRange)
     }
-    func calcNumWidth(num: Int) -> CGFloat {
-        if let (_, width) = numWidthCache.search(pos: num-1) {
-            return width
-        } else {
-            let maxNumFoundWidth = numWidthCache.totalLength()
-            var lastNode = numWidthCache.side(dir: .Right)
-            var maxWidth = lastNode?.value ?? 0
-            var extendCount = 0
-            for n in maxNumFoundWidth..<num {
-                let width = ("\(n+1)." as NSString).size(withAttributes: [.font: systemFont]).width
-                if width > maxWidth {
-                    maxWidth = width
-                    if let ln = lastNode {
-                        _ = Partition.setLength(node: ln, length: ln.length() + extendCount)
-                    }
-                    extendCount = 0
-                    (lastNode, _) = numWidthCache.insert(value: width, length: 1, dir: .Left, near: nil)
-                } else {
-                    extendCount += 1
-                }
-            }
-            if let ln = lastNode, extendCount > 0 {
-                _ = Partition.setLength(node: ln, length: ln.length() + extendCount)
-            }
-            return maxWidth
-        }
-    }
     func calculateIndentStep(nlist: Doc.NumberedList) -> CGFloat {
-        if nlist.listData.version == indentVersion, let indentStep = nlist.listData.indentStep {
+        if nlist.listData.version == renderingCache.version, let indentStep = nlist.listData.indentStep {
             return indentStep
         }
-        let indentStep = calcNumWidth(num: nlist.items.totalLength())
-        nlist.listData.version = indentVersion
+        let indentStep = renderingCache.numWidth(num: nlist.items.totalLength(), font: systemFont)
+        nlist.listData.version = renderingCache.version
         nlist.listData.indentStep = indentStep
         return indentStep
     }
@@ -313,7 +315,7 @@ class TextState {
         var current = list
         var indentStack: [(TextState.Doc.List, CGFloat)] = []
         var result: CGFloat = 0
-        while current.listData.version != indentVersion || current.listData.indent == nil {
+        while current.listData.version != renderingCache.version || current.listData.indent == nil {
             if let parent = current.parent {
                 switch parent {
                 case .numbered(value: let value):
@@ -327,15 +329,15 @@ class TextState {
                 break
             }
         }
-        if current.listData.version == indentVersion, let initialIndent = current.listData.indent {
+        if current.listData.version == renderingCache.version, let initialIndent = current.listData.indent {
             result = initialIndent
         } else {
-            current.listData.version = indentVersion
+            current.listData.version = renderingCache.version
             current.listData.indent = 0
         }
         for (list, indentStep) in indentStack.reversed() {
             result += indentStep
-            list.listData.version = indentVersion
+            list.listData.version = renderingCache.version
             list.listData.indent = result
         }
         return result
