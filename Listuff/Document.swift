@@ -13,18 +13,12 @@ protocol DocumentTypes {
     associatedtype NumberedList
 }
 
-protocol DebugPrint {
-    func debugPrint(prefix: String)
-}
-extension DebugPrint {
-    func debugLog() {debugPrint(prefix: "")}
-}
 enum Document<DT: DocumentTypes> {
     typealias LineCallback = (Line, Direction, DT.Line?) -> DT.Line
     class WeakProxy<C: AnyObject> {
         weak var value: C?
     }
-    class List: DebugPrint {
+    class List {
         var items: Partition<Item>
         var parent: ListParent?
         var listData: DT.List
@@ -59,16 +53,8 @@ enum Document<DT: DocumentTypes> {
             let (numberedList, numberedItem) = sublist.list.insertLineNumberedList(checked: checked, dir: dir, nearLine: nearLine, nearItem: nil, nlistData: nlistData, callback: callback)
             return (sublist, numberedList, numberedItem)
         }
-        func debugPrint(prefix: String) {
-            for (_, item) in items {
-                if item.impl.parent !== self {
-                    print("ERROR0")
-                }
-                item.debugPrint(prefix: prefix)
-            }
-        }
     }
-    enum Item: DebugPrint {
+    enum Item {
         case regular(value: RegularItem)
         case numbered(value: NumberedList)
         case sublist(value: Sublist)
@@ -77,13 +63,6 @@ enum Document<DT: DocumentTypes> {
             case .regular(value: let value): return value
             case .numbered(value: let value): return value
             case .sublist(value: let value): return value
-            }
-        }
-        func debugPrint(prefix: String) {
-            switch self {
-            case .regular(value: let value): value.debugPrint(prefix: prefix)
-            case .numbered(value: let value): value.debugPrint(prefix: prefix)
-            case .sublist(value: let value): value.debugPrint(prefix: prefix)
             }
         }
     }
@@ -100,20 +79,13 @@ enum Document<DT: DocumentTypes> {
             return this?.near(dir: dir)?.value
         }
     }
-    class RegularItem: ListItem, DebugPrint {
+    class RegularItem: ListItem {
         var content: Line
         var style: LineStyle?
         init(content: Line, style: LineStyle?, parent: List) {
             self.content = content
             self.style = style
             super.init(parent: parent)
-        }
-        func debugPrint(prefix: String) {
-            if case .regular(value: let rv) = content.parent, rv.value === self {
-            } else {
-                print("ERROR1")
-            }
-            content.debugPrint(prefix: prefix + (style.map{"\($0) "} ?? ""))
         }
         convenience init(checked: Bool?, style: LineStyle?, dir: Direction, nearLine: Line?, parent: List, callback: LineCallback) {
             let itemProxy = WeakProxy<RegularItem>()
@@ -122,7 +94,7 @@ enum Document<DT: DocumentTypes> {
             itemProxy.value = self
         }
     }
-    class NumberedList: ListItem, DebugPrint {
+    class NumberedList: ListItem {
         var items: Partition<NumberedItem>
         var listData: DT.NumberedList
         init(listData: DT.NumberedList, parent: List) {
@@ -138,19 +110,11 @@ enum Document<DT: DocumentTypes> {
             item.this = items.insert(value: item, length: 1, dir: dir, near: nearItem?.this).0
             return item
         }
-        func debugPrint(prefix: String) {
-            for (_, item) in items {
-                if item.parent !== self {
-                    print("ERROR2")
-                }
-                item.debugPrint(prefix: prefix + " |")
-            }
-        }
         var count: Int {
             return items.totalLength()
         }
     }
-    class NumberedItem: DebugPrint {
+    class NumberedItem {
         var content: Line
         var sublist: List? = nil
         var parent: NumberedList
@@ -179,22 +143,8 @@ enum Document<DT: DocumentTypes> {
         func near(dir: Direction) -> NumberedItem? {
             return this.flatMap{$0.near(dir: dir).map{$0.value}}
         }
-        func debugPrint(prefix: String) {
-            if case .numbered(value: let ni) = content.parent, ni.value === self {
-            } else {
-                print("ERROR3")
-            }
-            content.debugPrint(prefix: prefix)
-            if let sl = sublist {
-                if case .numbered(value: let ni) = sl.parent, ni.value === self {
-                } else {
-                    print("ERROR4")
-                }
-            }
-            sublist?.debugPrint(prefix: prefix + "  ")
-        }
     }
-    class Sublist: ListItem, DebugPrint {
+    class Sublist: ListItem {
         var list: List
         init(list: List, parent: List) {
             self.list = list
@@ -211,10 +161,9 @@ enum Document<DT: DocumentTypes> {
             } else {
                 print("ERROR5")
             }
-            list.debugPrint(prefix: prefix + "  ")
         }
     }
-    class Line: DebugPrint {
+    class Line {
         var content: DT.Line? = nil
         var checked: Checked?
         var parent: LineParent
@@ -225,9 +174,6 @@ enum Document<DT: DocumentTypes> {
         convenience init(checked: Bool?, dir: Direction, nearLine: Line?, parent: LineParent, callback: LineCallback) {
             self.init(checked: checked.map{Checked(value: $0)}, parent: parent)
             self.content = callback(self, dir, nearLine?.content)
-        }
-        func debugPrint(prefix: String) {
-            print(prefix + (checked.map{$0.value ? "v " : "_ "} ?? "") + "---")
         }
     }
     struct Checked {

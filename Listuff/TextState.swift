@@ -170,7 +170,6 @@ class TextState {
         self.numWidthCache = Partition()
         var lastInserted: NodeAppendingState? = nil
         nodes.forEach {lastInserted = appendNode(list: self.structure, after: lastInserted, node: $0)}
-        self.structure.debugLog()
     }
     func calcNumWidth(num: Int) -> CGFloat {
         if let (_, width) = numWidthCache.search(pos: num-1) {
