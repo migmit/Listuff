@@ -80,6 +80,8 @@ var testDocument = TextState(
     ]
 )
 
+var testString = NSMutableAttributedString(string: "👩‍👩‍👧‍👦a")
+
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
     

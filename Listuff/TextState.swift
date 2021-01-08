@@ -13,7 +13,6 @@ class TextState {
     enum DocData: DocumentTypes {
         struct Line {
             weak var text: Chunk?
-            weak var line: Partition<()>.Node?
         }
         struct List {
             var version: Int
@@ -134,8 +133,7 @@ class TextState {
             let text = content + "\n"
             self.text += text
             return {DocData.Line(
-                text: self.chunks.insert(value: $0, length: text.utf16.count, dir: $1, near: $2?.text).0,
-                line: self.lines.insert(value: (), length: 1, dir: $1, near: $2?.line).0
+                text: self.chunks.insert(value: $0, length: text.utf16.count, dir: $1, near: $2?.text).0
             )}
         }
         func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) -> NodeAppendingState {
