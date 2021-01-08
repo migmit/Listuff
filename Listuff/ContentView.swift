@@ -81,7 +81,7 @@ var testDocument = TextState(
 )
 
 let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
-//let systemFont = UIFont(name: "Arial", size: UIFont.labelFontSize)!
+//let systemFont = UIFont(name: "Noteworthy", size: UIFont.labelFontSize)!
 let systemColor = UIColor.label
 let indentationStep = CGFloat(35.0)
 let numIndentStep = CGFloat(25.0)
@@ -291,13 +291,17 @@ struct HierarchyView: UIViewRepresentable {
                     }
                     let afterBullet: CGFloat
                     if let bstyle = bulletStyle {
-                        let bsize = (bstyle as NSString).size(withAttributes: [.font: systemFont])
+                        let bsize = (bstyle as NSString).size(withAttributes: [.font: bulletFont])
                         afterBullet = parIndent + bulletWidth + bulletPadding
                         let borigin = CGPoint(
                             x: parIndent + (bulletWidth - bsize.width) / 2 + origin.x,
                             y: midpoint - bsize.height / 2
                         )
                         (bstyle as NSString).draw(at: borigin, withAttributes: [.font: bulletFont])
+//                        let gc = UIGraphicsGetCurrentContext()!
+//                        UIColor.red.set()
+//                        gc.addRect(CGRect(origin: borigin, size: bsize))
+//                        gc.strokePath()
                     } else {
                         afterBullet = parIndent + afterIndexIndent
                     }
@@ -309,10 +313,6 @@ struct HierarchyView: UIViewRepresentable {
                         )
                         image.draw(at: imageOrigin)
                         ptrStop.pointee = true
-//                        let gc = UIGraphicsGetCurrentContext()!
-//                        UIColor.red.set()
-//                        gc.addRect(CGRect(origin: imageOrigin, size: image.size))
-//                        gc.strokePath()
                     }
 //                    let gc = UIGraphicsGetCurrentContext()!
 //                    UIColor.green.set()
