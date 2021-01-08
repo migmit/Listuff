@@ -35,6 +35,8 @@ class TextState {
     }
     struct ListItemInfo {
         let range: NSRange
+        let paragraphIndent: CGFloat
+        let indexIndent: CGFloat
         let hasChekmark: Bool
         let hasBullet: Bool
     }
@@ -56,6 +58,7 @@ class TextState {
     var events: EventPublisher {
         return eventsPublisher.eraseToAnyPublisher()
     }
+    var numWidthCache: Partition<CGFloat>
     enum AppendedItem {
         case regular(value: Doc.RegularItem)
         case sublist(value: Doc.Sublist)
@@ -164,9 +167,37 @@ class TextState {
         self.lines = Partition()
         self.indentVersion = 0
         self.structure = Document.List(listData: DocData.List(version: indentVersion, indent: 0))
+        self.numWidthCache = Partition()
         var lastInserted: NodeAppendingState? = nil
         nodes.forEach {lastInserted = appendNode(list: self.structure, after: lastInserted, node: $0)}
         self.structure.debugLog()
+    }
+    func calcNumWidth(num: Int) -> CGFloat {
+        if let (_, width) = numWidthCache.search(pos: num-1) {
+            return width
+        } else {
+            let maxNumFoundWidth = numWidthCache.totalLength()
+            var lastNode = numWidthCache.side(dir: .Right)
+            var maxWidth = lastNode?.value ?? 0
+            var extendCount = 0
+            for n in maxNumFoundWidth..<num {
+                let width = ("\(n+1)." as NSString).size(withAttributes: [.font: systemFont]).width
+                if width > maxWidth {
+                    maxWidth = width
+                    if let ln = lastNode {
+                        _ = Partition.setLength(node: ln, length: ln.length() + extendCount)
+                    }
+                    extendCount = 0
+                    (lastNode, _) = numWidthCache.insert(value: width, length: 1, dir: .Left, near: nil)
+                } else {
+                    extendCount += 1
+                }
+            }
+            if let ln = lastNode, extendCount > 0 {
+                _ = Partition.setLength(node: ln, length: ln.length() + extendCount)
+            }
+            return maxWidth
+        }
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
         let range = Partition.setLength(node: node, length: length)
@@ -187,7 +218,7 @@ class TextState {
     func replaceCharacters(in range: NSRange, with str: String) -> (NSRange, Int) { // changed range (could be wider than "in range"), change in length
         return (range, 0) // TOFIX
     }
-    func listItemInfo(pos: Int) -> (Doc.Line, ListItemInfo)? {
+    func listItemInfo(pos: Int) -> ListItemInfo? {
         return chunks.search(pos: pos).map{(rl) in
             let (range, line) = rl
             let hasBullet: Bool
@@ -195,19 +226,22 @@ class TextState {
             case .numbered(value: _): hasBullet = false
             case .regular(value: let value): hasBullet = value.value?.style != nil
             }
+            let (paragraphIndent, indexIndent) = calculateIndent(line: line)
             let info = ListItemInfo(
                 range: range,
+                paragraphIndent: paragraphIndent,
+                indexIndent: indexIndent,
                 hasChekmark: line.checked != nil,
                 hasBullet: hasBullet
             )
-            return (line, info)
+            return info
         }
     }
     func calculateIndentStep(nlist: Doc.NumberedList) -> CGFloat {
         if nlist.listData.version == indentVersion, let indentStep = nlist.listData.indentStep {
             return indentStep
         }
-        let indentStep = indentationStep // TOFIX
+        let indentStep = calcNumWidth(num: nlist.items.totalLength())
         nlist.listData.version = indentVersion
         nlist.listData.indentStep = indentStep
         return indentStep
@@ -243,12 +277,12 @@ class TextState {
         }
         return result
     }
-    func calculateIndent(line: TextState.Doc.Line) -> CGFloat {
+    func calculateIndent(line: TextState.Doc.Line) -> (CGFloat, CGFloat) {
         switch line.parent {
         case .numbered(value: let value):
-            return calculateIndent(list: value.value!.parent.parent!) + indentationStep
+            return (calculateIndent(list: value.value!.parent.parent!), calculateIndentStep(nlist: value.value!.parent) + numListPadding)
         case .regular(value: let value):
-            return calculateIndent(list: value.value!.parent!)
+            return (calculateIndent(list: value.value!.parent!), 0)
         }
     }
 }

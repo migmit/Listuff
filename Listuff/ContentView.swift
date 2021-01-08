@@ -31,7 +31,8 @@ var testDocument = TextState(
                     text: "First item",
                     children: [
                         Node(text: "First child oeiuryhg qoieurhg oqeiyruhg qoeiurygh qoeiuryghq oeirugh qpeirugh pqieurhg pqeiurhg pqeiurgh pqeiurgh pqieurhg qpeiurhg pqieurhqg", checked: false),
-                        Node(text: "Second child oeiuryhg qoieurhg oqeiyruhg qoeiurygh qoeiuryghq oeirugh qpeirugh pqieurhg pqeiurhg pqeiurgh pqeiurgh pqieurhg qpeiurhg pqieurhqg", checked: true)
+                        Node(text: "Second child", checked: true),
+                        Node(text: "Third child")
                     ],
                     style: .number
                 ),
@@ -86,12 +87,13 @@ let paragraphSpacing = 5.0
 let checkmark = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
 let unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
 let checkmarkPadding = CGFloat(5.0)
-let checkmarkWidth = max(checkmark.size.width, unchecked.size.width) + 2 * checkmarkPadding
+let checkmarkWidth = max(checkmark.size.width, unchecked.size.width)
 let checkmarkHeight = max(checkmark.size.height, unchecked.size.height)
 let bullet = "◦"
 let dash = "-"
 let bulletPadding = CGFloat(5.0)
-let bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.font: systemFont]).width}.max()! + 2 * bulletPadding
+let bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.font: systemFont]).width}.max()!
+let numListPadding = CGFloat(5.0)
 
 struct HierarchyView: UIViewRepresentable {
     typealias UIViewType = TextView
@@ -148,22 +150,22 @@ struct HierarchyView: UIViewRepresentable {
             let realLocation = CGPoint(x: location.x - textContainerInset.left, y: location.y - textContainerInset.top)
             let idx = layoutManager.characterIndex(for: realLocation, in: container, fractionOfDistanceBetweenInsertionPoints: nil)
             if let (range, line) = content.chunks.search(pos: idx), let checked = line.checked {
-                let paragraphIndent = content.calculateIndent(line: line)
+                let (paragraphIndent, indexIndent) = content.calculateIndent(line: line)
+                let parIndent = paragraphIndent + indexIndent
                 let afterBullet: CGFloat
                 switch line.parent {
-                case .numbered(value: _): afterBullet = paragraphIndent
-                case .regular(value: let value): afterBullet = value.value?.style == nil ? paragraphIndent : paragraphIndent + bulletWidth
+                case .numbered(value: _): afterBullet = parIndent
+                case .regular(value: let value): afterBullet = value.value?.style == nil ? parIndent : parIndent + bulletWidth + bulletPadding
                 }
                 let glRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
                 if glRange.length <= 0 {return}
                 layoutManager.enumerateLineFragments(forGlyphRange: NSMakeRange(glRange.location, 1)) {_, usedRect, textContainer, _, ptrStop in
                     let fragmentPadding = textContainer.lineFragmentPadding
-                    let image = checked.value ? checkmark : unchecked
                     let imageOrigin = CGPoint(
-                        x: afterBullet + (checkmarkWidth - image.size.width) / 2 + fragmentPadding,
-                        y: usedRect.midY - image.size.height / 2
+                        x: afterBullet + fragmentPadding,
+                        y: usedRect.midY - checkmarkHeight / 2
                     )
-                    let imageRect = CGRect(origin: imageOrigin, size: image.size)
+                    let imageRect = CGRect(origin: imageOrigin, size: CGSize(width: checkmarkWidth, height: checkmarkHeight))
                     if imageRect.contains(realLocation) {
                         line.checked = TextState.Doc.Checked(value: !checked.value)
                         self.layoutManager.invalidateDisplay(forCharacterRange: range)
@@ -202,21 +204,20 @@ struct HierarchyView: UIViewRepresentable {
             return content.text
         }
         override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
-            guard let (currentLine, listItemInfo) = content.listItemInfo(pos: location) else {
+            guard let listItemInfo = content.listItemInfo(pos: location) else {
                 NSException(name: .rangeException, reason: "Position \(location) out of bounds", userInfo: [:]).raise()
                 return [:] // Never happens
             }
             if let rangePtr = range {
                 rangePtr[0] = listItemInfo.range
             }
-            let paragraphIndentation: CGFloat = content.calculateIndent(line: currentLine)
             let paragraphStyle = NSMutableParagraphStyle()
-            let checkedAddition = listItemInfo.hasChekmark ? checkmarkWidth : 0
-            let bulletAddition = listItemInfo.hasBullet ? bulletWidth : 0
+            let checkedAddition = listItemInfo.hasChekmark ? checkmarkWidth + checkmarkPadding : 0
+            let bulletAddition = listItemInfo.hasBullet ? bulletWidth + bulletPadding : 0
             if listItemInfo.hasChekmark {
                 paragraphStyle.minimumLineHeight = checkmarkHeight
             }
-            paragraphStyle.headIndent = paragraphIndentation + bulletAddition
+            paragraphStyle.headIndent = listItemInfo.paragraphIndent + listItemInfo.indexIndent + bulletAddition
             paragraphStyle.firstLineHeadIndent = paragraphStyle.headIndent + checkedAddition
             paragraphStyle.paragraphSpacing = CGFloat(paragraphSpacing)
             return [
@@ -249,45 +250,70 @@ struct HierarchyView: UIViewRepresentable {
             let charRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
             for (range, line) in content.chunks.covering(from: charRange.location, to: charRange.location + charRange.length) {
                 let bulletStyle: String?
+                let lineNum: Int?
+                let paragraphIndent: CGFloat
+                let indexIndent: CGFloat
+                let afterIndexIndent: CGFloat
                 switch line.parent {
-                case .numbered(value: _): bulletStyle = nil
+                case .numbered(value: let value):
+                    lineNum = value.value!.this!.position()
+                    bulletStyle = nil
+                    paragraphIndent = content.calculateIndent(list: value.value!.parent.parent!)
+                    indexIndent = content.calculateIndentStep(nlist: value.value!.parent)
+                    afterIndexIndent = numListPadding
                 case .regular(value: let value):
+                    lineNum = nil
                     switch value.value?.style {
                     case .bullet: bulletStyle = bullet
                     case .dash: bulletStyle = dash
                     case nil: bulletStyle = nil
                     }
+                    paragraphIndent = content.calculateIndent(list: value.value!.parent!)
+                    indexIndent = 0
+                    afterIndexIndent = 0
                 }
                 let glRange = glyphRange(forCharacterRange: range, actualCharacterRange: nil)
                 if glRange.length <= 0 {continue}
-                let paragraphIndent = content.calculateIndent(line: line)
+                let parIndent = paragraphIndent + indexIndent
                 enumerateLineFragments(forGlyphRange: NSMakeRange(glRange.location, 1)) {_, usedRect, textContainer, _, ptrStop in
                     let midpoint = usedRect.midY + origin.y
                     let fragmentPadding = textContainer.lineFragmentPadding
+                    if let ln = lineNum {
+                        let parStyle = NSMutableParagraphStyle()
+                        parStyle.alignment = .right
+                        let numOrigin = CGPoint(x: paragraphIndent + origin.x + fragmentPadding, y: usedRect.minY + origin.y)
+                        let numSize = CGSize(width: indexIndent, height: usedRect.height)
+                        let numRect = CGRect(origin: numOrigin, size: numSize)
+                        ("\(ln+1)." as NSString).draw(in: numRect, withAttributes: [.font: systemFont, .paragraphStyle: parStyle])
+                    }
                     let afterBullet: CGFloat
                     if let bstyle = bulletStyle {
                         let bsize = (bstyle as NSString).size(withAttributes: [.font: systemFont])
-                        afterBullet = paragraphIndent + bulletWidth
+                        afterBullet = parIndent + bulletWidth + bulletPadding
                         let borigin = CGPoint(
-                            x: paragraphIndent + (bulletWidth - bsize.width + fragmentPadding) / 2 + origin.x,
+                            x: parIndent + origin.x,
                             y: midpoint - bsize.height / 2
                         )
                         (bstyle as NSString).draw(at: borigin, withAttributes: [.font: systemFont])
                     } else {
-                        afterBullet = paragraphIndent
+                        afterBullet = parIndent + afterIndexIndent
                     }
                     if let checked = line.checked {
                         let image = checked.value ? checkmark : unchecked
                         let imageOrigin = CGPoint(
-                            x: afterBullet + (checkmarkWidth - image.size.width) / 2 + fragmentPadding + origin.x,
+                            x: afterBullet + origin.x + fragmentPadding,
                             y: midpoint - image.size.height / 2
                         )
                         image.draw(at: imageOrigin)
                         ptrStop.pointee = true
+//                        let gc = UIGraphicsGetCurrentContext()!
+//                        UIColor.red.set()
+//                        gc.addRect(CGRect(origin: imageOrigin, size: image.size))
+//                        gc.strokePath()
                     }
 //                    let gc = UIGraphicsGetCurrentContext()!
-//                    UIColor.red.set()
-//                    gc.addRect(CGRect(x: paragraphIndent + origin.x, y: usedRect.origin.y + origin.y, width: usedRect.origin.x - paragraphIndent, height: usedRect.height))
+//                    UIColor.green.set()
+//                    gc.addRect(CGRect(origin: CGPoint(x: usedRect.minX + origin.x, y: usedRect.minY + origin.y), size: usedRect.size))
 //                    gc.strokePath()
                 }
             }
