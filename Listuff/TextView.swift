@@ -154,7 +154,7 @@ struct HierarchyView: UIViewRepresentable {
         func drawAccessory(accessory: TextState.Accessory, origin: CGPoint, boxYPos: CGFloat, boxHeight: CGFloat, fragmentPadding: CGFloat) {
             switch accessory {
             case .bullet(value: let value, indent: let indent, height: let height, font: let font):
-                value.draw(at: origin.shift(by: CGVector(dx: indent, dy: boxYPos + (boxHeight - height) / 2)), withAttributes: [.font: font])
+                value.draw(at: origin.shift(by: CGVector(dx: indent + fragmentPadding, dy: boxYPos + (boxHeight - height) / 2)), withAttributes: [.font: font])
             case .number(value: let value, indent: let indent, width: let width, font: let font):
                 let parStyle = NSMutableParagraphStyle()
                 parStyle.alignment = .right

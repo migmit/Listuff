@@ -97,7 +97,7 @@ class TextState {
     let checkmarkSize: CGSize
     let bullet = "◦"
     let dash = "-"
-    let bulletPadding = CGFloat(5.0)
+    let bulletPadding = CGFloat(10.0)
     let bulletFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
     let bulletWidth: CGFloat
     let numListPadding = CGFloat(5.0)
