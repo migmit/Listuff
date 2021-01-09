@@ -13,6 +13,8 @@ class TextState {
     enum DocData: DocumentTypes {
         struct Line {
             weak var text: Chunk?
+            var version: Int
+            var rendered: NSMutableAttributedString?
         }
         struct List {
             var version: Int
@@ -37,6 +39,7 @@ class TextState {
         let textIndent: CGFloat
         let firstLineIndent: CGFloat
         let accessory: Accessory?
+        let getCorrectFont: (Int) -> (UIFont, NSRange)
     }
     struct ListItemInfoIterator: Sequence, IteratorProtocol {
         var lineIterator: Partition<Doc.Line>.Iterator
@@ -133,7 +136,9 @@ class TextState {
             let text = content + "\n"
             self.text += text
             return {DocData.Line(
-                text: self.chunks.insert(value: $0, length: text.utf16.count, dir: $1, near: $2?.text).0
+                text: self.chunks.insert(value: $0, length: text.utf16.count, dir: $1, near: $2?.text).0,
+                version: self.renderingCache.version,
+                rendered: nil
             )}
         }
         func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) -> NodeAppendingState {
@@ -277,12 +282,14 @@ class TextState {
         }
         let checkedAddition = line.checked != nil ? checkmarkSize.width + checkmarkPadding : 0
         let textIndent = paragraphIndent + indexIndent + bulletAddition
+        let lineText = (text as NSString).substring(with: range)
         let info = ListItemInfo(
             range: range,
             checkmark: line.checked.map{$0.value ? checked : unchecked},
             textIndent: textIndent,
             firstLineIndent: textIndent + checkedAddition,
-            accessory: accessory
+            accessory: accessory,
+            getCorrectFont: {(pos) in self.getCorrectFont(line: line, text: lineText, pos: pos)}
         )
         return info
     }
@@ -298,9 +305,9 @@ class TextState {
         nlist.listData.indentStep = indentStep
         return indentStep
     }
-    func calculateIndent(list: TextState.Doc.List) -> CGFloat {
+    func calculateIndent(list: Doc.List) -> CGFloat {
         var current = list
-        var indentStack: [(TextState.Doc.List, CGFloat)] = []
+        var indentStack: [(Doc.List, CGFloat)] = []
         var result: CGFloat = 0
         while current.listData.version != renderingCache.version || current.listData.indent == nil {
             if let parent = current.parent {
@@ -328,6 +335,20 @@ class TextState {
             list.listData.indent = result
         }
         return result
+    }
+    func getCorrectFont(line: Doc.Line, text: String, pos: Int) -> (UIFont, NSRange) {
+        let content = line.content!
+        var range: NSRange = NSMakeRange(pos, 1)
+        if content.version == renderingCache.version, let rendered = content.rendered {
+            let font = rendered.attribute(.font, at: pos, effectiveRange: &range) as? UIFont
+            return (font ?? systemFont, range)
+        }
+        let rendered = NSMutableAttributedString(string: text, attributes: [.font: systemFont])
+        rendered.fixAttributes(in: NSMakeRange(0, rendered.length))
+        line.content?.version = renderingCache.version
+        line.content?.rendered = rendered
+        let font = rendered.attribute(.font, at: pos, effectiveRange: &range) as? UIFont
+        return (font ?? systemFont, range)
     }
 }
 

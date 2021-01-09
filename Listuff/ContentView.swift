@@ -187,8 +187,9 @@ struct HierarchyView: UIViewRepresentable {
         }
         override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
             for lineInfo in content.lineInfos(charRange: NSMakeRange(location, 1)) {
+                let (font, fontRange) = lineInfo.getCorrectFont(location - lineInfo.range.location)
                 if let rangePtr = range {
-                    rangePtr[0] = lineInfo.range
+                    rangePtr[0] = NSMakeRange(fontRange.location + lineInfo.range.location, fontRange.length)
                 }
                 let paragraphStyle = NSMutableParagraphStyle()
                 if lineInfo.checkmark != nil {
@@ -198,7 +199,7 @@ struct HierarchyView: UIViewRepresentable {
                 paragraphStyle.firstLineHeadIndent = lineInfo.firstLineIndent
                 paragraphStyle.paragraphSpacing = CGFloat(content.paragraphSpacing)
                 return [
-                    .font: content.systemFont,
+                    .font: font,
                     .foregroundColor: content.systemColor,
                     .paragraphStyle: paragraphStyle
                 ]
