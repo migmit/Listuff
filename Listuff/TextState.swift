@@ -11,19 +11,24 @@ import UIKit
 class TextState {
     typealias Dir = Direction
     enum DocData: DocumentTypes {
+        struct LineRenderingImpl {
+            let version: Int
+            let rendered: NSMutableAttributedString
+        }
         struct Line {
             weak var text: Chunk?
-            var version: Int
-            var rendered: NSMutableAttributedString?
+            var cache: LineRenderingImpl?
         }
-        struct List {
-            var version: Int
-            var indent: CGFloat?
+        struct ListImpl {
+            let version: Int
+            let indent: CGFloat
         }
-        struct NumberedList {
-            var version: Int
-            var indentStep: CGFloat?
+        typealias List = ListImpl?
+        struct NumberedListImpl {
+            let version: Int
+            let indentStep: CGFloat
         }
+        typealias NumberedList = NumberedListImpl?
     }
     typealias Doc = Structure<DocData>
     typealias Chunk = Partition<Doc.Line>.Node
@@ -135,17 +140,13 @@ class TextState {
         func callback(_ content: String) -> (Doc.Line, Direction, DocData.Line?) -> DocData.Line {
             let text = content + "\n"
             self.text += text
-            return {DocData.Line(
-                text: self.chunks.insert(value: $0, length: text.utf16.count, dir: $1, near: $2?.text).0,
-                version: self.renderingCache.version,
-                rendered: nil
-            )}
+            return {DocData.Line(text: self.chunks.insert(value: $0, length: text.utf16.count, dir: $1, near: $2?.text).0, cache: nil)}
         }
         func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) -> NodeAppendingState {
             if nodes.isEmpty {
                 return NodeAppendingState(item: .numbered(value: numberedList, item: numberedItem), line: numberedItem.content)
             } else {
-                let sublist = numberedItem.addSublistStub(listData: DocData.List(version: renderingCache.version, indent: nil))
+                let sublist = numberedItem.addSublistStub(listData: nil)
                 var lastAppended = NodeAppendingState(item: nil, line: numberedItem.content)
                 nodes.forEach{lastAppended = appendNode(list: sublist, after: lastAppended, node: $0)}
                 return NodeAppendingState(item: .numbered(value: numberedList, item: numberedItem), line: lastAppended.line)
@@ -169,7 +170,7 @@ class TextState {
                             dir: .Right,
                             nearLine: after?.line,
                             nearItem: after?.item?.it,
-                            nlistData: DocData.NumberedList(version: renderingCache.version, indentStep: nil),
+                            nlistData: nil,
                             callback: callback(node.text)
                         )
                 }
@@ -192,8 +193,8 @@ class TextState {
                         dir: .Right,
                         nearLine: after.line,
                         nearItem: after.item?.it,
-                        listData: DocData.List(version: renderingCache.version, indent: nil),
-                        nlistData: DocData.NumberedList(version: renderingCache.version, indentStep: nil),
+                        listData: nil,
+                        nlistData: nil,
                         callback: callback(node.text)
                     )
                 return (sublist, appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children))
@@ -206,7 +207,7 @@ class TextState {
                     dir: .Right,
                     nearLine: after.line,
                     nearItem: after.item?.it,
-                    listData: DocData.List(version: renderingCache.version, indent: nil),
+                    listData: nil,
                     callback: callback(node.text)
                 )
             let lastInserted = appendSublist(list: sublist.list, after: NodeAppendingState(item: .regular(value: item), line: item.content), nodes: node.children)
@@ -227,7 +228,7 @@ class TextState {
         self.text = ""
         self.chunks = Partition()
         self.lines = Partition()
-        self.structure = Structure.List(listData: DocData.List(version: renderingCache.version, indent: 0))
+        self.structure = Structure.List(listData: DocData.ListImpl(version: renderingCache.version, indent: 0))
         var lastInserted: NodeAppendingState? = nil
         nodes.forEach {lastInserted = appendNode(list: self.structure, after: lastInserted, node: $0)}
     }
@@ -297,19 +298,18 @@ class TextState {
         return ListItemInfoIterator(textState: self, charRange: charRange)
     }
     func calculateIndentStep(nlist: Doc.NumberedList) -> CGFloat {
-        if nlist.listData.version == renderingCache.version, let indentStep = nlist.listData.indentStep {
-            return indentStep
+        if let listData = nlist.listData, listData.version == renderingCache.version {
+            return listData.indentStep
         }
         let indentStep = renderingCache.numWidth(num: nlist.items.totalLength(), font: systemFont)
-        nlist.listData.version = renderingCache.version
-        nlist.listData.indentStep = indentStep
+        nlist.listData = DocData.NumberedListImpl(version: renderingCache.version, indentStep: indentStep)
         return indentStep
     }
     func calculateIndent(list: Doc.List) -> CGFloat {
         var current = list
         var indentStack: [(Doc.List, CGFloat)] = []
         var result: CGFloat = 0
-        while current.listData.version != renderingCache.version || current.listData.indent == nil {
+        while current.listData?.version != renderingCache.version {
             if let parent = current.parent {
                 switch parent {
                 case .numbered(value: let value):
@@ -323,30 +323,27 @@ class TextState {
                 break
             }
         }
-        if current.listData.version == renderingCache.version, let initialIndent = current.listData.indent {
-            result = initialIndent
+        if let listData = current.listData, listData.version == renderingCache.version {
+            result = listData.indent
         } else {
-            current.listData.version = renderingCache.version
-            current.listData.indent = 0
+            current.listData = DocData.ListImpl(version: renderingCache.version, indent: 0)
         }
         for (list, indentStep) in indentStack.reversed() {
             result += indentStep
-            list.listData.version = renderingCache.version
-            list.listData.indent = result
+            list.listData = DocData.ListImpl(version: renderingCache.version, indent: result)
         }
         return result
     }
     func getCorrectFont(line: Doc.Line, text: String, pos: Int) -> (UIFont, NSRange) {
         let content = line.content!
         var range: NSRange = NSRange.item(at: pos)
-        if content.version == renderingCache.version, let rendered = content.rendered {
-            let font = rendered.attribute(.font, at: pos, effectiveRange: &range) as? UIFont
+        if let cache = content.cache, cache.version == renderingCache.version {
+            let font = cache.rendered.attribute(.font, at: pos, effectiveRange: &range) as? UIFont
             return (font ?? systemFont, range)
         }
         let rendered = NSMutableAttributedString(string: text, attributes: [.font: systemFont])
         rendered.fixAttributes(in: rendered.fullRange)
-        line.content?.version = renderingCache.version
-        line.content?.rendered = rendered
+        line.content?.cache = DocData.LineRenderingImpl(version: renderingCache.version, rendered: rendered)
         let font = rendered.attribute(.font, at: pos, effectiveRange: &range) as? UIFont
         return (font ?? systemFont, range)
     }
