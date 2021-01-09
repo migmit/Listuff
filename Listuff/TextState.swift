@@ -69,7 +69,7 @@ class TextState {
             } else {
                 var maxWidth = numWidths.last ?? 0
                 for n in numWidths.count ..< num {
-                    maxWidth = max(("\(n+1)." as NSString).size(withAttributes: [.font: font]).width, maxWidth)
+                    maxWidth = max("\(n+1).".size(font: font).width, maxWidth)
                     numWidths.append(maxWidth)
                 }
                 return maxWidth
@@ -221,7 +221,7 @@ class TextState {
         }
         self.checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
         let bulletFont = self.bulletFont // to avoid capturing self by closure
-        self.bulletWidth = [bullet, dash].map{($0 as NSString).size(withAttributes: [.font: bulletFont]).width}.max()!
+        self.bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
         
         self.renderingCache = RenderingCache(version: 0)
         self.text = ""
@@ -278,11 +278,11 @@ class TextState {
             }
             paragraphIndent = calculateIndent(list: value.value!.parent!)
             indexIndent = 0
-            accessory = bulletString.map{.bullet(value: $0, indent: paragraphIndent, height: ($0 as NSString).size(withAttributes: [.font: bulletFont]).height, font: bulletFont)}
+            accessory = bulletString.map{.bullet(value: $0, indent: paragraphIndent, height: $0.size(font: bulletFont).height, font: bulletFont)}
         }
         let checkedAddition = line.checked != nil ? checkmarkSize.width + checkmarkPadding : 0
         let textIndent = paragraphIndent + indexIndent + bulletAddition
-        let lineText = (text as NSString).substring(with: range)
+        let lineText = text[range]
         let info = ListItemInfo(
             range: range,
             checkmark: line.checked.map{$0.value ? checked : unchecked},
@@ -338,13 +338,13 @@ class TextState {
     }
     func getCorrectFont(line: Doc.Line, text: String, pos: Int) -> (UIFont, NSRange) {
         let content = line.content!
-        var range: NSRange = NSMakeRange(pos, 1)
+        var range: NSRange = NSRange.item(at: pos)
         if content.version == renderingCache.version, let rendered = content.rendered {
             let font = rendered.attribute(.font, at: pos, effectiveRange: &range) as? UIFont
             return (font ?? systemFont, range)
         }
         let rendered = NSMutableAttributedString(string: text, attributes: [.font: systemFont])
-        rendered.fixAttributes(in: NSMakeRange(0, rendered.length))
+        rendered.fixAttributes(in: rendered.fullRange)
         line.content?.version = renderingCache.version
         line.content?.rendered = rendered
         let font = rendered.attribute(.font, at: pos, effectiveRange: &range) as? UIFont

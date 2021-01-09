@@ -134,13 +134,13 @@ struct HierarchyView: UIViewRepresentable {
         
         @objc func tapped(gestureRecognizer: UIGestureRecognizer) {
             let location = gestureRecognizer.location(in: self)
-            let realLocation = CGPoint(x: location.x - textContainerInset.left, y: location.y - textContainerInset.top)
+            let realLocation = location.shift(by: CGVector(dx: -textContainerInset.left, dy: -textContainerInset.top))
             let idx = layoutManager.characterIndex(for: realLocation, in: container, fractionOfDistanceBetweenInsertionPoints: nil)
             if let (range, line) = content.chunks.search(pos: idx), let checked = line.checked {
                 let lineInfo = content.lineInfo(range: range, line: line)
                 let glRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
                 if glRange.length <= 0 {return}
-                let correctedGlyphRange = NSMakeRange(glRange.location, 1)
+                let correctedGlyphRange = glRange.firstItem
                 layoutManager.enumerateLineFragments(forGlyphRange: correctedGlyphRange) {_, usedRect, textContainer, _, ptrStop in
                     let fragmentPadding = textContainer.lineFragmentPadding
                     let imageOrigin = CGPoint(
@@ -151,7 +151,7 @@ struct HierarchyView: UIViewRepresentable {
                     if imageRect.contains(realLocation) {
                         line.checked = TextState.Doc.Checked(value: !checked.value)
                         self.layoutManager.invalidateDisplay(forGlyphRange: correctedGlyphRange)
-                        self.selectedRange = NSMakeRange(range.location + range.length - 1, 0)
+                        self.selectedRange = NSRange.empty(at: range.end - 1) // accounting for the final '\n'
                     }
                     ptrStop[0] = true
                 }
@@ -186,10 +186,10 @@ struct HierarchyView: UIViewRepresentable {
             return content.text
         }
         override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
-            for lineInfo in content.lineInfos(charRange: NSMakeRange(location, 1)) {
+            for lineInfo in content.lineInfos(charRange: NSRange.item(at: location)) {
                 let (font, fontRange) = lineInfo.getCorrectFont(location - lineInfo.range.location)
                 if let rangePtr = range {
-                    rangePtr[0] = NSMakeRange(fontRange.location + lineInfo.range.location, fontRange.length)
+                    rangePtr[0] = fontRange.shift(by: lineInfo.range.location)
                 }
                 let paragraphStyle = NSMutableParagraphStyle()
                 if lineInfo.checkmark != nil {
@@ -229,12 +229,12 @@ struct HierarchyView: UIViewRepresentable {
         func drawAccessory(accessory: TextState.Accessory, origin: CGPoint, boxYPos: CGFloat, boxHeight: CGFloat, fragmentPadding: CGFloat) {
             switch accessory {
             case .bullet(value: let value, indent: let indent, height: let height, font: let font):
-                (value as NSString).draw(at: CGPoint(x: indent + origin.x, y: boxYPos + (boxHeight - height) / 2 + origin.y), withAttributes: [.font: font])
+                value.draw(at: origin.shift(by: CGVector(dx: indent, dy: boxYPos + (boxHeight - height) / 2)), withAttributes: [.font: font])
             case .number(value: let value, indent: let indent, width: let width, font: let font):
                 let parStyle = NSMutableParagraphStyle()
                 parStyle.alignment = .right
                 let numRect = CGRect(x: indent + fragmentPadding + origin.x, y: boxYPos + origin.y, width: width, height: boxHeight)
-                (value as NSString).draw(in: numRect, withAttributes: [.font: font, .paragraphStyle: parStyle])
+                value.draw(in: numRect, withAttributes: [.font: font, .paragraphStyle: parStyle])
             }
         }
         override func drawGlyphs(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
@@ -242,16 +242,16 @@ struct HierarchyView: UIViewRepresentable {
             for lineInfo in content.lineInfos(charRange: characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)) {
                 let glRange = glyphRange(forCharacterRange: lineInfo.range, actualCharacterRange: nil)
                 if glRange.length <= 0 {continue}
-                enumerateLineFragments(forGlyphRange: NSMakeRange(glRange.location, 1)) {_, usedRect, textContainer, _, ptrStop in
+                enumerateLineFragments(forGlyphRange: glRange.firstItem) {_, usedRect, textContainer, _, ptrStop in
                     let fragmentPadding = textContainer.lineFragmentPadding
                     if let accessory = lineInfo.accessory {
                         self.drawAccessory(accessory: accessory, origin: origin, boxYPos: usedRect.origin.y, boxHeight: usedRect.size.height, fragmentPadding: fragmentPadding)
                     }
                     if let checkmark = lineInfo.checkmark {
-                        let imageOrigin = CGPoint(
-                            x: lineInfo.textIndent + origin.x + fragmentPadding,
-                            y: usedRect.midY + origin.y - checkmark.size.height / 2
-                        )
+                        let imageOrigin = origin.shift(by: CGVector(
+                            dx: lineInfo.textIndent + fragmentPadding,
+                            dy: usedRect.midY - checkmark.size.height / 2
+                        ))
                         checkmark.draw(at: imageOrigin)
                         ptrStop[0] = true
                     }
@@ -306,7 +306,7 @@ func debugPrintNote(note: Note, prefix: String = "") {
 
 func debugPrintAttributedString(str: NSAttributedString) {
     print("STRING: \(str.string)")
-    str.enumerateAttributes(in: NSMakeRange(0, str.length), options: []) {attrs, range, _ in
+    str.enumerateAttributes(in: str.fullRange, options: []) {attrs, range, _ in
         print("ATTRS for \(range): \(attrs)")
     }
 }

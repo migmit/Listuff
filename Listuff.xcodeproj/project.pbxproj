@@ -21,6 +21,9 @@
 		B56B369D25515B1C006C1FA6 /* ListuffTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B56B369C25515B1C006C1FA6 /* ListuffTests.swift */; };
 		B56B36A825515B1C006C1FA6 /* ListuffUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B56B36A725515B1C006C1FA6 /* ListuffUITests.swift */; };
 		B5A165CE25A0A63200B483E3 /* Structure.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5A165CD25A0A63200B483E3 /* Structure.swift */; };
+		B5BEC4A625A9D14900E52B5E /* NSRange.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BEC4A525A9D14900E52B5E /* NSRange.swift */; };
+		B5BEC4AE25A9D4AD00E52B5E /* String.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BEC4AD25A9D4AD00E52B5E /* String.swift */; };
+		B5BEC4B325A9D68500E52B5E /* CGPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BEC4B225A9D68500E52B5E /* CGPoint.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,6 +64,9 @@
 		B56B36A725515B1C006C1FA6 /* ListuffUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListuffUITests.swift; sourceTree = "<group>"; };
 		B56B36A925515B1C006C1FA6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B5A165CD25A0A63200B483E3 /* Structure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Structure.swift; sourceTree = "<group>"; };
+		B5BEC4A525A9D14900E52B5E /* NSRange.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSRange.swift; sourceTree = "<group>"; };
+		B5BEC4AD25A9D4AD00E52B5E /* String.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = String.swift; sourceTree = "<group>"; };
+		B5BEC4B225A9D68500E52B5E /* CGPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CGPoint.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -117,12 +123,15 @@
 				B56B369025515B1C006C1FA6 /* Listuff.xcdatamodeld */,
 				B56B368525515B1B006C1FA6 /* ListuffApp.swift */,
 				B52D57F7258C346C0024FA43 /* NotePaste.swift */,
+				B5BEC4A525A9D14900E52B5E /* NSRange.swift */,
 				B533488B2573D1570008FB49 /* ObservableProxy.swift */,
 				B53348812573156D0008FB49 /* Partition.swift */,
 				B56B368E25515B1C006C1FA6 /* Persistence.swift */,
 				B56B368B25515B1C006C1FA6 /* Preview Content */,
 				B5A165CD25A0A63200B483E3 /* Structure.swift */,
 				B53C4C7225992EC900DCED26 /* TextState.swift */,
+				B5BEC4AD25A9D4AD00E52B5E /* String.swift */,
+				B5BEC4B225A9D68500E52B5E /* CGPoint.swift */,
 			);
 			path = Listuff;
 			sourceTree = "<group>";
@@ -284,7 +293,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				B53C4C7325992EC900DCED26 /* TextState.swift in Sources */,
+				B5BEC4AE25A9D4AD00E52B5E /* String.swift in Sources */,
 				B56B368F25515B1C006C1FA6 /* Persistence.swift in Sources */,
+				B5BEC4A625A9D14900E52B5E /* NSRange.swift in Sources */,
+				B5BEC4B325A9D68500E52B5E /* CGPoint.swift in Sources */,
 				B56B369225515B1C006C1FA6 /* Listuff.xcdatamodeld in Sources */,
 				B52D57F8258C346C0024FA43 /* NotePaste.swift in Sources */,
 				B53348822573156D0008FB49 /* Partition.swift in Sources */,
