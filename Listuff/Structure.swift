@@ -27,9 +27,6 @@ enum Structure<DT: DocumentTypes> {
             self.listData = listData
             self.parent = parent
         }
-        func side(dir: Direction) -> Item? {
-            return items.side(dir: dir)?.value
-        }
         func insertLine(checked: Bool?, style: LineStyle?, dir: Direction, nearLine: Line?, nearItem: Item?, callback: LineCallback) -> RegularItem {
             let item = RegularItem(checked: checked, style: style, dir: dir, nearLine: nearLine, parent: self, callback: callback)
             item.this = items.insert(value: .regular(value: item), length: 1, dir: dir, near: nearItem?.impl.this).0
@@ -101,9 +98,6 @@ enum Structure<DT: DocumentTypes> {
             self.items = Partition()
             self.listData = listData
             super.init(parent: parent)
-        }
-        func side(dir: Direction) -> NumberedItem? {
-            return items.side(dir: dir)?.value
         }
         func insertLine(checked: Bool?, dir: Direction, nearLine: Line?, nearItem: NumberedItem?, callback: LineCallback) -> NumberedItem {
             let item = NumberedItem(checked: checked, dir: dir, nearLine: nearLine, parent: self, callback: callback)

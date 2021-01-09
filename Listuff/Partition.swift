@@ -148,15 +148,6 @@ struct Partition<V>: Sequence {
         self.rank = rank
         root?.detach()
     }
-    func side(dir: Direction) -> Node? {
-        if let r = root {
-            var current = r
-            while let child = current[dir]?.node {current = child}
-            return current
-        } else {
-            return nil
-        }
-    }
     private func searchNode(pos: Int) -> (NSRange, Node)? {
         var shift = 0
         var found: (Int, Node)? = nil
