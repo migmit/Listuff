@@ -258,8 +258,7 @@ class TextState {
         case .regular(value: let value): hasBullet = value.value?.style != nil
         }
         let bulletAddition: CGFloat = hasBullet ? bulletWidth + bulletPadding : 0
-        //let (paragraphIndent, indexIndent) = calculateIndent(line: line)
-        let paragraphIndent: CGFloat
+        let paragraphIndent: CGFloat = calculateParIndent(line: line)
         let indexIndent: CGFloat
         let accessory: Accessory?
         switch line.parent {
@@ -267,7 +266,6 @@ class TextState {
             let item = value.value!
             let width = calculateIndentStep(nlist: item.parent)
             let index = item.this!.position() + 1
-            paragraphIndent = calculateIndent(list: value.value!.parent.parent!)
             indexIndent = width + numListPadding
             accessory = .number(value: "\(index).", indent: paragraphIndent, width: width, font: systemFont)
         case .regular(value: let value):
@@ -277,7 +275,6 @@ class TextState {
             case .dash: bulletString = dash
             case nil: bulletString = nil
             }
-            paragraphIndent = calculateIndent(list: value.value!.parent!)
             indexIndent = 0
             accessory = bulletString.map{.bullet(value: $0, indent: paragraphIndent, height: $0.size(font: bulletFont).height, font: bulletFont)}
         }
@@ -333,6 +330,14 @@ class TextState {
             list.listData = DocData.ListImpl(version: renderingCache.version, indent: result)
         }
         return result
+    }
+    func calculateParIndent(line: Doc.Line) -> CGFloat {
+        switch line.parent {
+        case .numbered(value: let value):
+            return calculateIndent(list: value.value!.parent.parent!)
+        case .regular(value: let value):
+            return calculateIndent(list: value.value!.parent!)
+        }
     }
     func getCorrectFont(line: Doc.Line, text: String, pos: Int) -> (UIFont, NSRange) {
         let content = line.content!
