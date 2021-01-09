@@ -55,6 +55,77 @@ var testDocument = TextState(
                 Node(text: "Back to normal again")
             ]
         ),
+        Node(
+            text: "Long hierarchy 1",
+            children: [
+                Node(
+                    text: "Long hierarchy 2",
+                    children: [
+                        Node(
+                            text: "Long hierarchy 3",
+                            children: [
+                                Node(
+                                    text: "Long hierarchy 4",
+                                    children: [
+                                        Node(
+                                            text: "Long hierarchy 5",
+                                            children: [
+                                                Node(
+                                                    text: "Long hierarchy 6",
+                                                    children: [
+                                                        Node(
+                                                            text: "Long hierarchy 7",
+                                                            children: [
+                                                                Node(
+                                                                    text: "Long hierarchy 8",
+                                                                    children: [
+                                                                        Node(
+                                                                            text: "Long hierarchy 9",
+                                                                            children: [
+                                                                                Node(
+                                                                                    text: "Long hierarchy 10",
+                                                                                    children: [
+                                                                                        Node(
+                                                                                            text: "Long hierarchy 11",
+                                                                                            children: [
+                                                                                                Node(
+                                                                                                    text: "Long hierarchy 12",
+                                                                                                    children: [
+                                                                                                        Node(
+                                                                                                            text: "Long hierarchy 13",
+                                                                                                            children: [
+                                                                                                                Node(
+                                                                                                                    text: "Long hierarchy 14",
+                                                                                                                    children: [
+                                                                                                                        Node(text: "Long hierarchy 15")
+                                                                                                                    ]
+                                                                                                                )
+                                                                                                            ]
+                                                                                                        )
+                                                                                                    ]
+                                                                                                )
+                                                                                            ]
+                                                                                        )
+                                                                                    ]
+                                                                                )
+                                                                            ]
+                                                                        )
+                                                                    ]
+                                                                )
+                                                            ]
+                                                        )
+                                                    ]
+                                                )
+                                            ]
+                                        )
+                                    ]
+                                )
+                            ]
+                        )
+                    ]
+                )
+            ]
+        ),
         Node(text: "aaa"),
         Node(text: "aaa"),
         Node(text: "aaa"),
