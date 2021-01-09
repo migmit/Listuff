@@ -42,9 +42,7 @@ var testDocument = TextState(
         Node(
             text: "Another numbered list:",
             children: [
-                Node(
-                    text: "Wait for it..."
-                ),
+                Node(text: "Wait for it..."),
                 Node(text: "Another first item", style: .number),
                 Node(
                     text: "Another second item",
