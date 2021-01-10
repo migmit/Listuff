@@ -38,16 +38,30 @@ class TextState {
         case Remove(value: Doc.Line, oldRange: NSRange)
         case SetLength(value: Doc.Line, length: Int, oldRange: NSRange)
     }
+    struct IndentFold {
+        let foldBack: CGFloat
+        let moreThanPrev: Int
+        let moreThanNext: Int
+    }
     struct ListItemInfo {
         let range: NSRange
         let checkmark: UIImage?
         let textIndent: CGFloat
         let firstLineIndent: CGFloat
+        let prevTextIndent: CGFloat
+        let nextTextIndent: CGFloat
         let accessory: Accessory?
         let getCorrectFont: (Int) -> (UIFont, NSRange)
-        func indentFold(textWidth: CGFloat) -> CGFloat {
+        func indentFold(textWidth: CGFloat) -> IndentFold {
             let indentFoldCount = (textIndent * 2 / textWidth).rounded(.down)
-            return indentFoldCount * textWidth / 2
+            let indentFoldCountInt = Int(indentFoldCount)
+            let prevFoldCount = Int((prevTextIndent * 2 / textWidth).rounded(.down))
+            let nextFoldCount = Int((nextTextIndent * 2 / textWidth).rounded(.down))
+            return IndentFold (
+                foldBack: indentFoldCount * textWidth / 2,
+                moreThanPrev: indentFoldCountInt - prevFoldCount,
+                moreThanNext: indentFoldCountInt - nextFoldCount
+            )
         }
     }
     struct ListItemInfoIterator: Sequence, IteratorProtocol {
@@ -287,6 +301,8 @@ class TextState {
             checkmark: line.checked.map{$0.value ? checked : unchecked},
             textIndent: textIndent,
             firstLineIndent: textIndent + checkedAddition,
+            prevTextIndent: (line.content?.text?.near(dir: .Left)?.value).map(calculateParIndent) ?? 0,
+            nextTextIndent: (line.content?.text?.near(dir: .Right)?.value).map(calculateParIndent) ?? 0,
             accessory: accessory,
             getCorrectFont: {(pos) in self.getCorrectFont(line: line, text: lineText, pos: pos)}
         )

@@ -89,7 +89,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
                         y: usedRect.midY - self.content.checkmarkSize.height / 2
                     )
                     let imageRect = CGRect(origin: imageOrigin, size: self.content.checkmarkSize)
-                    if imageRect.contains(realLocation.shift(by: CGVector(dx: indentFold, dy: 0))) {
+                    if imageRect.contains(realLocation.shift(by: CGVector(dx: indentFold.foldBack, dy: 0))) {
                         line.checked = TextState.Doc.Checked(value: !checked.value)
                         self.layoutManager.invalidateDisplay(forGlyphRange: correctedGlyphRange)
                         self.selectedRange = NSRange.empty(at: range.end - 1) // accounting for the final '\n'
@@ -142,8 +142,8 @@ struct HierarchyViewImpl: UIViewRepresentable {
                     paragraphStyle.minimumLineHeight = content.checkmarkSize.height
                 }
                 let indentFold = lineInfo.indentFold(textWidth: textWidth)
-                paragraphStyle.headIndent = lineInfo.textIndent - indentFold
-                paragraphStyle.firstLineHeadIndent = lineInfo.firstLineIndent - indentFold
+                paragraphStyle.headIndent = lineInfo.textIndent - indentFold.foldBack
+                paragraphStyle.firstLineHeadIndent = lineInfo.firstLineIndent - indentFold.foldBack
                 paragraphStyle.paragraphSpacing = CGFloat(content.paragraphSpacing)
                 return [
                     .font: font,
@@ -189,14 +189,33 @@ struct HierarchyViewImpl: UIViewRepresentable {
                 value.draw(in: numRect, withAttributes: [.font: font, .paragraphStyle: parStyle])
             }
         }
+        func drawDivider(minX: CGFloat, maxX: CGFloat, y: CGFloat, linecapDir: CGFloat, dashed: Bool, color: UIColor) {
+            let linecap = CGFloat(4.0)
+            let dashedLine = UIBezierPath()
+            dashedLine.move(to: CGPoint(x: minX + linecap, y: y))
+            dashedLine.addLine(to: CGPoint(x: maxX, y: y))
+            if (dashed) {
+                var dashes = [CGFloat(8.0), CGFloat(8.0)]
+                dashedLine.setLineDash(&dashes, count: dashes.count, phase: 0.0)
+            }
+            dashedLine.lineWidth = 1.0
+            dashedLine.lineCapStyle = .butt
+            let line = UIBezierPath()
+            line.move(to: CGPoint(x: minX + linecap, y: y))
+            line.addLine(to: CGPoint(x: minX, y: y + linecap * linecapDir))
+            color.set()
+            dashedLine.stroke()
+            line.stroke()
+        }
         override func drawGlyphs(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
             super.drawGlyphs(forGlyphRange: glyphsToShow, at: origin)
             for lineInfo in content.lineInfos(charRange: characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)) {
                 let glRange = glyphRange(forCharacterRange: lineInfo.range, actualCharacterRange: nil)
                 if glRange.length <= 0 {continue}
-                enumerateLineFragments(forGlyphRange: glRange.firstItem) {_, usedRect, textContainer, _, ptrStop in
-                    let indentFold = lineInfo.indentFold(textWidth: self.textWidth)
-                    let fragmentPadding = textContainer.lineFragmentPadding - indentFold
+                let indentFold = lineInfo.indentFold(textWidth: self.textWidth)
+                enumerateLineFragments(forGlyphRange: glRange.firstItem) {rect, usedRect, textContainer, _, ptrStop in
+                    ptrStop[0] = true
+                    let fragmentPadding = textContainer.lineFragmentPadding - indentFold.foldBack
                     if let accessory = lineInfo.accessory {
                         self.drawAccessory(accessory: accessory, origin: origin, boxYPos: usedRect.origin.y, boxHeight: usedRect.size.height, fragmentPadding: fragmentPadding)
                     }
@@ -206,12 +225,34 @@ struct HierarchyViewImpl: UIViewRepresentable {
                             dy: usedRect.midY - checkmark.size.height / 2
                         ))
                         checkmark.draw(at: imageOrigin)
-                        ptrStop[0] = true
+                    }
+                    if (indentFold.moreThanPrev > 0) {
+                        self.drawDivider(
+                            minX: rect.minX + origin.x,
+                            maxX: rect.maxX + origin.x,
+                            y: origin.y + usedRect.midY - rect.height / 2,
+                            linecapDir: 1.0,
+                            dashed: indentFold.moreThanPrev == 1,
+                            color: UIColor.systemBlue
+                        )
                     }
 //                    let gc = UIGraphicsGetCurrentContext()!
 //                    UIColor.green.set()
 //                    gc.addRect(CGRect(origin: CGPoint(x: usedRect.minX + origin.x, y: usedRect.minY + origin.y), size: usedRect.size))
 //                    gc.strokePath()
+                }
+                if (indentFold.moreThanNext > 0) {
+                    enumerateLineFragments(forGlyphRange: NSRange.item(at: glRange.end - 1)) {rect, usedRect, _, _, ptrStop in
+                        ptrStop[0] = true
+                        self.drawDivider(
+                            minX: rect.minX + origin.x,
+                            maxX: rect.maxX + origin.x,
+                            y: origin.y + usedRect.midY + rect.height / 2,
+                            linecapDir: -1.0,
+                            dashed: indentFold.moreThanNext == 1,
+                            color: UIColor.systemPurple
+                        )
+                    }
                 }
             }
         }
