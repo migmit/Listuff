@@ -7,7 +7,16 @@
 
 import SwiftUI
 
-struct HierarchyView: UIViewRepresentable {
+struct HierarchyView: View {
+    let content: TextState
+    var body: some View {
+        GeometryReader {geometry in
+            HierarchyViewImpl(content: content, textWidth: geometry.size.width)
+        }
+    }
+}
+
+struct HierarchyViewImpl: UIViewRepresentable {
     typealias UIViewType = TextView
     
     class Coordinator: NSObject, UIGestureRecognizerDelegate {
@@ -17,20 +26,18 @@ struct HierarchyView: UIViewRepresentable {
     }
     
     let content: TextState
-    
-    init(content: TextState) {
-        self.content = content
-    }
+    let textWidth: CGFloat
     
     func makeCoordinator() -> Coordinator {
         return Coordinator()
     }
     
     func makeUIView(context: Context) -> TextView {
-        return TextView(frame: .zero, content: content, context: context)
+        return TextView(frame: .zero, content: content, textWidth: textWidth, context: context)
     }
     
     func updateUIView(_ uiView: TextView, context: Context) {
+        uiView.updateTextWidth(textWidth: textWidth)
     }
     
     class TextView: UITextView, UIGestureRecognizerDelegate {
@@ -39,11 +46,13 @@ struct HierarchyView: UIViewRepresentable {
         let manager: LayoutManager
         let container: NSTextContainer
         var gesture: UIGestureRecognizer? = nil
-        init(frame: CGRect, content: TextState, context: Context) {
+        var textWidth: CGFloat
+        init(frame: CGRect, content: TextState, textWidth: CGFloat, context: Context) {
             self.content = content
-            self.storage = TextStorage(content: content)
-            self.manager = LayoutManager(content: content)
+            self.storage = TextStorage(content: content, textWidth: textWidth)
+            self.manager = LayoutManager(content: content, textWidth: textWidth)
             self.container = NSTextContainer()
+            self.textWidth = textWidth
             self.storage.addLayoutManager(self.manager)
             self.manager.addTextContainer(self.container)
             super.init(frame: frame, textContainer: container)
@@ -57,12 +66,19 @@ struct HierarchyView: UIViewRepresentable {
             return nil
         }
         
+        func updateTextWidth(textWidth: CGFloat) {
+            self.textWidth = textWidth
+            storage.updateTextWidth(textWidth: textWidth)
+            manager.updateTextWidth(textWidth: textWidth)
+        }
+        
         @objc func tapped(gestureRecognizer: UIGestureRecognizer) {
             let location = gestureRecognizer.location(in: self)
             let realLocation = location.shift(by: CGVector(dx: -textContainerInset.left, dy: -textContainerInset.top))
             let idx = layoutManager.characterIndex(for: realLocation, in: container, fractionOfDistanceBetweenInsertionPoints: nil)
             if let (range, line) = content.chunks.search(pos: idx), let checked = line.checked {
                 let lineInfo = content.lineInfo(range: range, line: line)
+                let indentFold = lineInfo.indentFold(textWidth: textWidth)
                 let glRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
                 if glRange.length <= 0 {return}
                 let correctedGlyphRange = glRange.firstItem
@@ -73,7 +89,7 @@ struct HierarchyView: UIViewRepresentable {
                         y: usedRect.midY - self.content.checkmarkSize.height / 2
                     )
                     let imageRect = CGRect(origin: imageOrigin, size: self.content.checkmarkSize)
-                    if imageRect.contains(realLocation) {
+                    if imageRect.contains(realLocation.shift(by: CGVector(dx: indentFold, dy: 0))) {
                         line.checked = TextState.Doc.Checked(value: !checked.value)
                         self.layoutManager.invalidateDisplay(forGlyphRange: correctedGlyphRange)
                         self.selectedRange = NSRange.empty(at: range.end - 1) // accounting for the final '\n'
@@ -100,8 +116,10 @@ struct HierarchyView: UIViewRepresentable {
     
     class TextStorage: NSTextStorage {
         let content: TextState
-        init(content: TextState) {
+        var textWidth: CGFloat
+        init(content: TextState, textWidth: CGFloat) {
             self.content = content
+            self.textWidth = textWidth
             super.init()
         }
         required init?(coder: NSCoder) {
@@ -109,6 +127,9 @@ struct HierarchyView: UIViewRepresentable {
         }
         override var string: String {
             return content.text
+        }
+        func updateTextWidth(textWidth: CGFloat) {
+            self.textWidth = textWidth
         }
         override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
             for lineInfo in content.lineInfos(charRange: NSRange.item(at: location)) {
@@ -120,8 +141,9 @@ struct HierarchyView: UIViewRepresentable {
                 if lineInfo.checkmark != nil {
                     paragraphStyle.minimumLineHeight = content.checkmarkSize.height
                 }
-                paragraphStyle.headIndent = lineInfo.textIndent
-                paragraphStyle.firstLineHeadIndent = lineInfo.firstLineIndent
+                let indentFold = lineInfo.indentFold(textWidth: textWidth)
+                paragraphStyle.headIndent = lineInfo.textIndent - indentFold
+                paragraphStyle.firstLineHeadIndent = lineInfo.firstLineIndent - indentFold
                 paragraphStyle.paragraphSpacing = CGFloat(content.paragraphSpacing)
                 return [
                     .font: font,
@@ -143,13 +165,18 @@ struct HierarchyView: UIViewRepresentable {
     }
     class LayoutManager: NSLayoutManager {
         let content: TextState
-        init(content: TextState) {
+        var textWidth: CGFloat
+        init(content: TextState, textWidth: CGFloat) {
             self.content = content
+            self.textWidth = textWidth
             super.init()
             self.allowsNonContiguousLayout = true
         }
         required init?(coder: NSCoder) {
             return nil
+        }
+        func updateTextWidth(textWidth: CGFloat) {
+            self.textWidth = textWidth
         }
         func drawAccessory(accessory: TextState.Accessory, origin: CGPoint, boxYPos: CGFloat, boxHeight: CGFloat, fragmentPadding: CGFloat) {
             switch accessory {
@@ -168,7 +195,8 @@ struct HierarchyView: UIViewRepresentable {
                 let glRange = glyphRange(forCharacterRange: lineInfo.range, actualCharacterRange: nil)
                 if glRange.length <= 0 {continue}
                 enumerateLineFragments(forGlyphRange: glRange.firstItem) {_, usedRect, textContainer, _, ptrStop in
-                    let fragmentPadding = textContainer.lineFragmentPadding
+                    let indentFold = lineInfo.indentFold(textWidth: self.textWidth)
+                    let fragmentPadding = textContainer.lineFragmentPadding - indentFold
                     if let accessory = lineInfo.accessory {
                         self.drawAccessory(accessory: accessory, origin: origin, boxYPos: usedRect.origin.y, boxHeight: usedRect.size.height, fragmentPadding: fragmentPadding)
                     }

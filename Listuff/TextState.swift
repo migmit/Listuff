@@ -45,6 +45,10 @@ class TextState {
         let firstLineIndent: CGFloat
         let accessory: Accessory?
         let getCorrectFont: (Int) -> (UIFont, NSRange)
+        func indentFold(textWidth: CGFloat) -> CGFloat {
+            let indentFoldCount = (textIndent * 2 / textWidth).rounded(.down)
+            return indentFoldCount * textWidth / 2
+        }
     }
     struct ListItemInfoIterator: Sequence, IteratorProtocol {
         var lineIterator: Partition<Doc.Line>.Iterator

@@ -97,7 +97,7 @@ var testDocument = TextState(
                                                                                                                 Node(
                                                                                                                     text: "Long hierarchy 14",
                                                                                                                     children: [
-                                                                                                                        Node(text: "Long hierarchy 15")
+                                                                                                                        Node(text: "Long hierarchy 15", checked: true, style: .bullet)
                                                                                                                     ]
                                                                                                                 )
                                                                                                             ]
