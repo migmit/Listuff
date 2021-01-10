@@ -212,8 +212,10 @@ struct ContentView: View {
 //        animation: .default)
 //    private var items: FetchedResults<Item>
     
+    @State var showSidebar: Bool = true
+    
     var body: some View {
-        SidebarView {
+        SidebarView(showSidebar: $showSidebar) {
             List {
                 ForEach(testDocument.items, id: \.self) {node in
                     HStack {
@@ -227,7 +229,22 @@ struct ContentView: View {
                     }
                 }
             }
+            .padding(.trailing, 5)
+            .controls {
+                Text("Outline").font(.headline)
+            }
             HierarchyView(content: testDocument)
+                .controls{
+                    Button(action: {withAnimation{showSidebar.toggle()}}) {
+                        Image(systemName: "sidebar.leading")
+                    }
+                    Spacer()
+                    Text("Structure").font(.headline)
+                    Spacer()
+                    Button(action: {}) {
+                        Image(systemName: "list.bullet.indent")
+                    }
+                }
         }
     }
 
