@@ -236,7 +236,7 @@ struct ContentView: View {
             HierarchyView(content: testDocument)
                 .controls{
                     Button(action: {withAnimation{showSidebar.toggle()}}) {
-                        Image(systemName: "sidebar.leading")
+                        Image(systemName: showSidebar ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left")
                     }
                     Spacer()
                     Text("Structure").font(.headline)
