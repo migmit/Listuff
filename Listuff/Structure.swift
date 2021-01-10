@@ -14,7 +14,7 @@ protocol DocumentTypes {
 }
 
 enum Structure<DT: DocumentTypes> {
-    typealias LineCallback = (Line, Direction) -> DT.Line
+    typealias LineCallback = (Line) -> DT.Line
     class WeakProxy<C: AnyObject> {
         weak var value: C?
     }
@@ -28,7 +28,7 @@ enum Structure<DT: DocumentTypes> {
             self.parent = parent
         }
         func insertLine(checked: Bool?, style: LineStyle?, dir: Direction, nearItem: Item?, callback: LineCallback) -> RegularItem {
-            let item = RegularItem(checked: checked, style: style, dir: dir, parent: self, callback: callback)
+            let item = RegularItem(checked: checked, style: style, parent: self, callback: callback)
             item.this = items.insert(value: .regular(value: item), length: 1, dir: dir, near: nearItem?.impl.this).0
             return item
         }
@@ -84,9 +84,9 @@ enum Structure<DT: DocumentTypes> {
             self.style = style
             super.init(parent: parent)
         }
-        convenience init(checked: Bool?, style: LineStyle?, dir: Direction, parent: List, callback: LineCallback) {
+        convenience init(checked: Bool?, style: LineStyle?, parent: List, callback: LineCallback) {
             let itemProxy = WeakProxy<RegularItem>()
-            let line = Line(checked: checked, dir: dir, parent: .regular(value: itemProxy), callback: callback)
+            let line = Line(checked: checked, parent: .regular(value: itemProxy), callback: callback)
             self.init(content: line, style: style, parent: parent)
             itemProxy.value = self
         }
@@ -100,7 +100,7 @@ enum Structure<DT: DocumentTypes> {
             super.init(parent: parent)
         }
         func insertLine(checked: Bool?, dir: Direction, nearItem: NumberedItem?, callback: LineCallback) -> NumberedItem {
-            let item = NumberedItem(checked: checked, dir: dir, parent: self, callback: callback)
+            let item = NumberedItem(checked: checked, parent: self, callback: callback)
             item.this = items.insert(value: item, length: 1, dir: dir, near: nearItem?.this).0
             return item
         }
@@ -117,9 +117,9 @@ enum Structure<DT: DocumentTypes> {
             self.content = content
             self.parent = parent
         }
-        convenience init(checked: Bool?, dir: Direction, parent: NumberedList, callback: LineCallback) {
+        convenience init(checked: Bool?, parent: NumberedList, callback: LineCallback) {
             let itemProxy = WeakProxy<NumberedItem>()
-            let line = Line(checked: checked, dir: dir, parent: .numbered(value: itemProxy), callback: callback)
+            let line = Line(checked: checked, parent: .numbered(value: itemProxy), callback: callback)
             self.init(content: line, parent: parent)
             itemProxy.value = self
         }
@@ -165,9 +165,9 @@ enum Structure<DT: DocumentTypes> {
             self.checked = checked
             self.parent = parent
         }
-        convenience init(checked: Bool?, dir: Direction, parent: LineParent, callback: LineCallback) {
+        convenience init(checked: Bool?, parent: LineParent, callback: LineCallback) {
             self.init(checked: checked.map{Checked(value: $0)}, parent: parent)
-            self.content = callback(self, dir)
+            self.content = callback(self)
         }
     }
     struct Checked {

@@ -137,10 +137,10 @@ class TextState {
         let line: Doc.Line
     }
     init(nodes: [Node]) {
-        func callback(_ content: String, _ after: NodeAppendingState?) -> (Doc.Line, Direction) -> DocData.Line {
+        func callback(_ content: String, _ after: NodeAppendingState?) -> (Doc.Line) -> DocData.Line {
             let text = content + "\n"
             self.text += text
-            return {DocData.Line(text: self.chunks.insert(value: $0, length: text.utf16.count, dir: $1, near: after?.line.content?.text).0, cache: nil)}
+            return {DocData.Line(text: self.chunks.insert(value: $0, length: text.utf16.count, dir: .Right, near: after?.line.content?.text).0, cache: nil)}
         }
         func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) -> NodeAppendingState {
             if nodes.isEmpty {
