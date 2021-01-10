@@ -137,10 +137,10 @@ class TextState {
         let line: Doc.Line
     }
     init(nodes: [Node]) {
-        func callback(_ content: String) -> (Doc.Line, Direction, DocData.Line?) -> DocData.Line {
+        func callback(_ content: String, _ after: NodeAppendingState?) -> (Doc.Line, Direction) -> DocData.Line {
             let text = content + "\n"
             self.text += text
-            return {DocData.Line(text: self.chunks.insert(value: $0, length: text.utf16.count, dir: $1, near: $2?.text).0, cache: nil)}
+            return {DocData.Line(text: self.chunks.insert(value: $0, length: text.utf16.count, dir: $1, near: after?.line.content?.text).0, cache: nil)}
         }
         func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) -> NodeAppendingState {
             if nodes.isEmpty {
@@ -162,22 +162,21 @@ class TextState {
                 let numberedItem: Doc.NumberedItem
                 if case .numbered(value: let value, item: let item) = after?.item {
                     numberedList = value
-                    numberedItem = numberedList.insertLine(checked: node.checked, dir: .Right, nearLine: after?.line, nearItem: item, callback: callback(node.text))
+                    numberedItem = numberedList.insertLine(checked: node.checked, dir: .Right, nearItem: item, callback: callback(node.text, after))
                 } else {
                     (numberedList, numberedItem) =
                         list.insertLineNumberedList(
                             checked: node.checked,
                             dir: .Right,
-                            nearLine: after?.line,
                             nearItem: after?.item?.it,
                             nlistData: nil,
-                            callback: callback(node.text)
+                            callback: callback(node.text, after)
                         )
                 }
                 return appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children)
             case nil: style = nil
             }
-            let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearLine: after?.line, nearItem: after?.item?.it, callback: callback(node.text))
+            let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearItem: after?.item?.it, callback: callback(node.text, after))
             let lastAppended = NodeAppendingState(item: .regular(value: insertedLine), line: insertedLine.content)
             return appendSublist(list: list, after: lastAppended, nodes: node.children)
         }
@@ -191,11 +190,10 @@ class TextState {
                     list.insertLineNumberedSublist(
                         checked: node.checked,
                         dir: .Right,
-                        nearLine: after.line,
                         nearItem: after.item?.it,
                         listData: nil,
                         nlistData: nil,
-                        callback: callback(node.text)
+                        callback: callback(node.text, after)
                     )
                 return (sublist, appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children))
             case nil: style = nil
@@ -205,10 +203,9 @@ class TextState {
                     checked: node.checked,
                     style: style,
                     dir: .Right,
-                    nearLine: after.line,
                     nearItem: after.item?.it,
                     listData: nil,
-                    callback: callback(node.text)
+                    callback: callback(node.text, after)
                 )
             let lastInserted = appendSublist(list: sublist.list, after: NodeAppendingState(item: .regular(value: item), line: item.content), nodes: node.children)
             return (sublist, lastInserted)
