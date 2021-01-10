@@ -98,6 +98,10 @@ class TextState {
                 return maxWidth
             }
         }
+        mutating func invalidate() {
+            numWidths = []
+            version += 1
+        }
     }
     let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
 //    let systemFont = UIFont(name: "Arial", size: UIFont.labelFontSize)!
