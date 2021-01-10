@@ -213,7 +213,7 @@ struct ContentView: View {
 //    private var items: FetchedResults<Item>
     
     var body: some View {
-        NavigationView {
+        SidebarView {
             List {
                 ForEach(testDocument.items, id: \.self) {node in
                     HStack {
@@ -227,10 +227,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .listStyle(PlainListStyle())
-            .navigationBarTitle("Outline", displayMode: .inline)
             HierarchyView(content: testDocument)
-                .navigationBarHidden(true)
         }
     }
 

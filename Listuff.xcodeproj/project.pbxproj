@@ -25,6 +25,7 @@
 		B5BEC4AE25A9D4AD00E52B5E /* String.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BEC4AD25A9D4AD00E52B5E /* String.swift */; };
 		B5BEC4B325A9D68500E52B5E /* CGPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BEC4B225A9D68500E52B5E /* CGPoint.swift */; };
 		B5BEC4B825A9F99A00E52B5E /* TextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BEC4B725A9F99A00E52B5E /* TextView.swift */; };
+		B5BEC4C325AB278400E52B5E /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BEC4C225AB278400E52B5E /* SidebarView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,6 +70,7 @@
 		B5BEC4AD25A9D4AD00E52B5E /* String.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = String.swift; sourceTree = "<group>"; };
 		B5BEC4B225A9D68500E52B5E /* CGPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CGPoint.swift; sourceTree = "<group>"; };
 		B5BEC4B725A9F99A00E52B5E /* TextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextView.swift; sourceTree = "<group>"; };
+		B5BEC4C225AB278400E52B5E /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -131,6 +133,7 @@
 				B53348812573156D0008FB49 /* Partition.swift */,
 				B56B368E25515B1C006C1FA6 /* Persistence.swift */,
 				B56B368B25515B1C006C1FA6 /* Preview Content */,
+				B5BEC4C225AB278400E52B5E /* SidebarView.swift */,
 				B5BEC4AD25A9D4AD00E52B5E /* String.swift */,
 				B5A165CD25A0A63200B483E3 /* Structure.swift */,
 				B53C4C7225992EC900DCED26 /* TextState.swift */,
@@ -304,6 +307,7 @@
 				B56B369225515B1C006C1FA6 /* Listuff.xcdatamodeld in Sources */,
 				B52D57F8258C346C0024FA43 /* NotePaste.swift in Sources */,
 				B53348822573156D0008FB49 /* Partition.swift in Sources */,
+				B5BEC4C325AB278400E52B5E /* SidebarView.swift in Sources */,
 				B5A165CE25A0A63200B483E3 /* Structure.swift in Sources */,
 				B56B368825515B1B006C1FA6 /* ContentView.swift in Sources */,
 				B56B368625515B1B006C1FA6 /* ListuffApp.swift in Sources */,
