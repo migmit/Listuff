@@ -150,12 +150,6 @@ enum Structure<DT: DocumentTypes> {
             self.init(list: list, parent: parentList)
             listProxy.value = self
         }
-        func debugPrint(prefix: String) {
-            if case .sublist(value: let sl) = list.parent, sl.value === self {
-            } else {
-                print("ERROR5")
-            }
-        }
     }
     class Line {
         var content: DT.Line? = nil
