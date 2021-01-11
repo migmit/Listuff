@@ -92,7 +92,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
                     if imageRect.contains(realLocation.shift(by: CGVector(dx: indentFold.foldBack, dy: 0))) {
                         line.checked = TextState.Doc.Checked(value: !checked.value)
                         self.layoutManager.invalidateDisplay(forGlyphRange: correctedGlyphRange)
-                        self.selectedRange = NSRange.empty(at: range.end - 1) // accounting for the final '\n'
+                        self.selectedRange = NSRange.empty(at: self.content.text.getLineEnd(pos: range.location))
                     }
                     ptrStop[0] = true
                 }

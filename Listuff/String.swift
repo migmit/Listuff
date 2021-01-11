@@ -20,4 +20,9 @@ extension String {
     func draw(in rect: CGRect, withAttributes: [NSAttributedString.Key: Any]) {
         (self as NSString).draw(in: rect, withAttributes: withAttributes)
     }
+    func getLineEnd(pos: Int) -> Int {
+        var result = pos
+        (self as NSString).getLineStart(nil, end: nil, contentsEnd: &result, for: NSRange.empty(at: pos))
+        return result
+    }
 }
