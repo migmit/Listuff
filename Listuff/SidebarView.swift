@@ -7,10 +7,9 @@
 
 import SwiftUI
 
-struct ViewWithControlsWrapper<Content: View, Controls: View>: View {
-    let content: Content
-    let controls: Controls
-    var body: some View {
+struct ViewWithControls: ViewModifier {
+    let controls: AnyView
+    func body(content: Content) -> some View {
         VStack(spacing: 0) {
             ZStack {
                 Color(UIColor.systemGray4)
@@ -24,8 +23,8 @@ struct ViewWithControlsWrapper<Content: View, Controls: View>: View {
 }
 
 extension View {
-    func controls<Controls>(@ViewBuilder controls: () -> Controls) -> ViewWithControlsWrapper<Self, Controls> {
-        return ViewWithControlsWrapper(content: self, controls: controls())
+    func controls<Controls: View>(@ViewBuilder controls: () -> Controls) -> some View {
+        modifier(ViewWithControls(controls: AnyView(controls())))
     }
 }
 
