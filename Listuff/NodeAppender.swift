@@ -49,7 +49,7 @@ struct Node {
     }
 }
 
-struct NodeAppender {
+class NodeAppender {
     typealias Doc = Structure<DocData>
     enum AppendedItem {
         case regular(value: Doc.RegularItem)
@@ -102,7 +102,7 @@ struct NodeAppender {
         self.list = list
         appendSublist(nodes: node.children)
     }
-    mutating func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) {
+    func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) {
         if nodes.isEmpty {
             item = .numbered(value: numberedList, item: numberedItem)
             line = numberedItem.content
@@ -116,7 +116,7 @@ struct NodeAppender {
             item = .numbered(value: numberedList, item: numberedItem)
         }
     }
-    mutating func appendNode(node: Node) {
+    func appendNode(node: Node) {
         let style: Doc.LineStyle?
         switch node.style {
         case .bullet: style = .bullet
@@ -146,7 +146,7 @@ struct NodeAppender {
         line = insertedLine.content
         appendSublist(nodes: node.children)
     }
-    mutating func appendSublistFirst(node: Node) -> Doc.Sublist {
+    func appendSublistFirst(node: Node) -> Doc.Sublist {
         let style: Doc.LineStyle?
         switch node.style {
         case .bullet: style = .bullet
@@ -182,7 +182,7 @@ struct NodeAppender {
         list = oldList
         return sublist
     }
-    mutating func appendSublist(nodes: [Node]) {
+    func appendSublist(nodes: [Node]) {
         guard let firstNode = nodes.first else {return}
         let sublist = appendSublistFirst(node: firstNode)
         let oldList = self.list
