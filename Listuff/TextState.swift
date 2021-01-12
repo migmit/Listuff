@@ -132,7 +132,7 @@ class TextState {
         self.chunks = Partition()
         self.structure = Structure.List(listData: DocData.ListImpl(version: renderingCache.version, indent: 0))
         if let firstNode = nodes.first {
-            var appender = NodeAppender(list: self.structure, node: firstNode) {text, after, line in
+            var appender = NodeAppender(list: self.structure, firstNode: firstNode) {text, after, line in
                 self.text += text
                 return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil)
             }
