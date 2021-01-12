@@ -22,12 +22,13 @@ struct NodeAppender {
             }
         }
     }
-    let insertLine: (String, Doc.Line?, Doc.Line) -> DocData.Line
+    let callback: (String, Doc.Line?) -> (Doc.Line) -> DocData.Line
     var list: Doc.List
     var item: AppendedItem?
     var line: Doc.Line
     init(list: Doc.List, node: Node, insertLine: @escaping (String, Doc.Line?, Doc.Line) -> DocData.Line) {
-        self.insertLine = insertLine
+        let callback = {content, after in {insertLine(content + "\n", after, $0)}}
+        self.callback = callback
         let style: Doc.LineStyle?
         switch node.style {
         case .bullet: style = .bullet
@@ -41,7 +42,7 @@ struct NodeAppender {
                     dir: .Right,
                     nearItem: nil,
                     nlistData: nil,
-                    callback: {insertLine(node.text + "\n", nil, $0)}
+                    callback: callback(node.text, nil)
                 )
             self.line = numberedItem.content
             if !node.children.isEmpty {
@@ -54,14 +55,11 @@ struct NodeAppender {
             return
         case nil: style = nil
         }
-        let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearItem: nil, callback: {insertLine(node.text + "\n", nil, $0)})
+        let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearItem: nil, callback: callback(node.text, nil))
         self.item = .regular(value: insertedLine)
         self.line = insertedLine.content
         self.list = list
         appendSublist(nodes: node.children)
-    }
-    func callback(_ content: String, _ after: Doc.Line?) -> (Doc.Line) -> DocData.Line {
-        return {insertLine(content + "\n", after, $0)}
     }
     mutating func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) {
         if nodes.isEmpty {
