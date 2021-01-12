@@ -154,26 +154,11 @@ class TextState {
         }
     }
     struct NodeAppendingState {
-        let item: AppendedItem?
-        let line: Doc.Line
-    }
-    init(nodes: [Node]) {
-        func callback(_ content: String, _ after: NodeAppendingState?) -> (Doc.Line) -> DocData.Line {
-            let text = content + "\n"
-            self.text += text
-            return {DocData.Line(text: self.chunks.insert(value: $0, length: text.utf16.count, dir: .Right, near: after?.line.content?.text).0, cache: nil)}
-        }
-        func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) -> NodeAppendingState {
-            if nodes.isEmpty {
-                return NodeAppendingState(item: .numbered(value: numberedList, item: numberedItem), line: numberedItem.content)
-            } else {
-                let sublist = numberedItem.addSublistStub(listData: nil)
-                var lastAppended = NodeAppendingState(item: nil, line: numberedItem.content)
-                nodes.forEach{lastAppended = appendNode(list: sublist, after: lastAppended, node: $0)}
-                return NodeAppendingState(item: .numbered(value: numberedList, item: numberedItem), line: lastAppended.line)
-            }
-        }
-        func appendNode(list: Doc.List, after: NodeAppendingState?, node: Node) -> NodeAppendingState {
+        let insertLine: (String, Doc.Line?, Doc.Line) -> DocData.Line
+        var item: AppendedItem?
+        var line: Doc.Line
+        init(list: Doc.List, node: Node, insertLine: @escaping (String, Doc.Line?, Doc.Line) -> DocData.Line) {
+            self.insertLine = insertLine
             let style: Doc.LineStyle?
             switch node.style {
             case .bullet: style = .bullet
@@ -181,27 +166,75 @@ class TextState {
             case .number:
                 let numberedList: Doc.NumberedList
                 let numberedItem: Doc.NumberedItem
-                if case .numbered(value: let value, item: let item) = after?.item {
+                (numberedList, numberedItem) =
+                    list.insertLineNumberedList(
+                        checked: node.checked,
+                        dir: .Right,
+                        nearItem: nil,
+                        nlistData: nil,
+                        callback: {insertLine(node.text + "\n", nil, $0)}
+                    )
+                self.line = numberedItem.content
+                if !node.children.isEmpty {
+                    self.item = nil
+                    let sublist = numberedItem.addSublistStub(listData: nil)
+                    node.children.forEach{appendNode(list: sublist, node: $0)}
+                }
+                item = .numbered(value: numberedList, item: numberedItem)
+                return
+            case nil: style = nil
+            }
+            let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearItem: nil, callback: {insertLine(node.text + "\n", nil, $0)})
+            self.item = .regular(value: insertedLine)
+            self.line = insertedLine.content
+            appendSublist(list: list, nodes: node.children)
+        }
+        func callback(_ content: String, _ after: Doc.Line?) -> (Doc.Line) -> DocData.Line {
+            return {insertLine(content + "\n", after, $0)}
+        }
+        mutating func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) {
+            if nodes.isEmpty {
+                item = .numbered(value: numberedList, item: numberedItem)
+                line = numberedItem.content
+            } else {
+                let sublist = numberedItem.addSublistStub(listData: nil)
+                item = nil
+                line = numberedItem.content
+                nodes.forEach{appendNode(list: sublist, node: $0)}
+                item = .numbered(value: numberedList, item: numberedItem)
+            }
+        }
+        mutating func appendNode(list: Doc.List, node: Node) {
+            let style: Doc.LineStyle?
+            switch node.style {
+            case .bullet: style = .bullet
+            case .dash: style = .dash
+            case .number:
+                let numberedList: Doc.NumberedList
+                let numberedItem: Doc.NumberedItem
+                if case .numbered(value: let value, item: let lastItem) = item {
                     numberedList = value
-                    numberedItem = numberedList.insertLine(checked: node.checked, dir: .Right, nearItem: item, callback: callback(node.text, after))
+                    numberedItem = numberedList.insertLine(checked: node.checked, dir: .Right, nearItem: lastItem, callback: callback(node.text, line))
                 } else {
                     (numberedList, numberedItem) =
                         list.insertLineNumberedList(
                             checked: node.checked,
                             dir: .Right,
-                            nearItem: after?.item?.it,
+                            nearItem: item?.it,
                             nlistData: nil,
-                            callback: callback(node.text, after)
+                            callback: callback(node.text, line)
                         )
                 }
-                return appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children)
+                appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children)
+                return
             case nil: style = nil
             }
-            let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearItem: after?.item?.it, callback: callback(node.text, after))
-            let lastAppended = NodeAppendingState(item: .regular(value: insertedLine), line: insertedLine.content)
-            return appendSublist(list: list, after: lastAppended, nodes: node.children)
+            let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearItem: item?.it, callback: callback(node.text, line))
+            item = .regular(value: insertedLine)
+            line = insertedLine.content
+            appendSublist(list: list, nodes: node.children)
         }
-        func appendSublistFirst(list: Doc.List, after: NodeAppendingState, node: Node) -> (Doc.Sublist, NodeAppendingState) {
+        mutating func appendSublistFirst(list: Doc.List, node: Node) -> Doc.Sublist {
             let style: Doc.LineStyle?
             switch node.style {
             case .bullet: style = .bullet
@@ -211,33 +244,38 @@ class TextState {
                     list.insertLineNumberedSublist(
                         checked: node.checked,
                         dir: .Right,
-                        nearItem: after.item?.it,
+                        nearItem: item?.it,
                         listData: nil,
                         nlistData: nil,
-                        callback: callback(node.text, after)
+                        callback: callback(node.text, line)
                     )
-                return (sublist, appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children))
+                appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children)
+                return sublist
             case nil: style = nil
             }
-            let (sublist, item) =
+            let (sublist, insertedItem) =
                 list.insertLineSublist(
                     checked: node.checked,
                     style: style,
                     dir: .Right,
-                    nearItem: after.item?.it,
+                    nearItem: item?.it,
                     listData: nil,
-                    callback: callback(node.text, after)
+                    callback: callback(node.text, line)
                 )
-            let lastInserted = appendSublist(list: sublist.list, after: NodeAppendingState(item: .regular(value: item), line: item.content), nodes: node.children)
-            return (sublist, lastInserted)
+            item = .regular(value: insertedItem)
+            line = insertedItem.content
+            appendSublist(list: sublist.list, nodes: node.children)
+            return sublist
         }
-        func appendSublist(list: Doc.List, after: NodeAppendingState, nodes: [Node]) -> NodeAppendingState {
-            guard let firstNode = nodes.first else {return after}
-            let (sublist, afterSublistAppended) = appendSublistFirst(list: list, after: after, node: firstNode)
-            var lastInserted = afterSublistAppended
-            nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{lastInserted = appendNode(list: sublist.list, after: lastInserted, node: $0)}
-            return NodeAppendingState(item: .sublist(value: sublist), line: lastInserted.line)
+        mutating func appendSublist(list: Doc.List, nodes: [Node]) {
+            guard let firstNode = nodes.first else {return}
+            let sublist = appendSublistFirst(list: list, node: firstNode)
+            nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{appendNode(list: sublist.list, node: $0)}
+            item = .sublist(value: sublist)
         }
+    }
+    
+    init(nodes: [Node]) {
         self.checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
         let bulletFont = self.bulletFont // to avoid capturing self by closure
         self.bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
@@ -246,8 +284,13 @@ class TextState {
         self.text = ""
         self.chunks = Partition()
         self.structure = Structure.List(listData: DocData.ListImpl(version: renderingCache.version, indent: 0))
-        var lastInserted: NodeAppendingState? = nil
-        nodes.forEach {lastInserted = appendNode(list: self.structure, after: lastInserted, node: $0)}
+        if let firstNode = nodes.first {
+            var lastInserted = NodeAppendingState(list: self.structure, node: firstNode) {text, after, line in
+                self.text += text
+                return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil)
+            }
+            nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{lastInserted.appendNode(list: self.structure, node: $0)}
+        }
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
         let range = Partition.setLength(node: node, length: length)
