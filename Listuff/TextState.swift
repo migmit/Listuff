@@ -282,23 +282,3 @@ class TextState {
         return (font ?? systemFont, range)
     }
 }
-
-struct Node {
-    enum Style {
-        case dash
-        case bullet
-        case number
-    }
-    var text: String
-    var children: [Node] = []
-    var checked: Bool? = nil
-    var style: Style? = nil
-    
-    func allNodes() -> [Node] {
-        var result = [self]
-        for child in children {
-            result = result + child.allNodes()
-        }
-        return result
-    }
-}
