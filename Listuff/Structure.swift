@@ -19,52 +19,59 @@ enum Structure<DT: DocumentTypes> {
         weak var value: C?
     }
     class Document {
-        var beforeItems: ChapterContent = ChapterContent()
+        var beforeItems: ChapterContent
         var items: Partition<Chapter> = Partition()
         init() {
-            let beforeItems = ChapterContent()
             let documentProxy = WeakProxy<Document>()
-            beforeItems.parent = .document(value: documentProxy)
+            let beforeItems = ChapterContent(parent: .document(value: documentProxy))
             self.beforeItems = beforeItems
             documentProxy.value = self
         }
     }
     class Chapter {
         var header: Line
-        var content: ChapterContent = ChapterContent()
+        var content: ChapterContent
         weak var parent: Document?
         weak var this: Partition<Chapter>.Node? = nil
         init(header: Line, parent: Document) {
             self.header = header
+            let chapterProxy = WeakProxy<Chapter>()
+            self.content = ChapterContent(parent: .chapter(value: chapterProxy))
             self.parent = parent
+            chapterProxy.value = self
         }
     }
     class ChapterContent {
         var beforeItems: SectionContent
         var items: Partition<Section> = Partition()
-        var parent: ChapterContentParent?
-        init() {
-            let beforeItems = SectionContent()
+        var parent: ChapterContentParent
+        init(parent: ChapterContentParent) {
             let chapterProxy = WeakProxy<ChapterContent>()
-            beforeItems.parent = .chapter(value: chapterProxy)
-            self.beforeItems = beforeItems
+            self.beforeItems = SectionContent(parent: .chapter(value: chapterProxy))
+            self.parent = parent
             chapterProxy.value = self
         }
     }
     class Section {
         var header: Line
-        var content: SectionContent = SectionContent()
+        var content: SectionContent
         weak var parent: ChapterContent?
         weak var this: Partition<Section>.Node? = nil
         init(header: Line, parent: ChapterContent) {
             self.header = header
+            let sectionProxy = WeakProxy<Section>()
+            self.content = SectionContent(parent: .section(value: sectionProxy))
             self.parent = parent
+            sectionProxy.value = self
         }
     }
     class SectionContent {
         var beforeItems: List? = nil
         var items: Partition<SubSection> = Partition()
-        var parent: SectionContentParent?
+        var parent: SectionContentParent
+        init(parent: SectionContentParent) {
+            self.parent = parent
+        }
     }
     class SubSection {
         var header: Line
