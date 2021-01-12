@@ -26,6 +26,7 @@
 		B5BEC4B325A9D68500E52B5E /* CGPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BEC4B225A9D68500E52B5E /* CGPoint.swift */; };
 		B5BEC4B825A9F99A00E52B5E /* TextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BEC4B725A9F99A00E52B5E /* TextView.swift */; };
 		B5BEC4C325AB278400E52B5E /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BEC4C225AB278400E52B5E /* SidebarView.swift */; };
+		B5C0BA8A25AE58AE003C5093 /* NodeAppender.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C0BA8925AE58AE003C5093 /* NodeAppender.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,6 +72,7 @@
 		B5BEC4B225A9D68500E52B5E /* CGPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CGPoint.swift; sourceTree = "<group>"; };
 		B5BEC4B725A9F99A00E52B5E /* TextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextView.swift; sourceTree = "<group>"; };
 		B5BEC4C225AB278400E52B5E /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		B5C0BA8925AE58AE003C5093 /* NodeAppender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeAppender.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +129,7 @@
 				B56B369325515B1C006C1FA6 /* Info.plist */,
 				B56B369025515B1C006C1FA6 /* Listuff.xcdatamodeld */,
 				B56B368525515B1B006C1FA6 /* ListuffApp.swift */,
+				B5C0BA8925AE58AE003C5093 /* NodeAppender.swift */,
 				B52D57F7258C346C0024FA43 /* NotePaste.swift */,
 				B5BEC4A525A9D14900E52B5E /* NSRange.swift */,
 				B533488B2573D1570008FB49 /* ObservableProxy.swift */,
@@ -303,6 +306,7 @@
 				B56B368F25515B1C006C1FA6 /* Persistence.swift in Sources */,
 				B5BEC4B825A9F99A00E52B5E /* TextView.swift in Sources */,
 				B5BEC4A625A9D14900E52B5E /* NSRange.swift in Sources */,
+				B5C0BA8A25AE58AE003C5093 /* NodeAppender.swift in Sources */,
 				B5BEC4B325A9D68500E52B5E /* CGPoint.swift in Sources */,
 				B56B369225515B1C006C1FA6 /* Listuff.xcdatamodeld in Sources */,
 				B52D57F8258C346C0024FA43 /* NotePaste.swift in Sources */,
