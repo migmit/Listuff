@@ -89,7 +89,7 @@ class NodeAppender {
             if !firstNode.children.isEmpty {
                 self.item = nil
                 self.list = numberedItem.addSublistStub(listData: nil)
-                firstNode.children.forEach{appendNode(node: $0)}
+                firstNode.children.forEach(appendNode)
             }
             self.list = list
             item = .numbered(value: numberedList, item: numberedItem)
@@ -111,7 +111,7 @@ class NodeAppender {
             list = numberedItem.addSublistStub(listData: nil)
             item = nil
             line = numberedItem.content
-            nodes.forEach{appendNode(node: $0)}
+            nodes.forEach(appendNode)
             list = oldList
             item = .numbered(value: numberedList, item: numberedItem)
         }
@@ -190,7 +190,7 @@ class NodeAppender {
         let sublist = appendSublistFirst(node: firstNode)
         let oldList = self.list
         self.list = sublist.list
-        nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{appendNode(node: $0)}
+        nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach(appendNode)
         self.list = oldList
         item = .sublist(value: sublist)
     }
