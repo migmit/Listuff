@@ -10,26 +10,6 @@ import UIKit
 
 class TextState {
     typealias Dir = Direction
-    enum DocData: DocumentTypes {
-        struct LineRenderingImpl {
-            let version: Int
-            let rendered: NSMutableAttributedString
-        }
-        struct Line {
-            weak var text: Chunk?
-            var cache: LineRenderingImpl?
-        }
-        struct ListImpl {
-            let version: Int
-            let indent: CGFloat
-        }
-        typealias List = ListImpl?
-        struct NumberedListImpl {
-            let version: Int
-            let indentStep: CGFloat
-        }
-        typealias NumberedList = NumberedListImpl?
-    }
     typealias Doc = Structure<DocData>
     typealias Chunk = Partition<Doc.Line>.Node
     typealias EventPublisher = AnyPublisher<Event, Never>
