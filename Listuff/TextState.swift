@@ -126,7 +126,6 @@ class TextState {
 
     var text: String
     var chunks: Partition<Doc.Line>
-    var lines: Partition<()>
     var structure: Doc.List
     var renderingCache: RenderingCache
     var items: [Substring] {
@@ -246,7 +245,6 @@ class TextState {
         self.renderingCache = RenderingCache(version: 0)
         self.text = ""
         self.chunks = Partition()
-        self.lines = Partition()
         self.structure = Structure.List(listData: DocData.ListImpl(version: renderingCache.version, indent: 0))
         var lastInserted: NodeAppendingState? = nil
         nodes.forEach {lastInserted = appendNode(list: self.structure, after: lastInserted, node: $0)}
