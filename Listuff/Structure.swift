@@ -111,7 +111,7 @@ enum Structure<DT: DocumentTypes> {
     class NumberedItem {
         var content: Line
         var sublist: List? = nil
-        var parent: NumberedList
+        weak var parent: NumberedList?
         weak var this: Partition<NumberedItem>.Node? = nil
         init(content: Line, parent: NumberedList) {
             self.content = content

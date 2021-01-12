@@ -283,7 +283,7 @@ class TextState {
         switch line.parent {
         case .numbered(value: let value):
             let item = value.value!
-            let width = calculateIndentStep(nlist: item.parent)
+            let width = calculateIndentStep(nlist: item.parent!)
             let index = item.this!.position() + 1
             indexIndent = width + numListPadding
             accessory = .number(value: "\(index).", indent: paragraphIndent, width: width, font: systemFont)
@@ -331,8 +331,8 @@ class TextState {
             if let parent = current.parent {
                 switch parent {
                 case .numbered(value: let value):
-                    indentStack.append((current, numIndentStep + calculateIndentStep(nlist: value.value!.parent)))
-                    current = value.value!.parent.parent!
+                    indentStack.append((current, numIndentStep + calculateIndentStep(nlist: value.value!.parent!)))
+                    current = value.value!.parent!.parent!
                 case .sublist(value: let value):
                     indentStack.append((current, indentationStep))
                     current = value.value!.parent!
@@ -355,7 +355,7 @@ class TextState {
     func calculateParIndent(line: Doc.Line) -> CGFloat {
         switch line.parent {
         case .numbered(value: let value):
-            return calculateIndent(list: value.value!.parent.parent!)
+            return calculateIndent(list: value.value!.parent!.parent!)
         case .regular(value: let value):
             return calculateIndent(list: value.value!.parent!)
         }
