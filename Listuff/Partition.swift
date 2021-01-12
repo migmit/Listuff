@@ -134,7 +134,7 @@ struct Partition<V>: Sequence {
                 }
                 current = parent
             }
-            return result
+            return result + (self[.Left]?.node.totalLength() ?? 0)
         }
         func length() -> Int {
             return end - (self[.Left]?.node.totalLength() ?? 0)

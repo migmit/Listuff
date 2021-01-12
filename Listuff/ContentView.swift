@@ -36,6 +36,7 @@ var testDocument = TextState(
                     style: .number
                 ),
                 Node(text: "Second item", style: .number),
+                Node(text: "Third item", style: .number),
                 Node(text: "Back to normal")
             ]
         ),

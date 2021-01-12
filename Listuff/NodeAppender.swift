@@ -125,8 +125,11 @@ class NodeAppender {
             let numberedList: Doc.NumberedList
             let numberedItem: Doc.NumberedItem
             if case .numbered(value: let value, item: let lastItem) = item {
-                numberedList = value
-                numberedItem = numberedList.insertLine(checked: node.checked, dir: .Right, nearItem: lastItem, callback: callback(node.text, line))
+                appendNodeChildren(
+                    numberedList: value,
+                    numberedItem: value.insertLine(checked: node.checked, dir: .Right, nearItem: lastItem, callback: callback(node.text, line)),
+                    nodes: node.children
+                )
             } else {
                 (numberedList, numberedItem) =
                     list.insertLineNumberedList(
@@ -136,8 +139,8 @@ class NodeAppender {
                         nlistData: nil,
                         callback: callback(node.text, line)
                     )
+                appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children)
             }
-            appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children)
             return
         case nil: style = nil
         }
