@@ -155,6 +155,7 @@ class TextState {
     }
     struct NodeAppendingState {
         let insertLine: (String, Doc.Line?, Doc.Line) -> DocData.Line
+        var list: Doc.List
         var item: AppendedItem?
         var line: Doc.Line
         init(list: Doc.List, node: Node, insertLine: @escaping (String, Doc.Line?, Doc.Line) -> DocData.Line) {
@@ -177,9 +178,10 @@ class TextState {
                 self.line = numberedItem.content
                 if !node.children.isEmpty {
                     self.item = nil
-                    let sublist = numberedItem.addSublistStub(listData: nil)
-                    node.children.forEach{appendNode(list: sublist, node: $0)}
+                    self.list = numberedItem.addSublistStub(listData: nil)
+                    node.children.forEach{appendNode(node: $0)}
                 }
+                self.list = list
                 item = .numbered(value: numberedList, item: numberedItem)
                 return
             case nil: style = nil
@@ -187,7 +189,8 @@ class TextState {
             let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearItem: nil, callback: {insertLine(node.text + "\n", nil, $0)})
             self.item = .regular(value: insertedLine)
             self.line = insertedLine.content
-            appendSublist(list: list, nodes: node.children)
+            self.list = list
+            appendSublist(nodes: node.children)
         }
         func callback(_ content: String, _ after: Doc.Line?) -> (Doc.Line) -> DocData.Line {
             return {insertLine(content + "\n", after, $0)}
@@ -197,14 +200,16 @@ class TextState {
                 item = .numbered(value: numberedList, item: numberedItem)
                 line = numberedItem.content
             } else {
-                let sublist = numberedItem.addSublistStub(listData: nil)
+                let oldList = list
+                list = numberedItem.addSublistStub(listData: nil)
                 item = nil
                 line = numberedItem.content
-                nodes.forEach{appendNode(list: sublist, node: $0)}
+                nodes.forEach{appendNode(node: $0)}
+                list = oldList
                 item = .numbered(value: numberedList, item: numberedItem)
             }
         }
-        mutating func appendNode(list: Doc.List, node: Node) {
+        mutating func appendNode(node: Node) {
             let style: Doc.LineStyle?
             switch node.style {
             case .bullet: style = .bullet
@@ -232,9 +237,9 @@ class TextState {
             let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearItem: item?.it, callback: callback(node.text, line))
             item = .regular(value: insertedLine)
             line = insertedLine.content
-            appendSublist(list: list, nodes: node.children)
+            appendSublist(nodes: node.children)
         }
-        mutating func appendSublistFirst(list: Doc.List, node: Node) -> Doc.Sublist {
+        mutating func appendSublistFirst(node: Node) -> Doc.Sublist {
             let style: Doc.LineStyle?
             switch node.style {
             case .bullet: style = .bullet
@@ -264,13 +269,19 @@ class TextState {
                 )
             item = .regular(value: insertedItem)
             line = insertedItem.content
-            appendSublist(list: sublist.list, nodes: node.children)
+            let oldList = list
+            list = sublist.list
+            appendSublist(nodes: node.children)
+            list = oldList
             return sublist
         }
-        mutating func appendSublist(list: Doc.List, nodes: [Node]) {
+        mutating func appendSublist(nodes: [Node]) {
             guard let firstNode = nodes.first else {return}
-            let sublist = appendSublistFirst(list: list, node: firstNode)
-            nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{appendNode(list: sublist.list, node: $0)}
+            let sublist = appendSublistFirst(node: firstNode)
+            let oldList = self.list
+            self.list = sublist.list
+            nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{appendNode(node: $0)}
+            self.list = oldList
             item = .sublist(value: sublist)
         }
     }
@@ -289,7 +300,7 @@ class TextState {
                 self.text += text
                 return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil)
             }
-            nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{lastInserted.appendNode(list: self.structure, node: $0)}
+            nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{lastInserted.appendNode(node: $0)}
         }
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
