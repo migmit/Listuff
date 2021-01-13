@@ -64,10 +64,17 @@ class NodeAppender {
         }
     }
     let callback: (String, Doc.Line?) -> (Doc.Line) -> DocData.Line
+    var document: Doc.Document
+    var chapter: Doc.ChapterContent
+    var section: Doc.SectionContent
     var list: Doc.List
     var item: AppendedItem?
     var line: Doc.Line
-    init(list: Doc.List, firstNode: Node, insertLine: @escaping (String, Doc.Line?, Doc.Line) -> DocData.Line) {
+    init(doc: Doc.Document, firstNode: Node, insertLine: @escaping (String, Doc.Line?, Doc.Line) -> DocData.Line) {
+        self.document = doc
+        self.chapter = document.beforeItems
+        self.section = chapter.beforeItems
+        let list = section.insertListStub(listData: nil)
         let callback = {content, after in {insertLine(content + "\n", after, $0)}}
         self.callback = callback
         let style: Doc.LineStyle?
@@ -103,18 +110,15 @@ class NodeAppender {
         appendSublist(nodes: firstNode.children)
     }
     func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) {
-        if nodes.isEmpty {
-            item = .numbered(value: numberedList, item: numberedItem)
-            line = numberedItem.content
-        } else {
+        line = numberedItem.content
+        if !nodes.isEmpty {
             let oldList = list
             list = numberedItem.addSublistStub(listData: nil)
             item = nil
-            line = numberedItem.content
             nodes.forEach(appendNode)
             list = oldList
-            item = .numbered(value: numberedList, item: numberedItem)
         }
+        item = .numbered(value: numberedList, item: numberedItem)
     }
     func appendNode(node: Node) {
         let style: Doc.LineStyle?

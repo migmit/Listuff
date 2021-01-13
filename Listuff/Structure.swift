@@ -72,6 +72,17 @@ enum Structure<DT: DocumentTypes> {
         init(parent: SectionContentParent) {
             self.parent = parent
         }
+        func insertListStub(listData: DT.List) -> List {
+            if let bi = beforeItems {
+                return bi
+            } else {
+                let scProxy = WeakProxy<SectionContent>()
+                scProxy.value = self
+                let list = List(listData: listData, parent: .section(value: scProxy))
+                beforeItems = list
+                return list
+            }
+        }
     }
     class SubSection {
         var header: Line
@@ -85,9 +96,9 @@ enum Structure<DT: DocumentTypes> {
     }
     class List {
         var items: Partition<Item>
-        var parent: ListParent?
+        var parent: ListParent
         var listData: DT.List
-        init(listData: DT.List, parent: ListParent? = nil) {
+        init(listData: DT.List, parent: ListParent) {
             self.items = Partition()
             self.listData = listData
             self.parent = parent
@@ -224,6 +235,7 @@ enum Structure<DT: DocumentTypes> {
     enum ListParent {
         case sublist(value: WeakProxy<Sublist>)
         case numbered(value: WeakProxy<NumberedItem>)
+        case section(value: WeakProxy<SectionContent>)
     }
     enum LineParent {
         case regular(value: WeakProxy<RegularItem>)

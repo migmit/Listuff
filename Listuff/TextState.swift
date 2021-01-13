@@ -106,7 +106,7 @@ class TextState {
 
     var text: String
     var chunks: Partition<Doc.Line>
-    var structure: Doc.List
+    var structure: Doc.Document
     var renderingCache: RenderingCache
     var items: [Substring] {
         var result: [Substring] = []
@@ -130,9 +130,9 @@ class TextState {
         self.renderingCache = RenderingCache(version: 0)
         self.text = ""
         self.chunks = Partition()
-        self.structure = Structure.List(listData: DocData.ListImpl(version: renderingCache.version, indent: 0))
+        self.structure = Structure.Document()
         if let firstNode = nodes.first {
-            let appender = NodeAppender(list: self.structure, firstNode: firstNode) {text, after, line in
+            let appender = NodeAppender(doc: self.structure, firstNode: firstNode) {text, after, line in
                 self.text += text
                 return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil)
             }
@@ -211,30 +211,34 @@ class TextState {
         nlist.listData = DocData.NumberedListImpl(version: renderingCache.version, indentStep: indentStep)
         return indentStep
     }
-    func calculateIndent(list: Doc.List) -> CGFloat {
-        var current = list
-        var indentStack: [(Doc.List, CGFloat)] = []
-        var result: CGFloat = 0
-        while current.listData?.version != renderingCache.version {
-            if let parent = current.parent {
-                switch parent {
-                case .numbered(value: let value):
-                    indentStack.append((current, numIndentStep + calculateIndentStep(nlist: value.value!.parent!)))
-                    current = value.value!.parent!.parent!
-                case .sublist(value: let value):
-                    indentStack.append((current, indentationStep))
-                    current = value.value!.parent!
-                }
-            } else {
-                break
+    struct IndentStack {
+        let textState: TextState
+        var stack: [(Doc.List, CGFloat)]
+        mutating func append(current: Doc.List) -> Doc.List? {
+            switch current.parent {
+            case .numbered(value: let value):
+                let parent = value.value!.parent!
+                stack.append((current, textState.numIndentStep + textState.calculateIndentStep(nlist: parent)))
+                return parent.parent!
+            case .sublist(value: let value):
+                stack.append((current, textState.indentationStep))
+                return value.value!.parent!
+            default:
+                return nil
             }
         }
-        if let listData = current.listData, listData.version == renderingCache.version {
-            result = listData.indent
-        } else {
-            current.listData = DocData.ListImpl(version: renderingCache.version, indent: 0)
+    }
+    func calculateIndent(list: Doc.List) -> CGFloat {
+        var current: Doc.List? = list
+        var indentStack = IndentStack(textState: self, stack: [])
+        var result: CGFloat = 0
+        while let c = current, c.listData?.version != renderingCache.version {
+            current = indentStack.append(current: c)
         }
-        for (list, indentStep) in indentStack.reversed() {
+        if let listData = current?.listData, listData.version == renderingCache.version {
+            result = listData.indent
+        }
+        for (list, indentStep) in indentStack.stack.reversed() {
             result += indentStep
             list.listData = DocData.ListImpl(version: renderingCache.version, indent: result)
         }
