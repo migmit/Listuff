@@ -10,6 +10,7 @@ import SwiftUI
 
 var testDocument = TextState(
     appendables: [
+        Section(text: "Chapter", checked: nil, level: .chapter),
         Node(
             text: "First node \u{1f602}👩‍👩‍👧‍👦éüő",
             children: [
