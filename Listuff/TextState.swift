@@ -89,6 +89,9 @@ class TextState {
 //    let systemFont = UIFont(name: "Apple Color Emoji", size: UIFont.labelFontSize)! // <-- what should be instead of .AppleColorEmojiUI (name) or .Apple Color Emoji UI (family)
 //    let systemFont = UIFont(name: ".AppleSystemUIFontMonospaced", size: UIFont.labelFontSize)!
 //    let systemFont = UIFont(name: "TimesNewRomanPSMT", size: UIFont.labelFontSize)!
+    let chapterFont: UIFont
+    let sectionFont: UIFont
+    let subsectionFont: UIFont
     let systemColor = UIColor.label
     let indentationStep = CGFloat(35.0)
     let numIndentStep = CGFloat(25.0)
@@ -126,7 +129,10 @@ class TextState {
         self.checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
         let bulletFont = self.bulletFont // to avoid capturing self by closure
         self.bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
-        
+        self.chapterFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 20.0)
+        self.sectionFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 18.0)
+        self.subsectionFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 16.0)
+
         self.renderingCache = RenderingCache(version: 0)
         self.text = ""
         self.chunks = Partition()
@@ -263,10 +269,17 @@ class TextState {
             let font = cache.rendered.attribute(.font, at: pos, effectiveRange: &range) as? UIFont
             return (font ?? systemFont, range)
         }
-        let rendered = NSMutableAttributedString(string: text, attributes: [.font: systemFont])
+        let baseFont: UIFont
+        switch line.parent {
+        case .chapter(value: _): baseFont = chapterFont
+        case .section(value: _): baseFont = sectionFont
+        case .subsection(value: _): baseFont = subsectionFont
+        default: baseFont = systemFont
+        }
+        let rendered = NSMutableAttributedString(string: text, attributes: [.font: baseFont])
         rendered.fixAttributes(in: rendered.fullRange)
         line.content?.cache = DocData.LineRenderingImpl(version: renderingCache.version, rendered: rendered)
         let font = rendered.attribute(.font, at: pos, effectiveRange: &range) as? UIFont
-        return (font ?? systemFont, range)
+        return (font ?? baseFont, range)
     }
 }
