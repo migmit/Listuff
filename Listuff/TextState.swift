@@ -122,7 +122,7 @@ class TextState {
         return eventsPublisher.eraseToAnyPublisher()
     }
     
-    init(nodes: [Appendable]) {
+    init(appendables: [Appendable]) {
         self.checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
         let bulletFont = self.bulletFont // to avoid capturing self by closure
         self.bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
@@ -135,7 +135,7 @@ class TextState {
             self.text += text
             return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil)
         }
-        nodes.forEach{$0.append(to: appender)}
+        appendables.forEach{$0.append(to: appender)}
         self.structure = appender.document
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {

@@ -9,7 +9,7 @@ import SwiftUI
 //import CoreData
 
 var testDocument = TextState(
-    nodes: [
+    appendables: [
         Node(
             text: "First node \u{1f602}👩‍👩‍👧‍👦éüő",
             children: [
