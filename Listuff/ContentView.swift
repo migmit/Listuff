@@ -11,6 +11,8 @@ import SwiftUI
 var testDocument = TextState(
     appendables: [
         Section(text: "Chapter", checked: nil, level: .chapter),
+        Section(text: "Section", checked: true, level: .section),
+        Section(text: "Subsection", checked: false, level: .subsection),
         Node(
             text: "First node \u{1f602}👩‍👩‍👧‍👦éüő",
             children: [
@@ -24,6 +26,7 @@ var testDocument = TextState(
                 Node(text: "Fifth node")
             ]
         ),
+        Section(text: "Another section", checked: false, level: .section),
         Node(
             text: "Numbered list:",
             children: [
