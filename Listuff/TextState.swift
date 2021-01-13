@@ -136,7 +136,7 @@ class TextState {
                 self.text += text
                 return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil)
             }
-            nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach(appender.appendNode)
+            nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{$0.append(to: appender)}
             self.structure = appender.document
         } else {
             self.structure = Doc.Document()

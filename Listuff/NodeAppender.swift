@@ -29,7 +29,11 @@ enum DocData: DocumentTypes {
     typealias NumberedList = NumberedListImpl?
 }
 
-struct Node {
+protocol Appendable {
+    func append(to: NodeAppender)
+}
+
+struct Node: Appendable {
     enum Style {
         case dash
         case bullet
@@ -54,9 +58,13 @@ struct Node {
         }
         return result
     }
+    
+    func append(to: NodeAppender) {
+        to.appendNode(node: self)
+    }
 }
 
-struct Section {
+struct Section: Appendable {
     enum Level {
         case chapter
         case section
@@ -70,6 +78,10 @@ struct Section {
         self.text = text
         self.checked = checked
         self.level = level
+    }
+    
+    func append(to: NodeAppender) {
+        to.appendSection(sect: self)
     }
 }
 
