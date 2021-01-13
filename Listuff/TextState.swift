@@ -122,7 +122,7 @@ class TextState {
         return eventsPublisher.eraseToAnyPublisher()
     }
     
-    init(nodes: [Node]) {
+    init(nodes: [Appendable]) {
         self.checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
         let bulletFont = self.bulletFont // to avoid capturing self by closure
         self.bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
@@ -131,16 +131,12 @@ class TextState {
         self.text = ""
         self.chunks = Partition()
         self.structure = Structure.Document()
-        if let firstNode = nodes.first {
-            let appender = NodeAppender(firstNode: firstNode) {text, after, line in
-                self.text += text
-                return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil)
-            }
-            nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach{$0.append(to: appender)}
-            self.structure = appender.document
-        } else {
-            self.structure = Doc.Document()
+        let appender = NodeAppender {text, after, line in
+            self.text += text
+            return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil)
         }
+        nodes.forEach{$0.append(to: appender)}
+        self.structure = appender.document
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
         let range = Partition.setLength(node: node, length: length)

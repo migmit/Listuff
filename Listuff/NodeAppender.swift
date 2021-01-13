@@ -108,48 +108,16 @@ class NodeAppender {
     var subsection: Doc.SubSection?
     var list: Doc.List?
     var item: AppendedItem?
-    var line: Doc.Line
-    init(firstNode: Node, insertLine: @escaping (String, Doc.Line?, Doc.Line) -> DocData.Line) {
+    var line: Doc.Line?
+    init(insertLine: @escaping (String, Doc.Line?, Doc.Line) -> DocData.Line) {
         self.document = Doc.Document()
         self.chapter = nil
         self.chapterContent = document.beforeItems
         self.section = nil
         self.sectionContent = chapterContent.beforeItems
         self.subsection = nil
-        let list = sectionContent.insertListStub(listData: nil)
-        let callback = {content, after in {insertLine(content + "\n", after, $0)}}
-        self.callback = callback
-        let style: Doc.LineStyle?
-        switch firstNode.style {
-        case .bullet: style = .bullet
-        case .dash: style = .dash
-        case .number:
-            let numberedList: Doc.NumberedList
-            let numberedItem: Doc.NumberedItem
-            (numberedList, numberedItem) =
-                list.insertLineNumberedList(
-                    checked: firstNode.checked,
-                    dir: .Right,
-                    nearItem: nil,
-                    nlistData: nil,
-                    callback: callback(firstNode.text, nil)
-                )
-            self.line = numberedItem.content
-            if !firstNode.children.isEmpty {
-                self.item = nil
-                self.list = numberedItem.addSublistStub(listData: nil)
-                firstNode.children.forEach(appendNode)
-            }
-            self.list = list
-            item = .numbered(value: numberedList, item: numberedItem)
-            return
-        case nil: style = nil
-        }
-        let insertedLine = list.insertLine(checked: firstNode.checked, style: style, dir: .Right, nearItem: nil, callback: callback(firstNode.text, nil))
-        self.item = .regular(value: insertedLine)
-        self.line = insertedLine.content
-        self.list = list
-        appendSublist(list: list, nodes: firstNode.children)
+        self.callback = {content, after in {insertLine(content + "\n", after, $0)}}
+        self.line = nil
     }
     func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) {
         line = numberedItem.content
