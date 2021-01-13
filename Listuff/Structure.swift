@@ -27,15 +27,20 @@ enum Structure<DT: DocumentTypes> {
             self.beforeItems = beforeItems
             documentProxy.value = self
         }
+        func insertChapter(checked: Bool?, dir: Direction, nearItem: Chapter?, callback: LineCallback) -> Chapter {
+            let chapter = Chapter(checked: checked, parent: self, callback: callback)
+            chapter.this = items.insert(value: chapter, length: 1, dir: dir, near: nearItem?.this).0
+            return chapter
+        }
     }
     class Chapter {
         var header: Line
         var content: ChapterContent
         weak var parent: Document?
         weak var this: Partition<Chapter>.Node? = nil
-        init(header: Line, parent: Document) {
-            self.header = header
+        init(checked: Bool?, parent: Document, callback: LineCallback) {
             let chapterProxy = WeakProxy<Chapter>()
+            self.header = Line(checked: checked, parent: .chapter(value: chapterProxy), callback: callback)
             self.content = ChapterContent(parent: .chapter(value: chapterProxy))
             self.parent = parent
             chapterProxy.value = self
@@ -51,15 +56,20 @@ enum Structure<DT: DocumentTypes> {
             self.parent = parent
             chapterProxy.value = self
         }
+        func insertSection(checked: Bool?, dir: Direction, nearItem: Section?, callback: LineCallback) -> Section {
+            let section = Section(checked: checked, parent: self, callback: callback)
+            section.this = items.insert(value: section, length: 1, dir: dir, near: nearItem?.this).0
+            return section
+        }
     }
     class Section {
         var header: Line
         var content: SectionContent
         weak var parent: ChapterContent?
         weak var this: Partition<Section>.Node? = nil
-        init(header: Line, parent: ChapterContent) {
-            self.header = header
+        init(checked: Bool?, parent: ChapterContent, callback: LineCallback) {
             let sectionProxy = WeakProxy<Section>()
+            self.header = Line(checked: checked, parent: .section(value: sectionProxy), callback: callback)
             self.content = SectionContent(parent: .section(value: sectionProxy))
             self.parent = parent
             sectionProxy.value = self
@@ -83,15 +93,32 @@ enum Structure<DT: DocumentTypes> {
                 return list
             }
         }
+        func insertSubsection(checked: Bool?, dir: Direction, nearItem: SubSection?, callback: LineCallback) -> SubSection {
+            let subsection = SubSection(checked: checked, parent: self, callback: callback)
+            subsection.this = items.insert(value: subsection, length: 1, dir: dir, near: nearItem?.this).0
+            return subsection
+        }
     }
     class SubSection {
         var header: Line
         var content: List? = nil
         weak var parent: SectionContent?
         weak var this: Partition<SubSection>.Node? = nil
-        init(header: Line, parent: SectionContent) {
-            self.header = header
+        init(checked: Bool?, parent: SectionContent, callback: LineCallback) {
+            let ssProxy = WeakProxy<SubSection>()
+            self.header = Line(checked: checked, parent: .subsection(value: ssProxy), callback: callback)
             self.parent = parent
+            ssProxy.value = self
+        }
+        func insertListStub(listData: DT.List) -> List {
+            if let cnt = content {
+                return cnt
+            } else {
+                let ssProxy = WeakProxy<SubSection>()
+                let list = List(listData: listData, parent: .subsection(value: ssProxy))
+                content = list
+                return list
+            }
         }
     }
     class List {
@@ -236,10 +263,14 @@ enum Structure<DT: DocumentTypes> {
         case sublist(value: WeakProxy<Sublist>)
         case numbered(value: WeakProxy<NumberedItem>)
         case section(value: WeakProxy<SectionContent>)
+        case subsection(value: WeakProxy<SubSection>)
     }
     enum LineParent {
         case regular(value: WeakProxy<RegularItem>)
         case numbered(value: WeakProxy<NumberedItem>)
+        case chapter(value: WeakProxy<Chapter>)
+        case section(value: WeakProxy<Section>)
+        case subsection(value: WeakProxy<SubSection>)
     }
     enum ChapterContentParent {
         case document(value: WeakProxy<Document>)

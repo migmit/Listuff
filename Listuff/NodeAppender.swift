@@ -35,10 +35,17 @@ struct Node {
         case bullet
         case number
     }
-    var text: String
-    var children: [Node] = []
-    var checked: Bool? = nil
-    var style: Style? = nil
+    let text: String
+    let children: [Node]
+    let checked: Bool?
+    let style: Style?
+    
+    init(text: String, children: [Node] = [], checked: Bool? = nil, style: Style? = nil) {
+        self.text = text
+        self.children = children
+        self.checked = checked
+        self.style = style
+    }
     
     func allNodes() -> [Node] {
         var result = [self]
@@ -46,6 +53,23 @@ struct Node {
             result = result + child.allNodes()
         }
         return result
+    }
+}
+
+struct Section {
+    enum Level {
+        case chapter
+        case section
+        case subsection
+    }
+    let text: String
+    let checked: Bool?
+    let level: Level
+    
+    init(text: String, checked: Bool? = nil, level: Level) {
+        self.text = text
+        self.checked = checked
+        self.level = level
     }
 }
 
@@ -64,17 +88,23 @@ class NodeAppender {
         }
     }
     let callback: (String, Doc.Line?) -> (Doc.Line) -> DocData.Line
-    var document: Doc.Document
-    var chapter: Doc.ChapterContent
-    var section: Doc.SectionContent
-    var list: Doc.List
+    let document: Doc.Document
+    var chapter: Doc.Chapter?
+    var chapterContent: Doc.ChapterContent
+    var section: Doc.Section?
+    var sectionContent: Doc.SectionContent
+    var subsection: Doc.SubSection?
+    var list: Doc.List?
     var item: AppendedItem?
     var line: Doc.Line
-    init(doc: Doc.Document, firstNode: Node, insertLine: @escaping (String, Doc.Line?, Doc.Line) -> DocData.Line) {
-        self.document = doc
-        self.chapter = document.beforeItems
-        self.section = chapter.beforeItems
-        let list = section.insertListStub(listData: nil)
+    init(firstNode: Node, insertLine: @escaping (String, Doc.Line?, Doc.Line) -> DocData.Line) {
+        self.document = Doc.Document()
+        self.chapter = nil
+        self.chapterContent = document.beforeItems
+        self.section = nil
+        self.sectionContent = chapterContent.beforeItems
+        self.subsection = nil
+        let list = sectionContent.insertListStub(listData: nil)
         let callback = {content, after in {insertLine(content + "\n", after, $0)}}
         self.callback = callback
         let style: Doc.LineStyle?
@@ -107,7 +137,7 @@ class NodeAppender {
         self.item = .regular(value: insertedLine)
         self.line = insertedLine.content
         self.list = list
-        appendSublist(nodes: firstNode.children)
+        appendSublist(list: list, nodes: firstNode.children)
     }
     func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) {
         line = numberedItem.content
@@ -120,7 +150,17 @@ class NodeAppender {
         }
         item = .numbered(value: numberedList, item: numberedItem)
     }
+    func makeListStub() -> Doc.List {
+        if let lst = list {
+            return lst
+        } else {
+            let lst = subsection?.insertListStub(listData: nil) ?? sectionContent.insertListStub(listData: nil)
+            list = lst
+            return lst
+        }
+    }
     func appendNode(node: Node) {
+        let lst = makeListStub()
         let style: Doc.LineStyle?
         switch node.style {
         case .bullet: style = .bullet
@@ -136,7 +176,7 @@ class NodeAppender {
                 )
             } else {
                 (numberedList, numberedItem) =
-                    list.insertLineNumberedList(
+                    lst.insertLineNumberedList(
                         checked: node.checked,
                         dir: .Right,
                         nearItem: item?.it,
@@ -148,12 +188,12 @@ class NodeAppender {
             return
         case nil: style = nil
         }
-        let insertedLine = list.insertLine(checked: node.checked, style: style, dir: .Right, nearItem: item?.it, callback: callback(node.text, line))
+        let insertedLine = lst.insertLine(checked: node.checked, style: style, dir: .Right, nearItem: item?.it, callback: callback(node.text, line))
         item = .regular(value: insertedLine)
         line = insertedLine.content
-        appendSublist(nodes: node.children)
+        appendSublist(list: lst, nodes: node.children)
     }
-    func appendSublistFirst(node: Node) -> Doc.Sublist {
+    func appendSublistFirst(list: Doc.List, node: Node) -> Doc.Sublist {
         let style: Doc.LineStyle?
         switch node.style {
         case .bullet: style = .bullet
@@ -183,19 +223,38 @@ class NodeAppender {
             )
         item = .regular(value: insertedItem)
         line = insertedItem.content
-        let oldList = list
-        list = sublist.list
-        appendSublist(nodes: node.children)
-        list = oldList
+        appendSublist(list: sublist.list, nodes: node.children)
         return sublist
     }
-    func appendSublist(nodes: [Node]) {
+    func appendSublist(list: Doc.List, nodes: [Node]) {
         guard let firstNode = nodes.first else {return}
-        let sublist = appendSublistFirst(node: firstNode)
+        let sublist = appendSublistFirst(list: list, node: firstNode)
         let oldList = self.list
         self.list = sublist.list
         nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach(appendNode)
         self.list = oldList
         item = .sublist(value: sublist)
+    }
+    func appendSection(sect: Section) {
+        switch sect.level {
+        case .subsection:
+            let newItem = sectionContent.insertSubsection(checked: sect.checked, dir: .Right, nearItem: subsection, callback: callback(sect.text, line))
+            subsection = newItem
+            list = nil
+        case .section:
+            let newItem = chapterContent.insertSection(checked: sect.checked, dir: .Right, nearItem: section, callback: callback(sect.text, line))
+            section = newItem
+            sectionContent = newItem.content
+            subsection = nil
+            list = nil
+        case .chapter:
+            let newItem = document.insertChapter(checked: sect.checked, dir: .Right, nearItem: chapter, callback: callback(sect.text, line))
+            chapter = newItem
+            chapterContent = newItem.content
+            section = nil
+            sectionContent = chapterContent.beforeItems
+            subsection = nil
+            list = nil
+        }
     }
 }

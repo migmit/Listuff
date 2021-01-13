@@ -132,11 +132,14 @@ class TextState {
         self.chunks = Partition()
         self.structure = Structure.Document()
         if let firstNode = nodes.first {
-            let appender = NodeAppender(doc: self.structure, firstNode: firstNode) {text, after, line in
+            let appender = NodeAppender(firstNode: firstNode) {text, after, line in
                 self.text += text
                 return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil)
             }
             nodes.suffix(from: nodes.index(after: nodes.startIndex)).forEach(appender.appendNode)
+            self.structure = appender.document
+        } else {
+            self.structure = Doc.Document()
         }
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
@@ -161,8 +164,8 @@ class TextState {
     func lineInfo(range: NSRange, line: Doc.Line) -> ListItemInfo {
         let hasBullet: Bool
         switch line.parent {
-        case .numbered(value: _): hasBullet = false
         case .regular(value: let value): hasBullet = value.value?.style != nil
+        default: hasBullet = false
         }
         let bulletAddition: CGFloat = hasBullet ? bulletWidth + bulletPadding : 0
         let paragraphIndent: CGFloat = calculateParIndent(line: line)
@@ -184,6 +187,9 @@ class TextState {
             }
             indexIndent = 0
             accessory = bulletString.map{.bullet(value: $0, indent: paragraphIndent, height: $0.size(font: bulletFont).height, font: bulletFont)}
+        default:
+            indexIndent = 0
+            accessory = nil
         }
         let checkedAddition = line.checked != nil ? checkmarkSize.width + checkmarkPadding : 0
         let textIndent = paragraphIndent + indexIndent + bulletAddition
@@ -250,6 +256,8 @@ class TextState {
             return calculateIndent(list: value.value!.parent!.parent!)
         case .regular(value: let value):
             return calculateIndent(list: value.value!.parent!)
+        default:
+            return 0
         }
     }
     func getCorrectFont(line: Doc.Line, text: String, pos: Int) -> (UIFont, NSRange) {
