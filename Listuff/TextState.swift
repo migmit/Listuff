@@ -83,15 +83,16 @@ class TextState {
             version += 1
         }
     }
-    let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
+//    let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
 //    let systemFont = UIFont(name: "Arial", size: UIFont.labelFontSize)!
 //    let systemFont = UIFont.systemFont(ofSize: UIFont.labelFontSize, weight: .regular)
 //    let systemFont = UIFont(name: "Apple Color Emoji", size: UIFont.labelFontSize)! // <-- what should be instead of .AppleColorEmojiUI (name) or .Apple Color Emoji UI (family)
 //    let systemFont = UIFont(name: ".AppleSystemUIFontMonospaced", size: UIFont.labelFontSize)!
 //    let systemFont = UIFont(name: "TimesNewRomanPSMT", size: UIFont.labelFontSize)!
-    let chapterFont: UIFont
-    let sectionFont: UIFont
-    let subsectionFont: UIFont
+    let systemFont = UIFont.preferredFont(forTextStyle: .body)
+    let chapterFont = UIFont.preferredFont(forTextStyle: .title1)
+    let sectionFont = UIFont.preferredFont(forTextStyle: .title2)
+    let subsectionFont = UIFont.preferredFont(forTextStyle: .title3)
     let systemColor = UIColor.label
     let indentationStep = CGFloat(35.0)
     let numIndentStep = CGFloat(25.0)
@@ -129,9 +130,9 @@ class TextState {
         self.checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
         let bulletFont = self.bulletFont // to avoid capturing self by closure
         self.bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
-        self.chapterFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 20.0)
-        self.sectionFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 18.0)
-        self.subsectionFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 16.0)
+//        self.chapterFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 20.0)
+//        self.sectionFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 18.0)
+//        self.subsectionFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 16.0)
 
         self.renderingCache = RenderingCache(version: 0)
         self.text = ""
