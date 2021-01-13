@@ -10,56 +10,6 @@ import SwiftUI
 
 var testDocument = TextState(
     appendables: [
-        Section(text: "Section", checked: true, level: .section),
-        Section(text: "Subsection", checked: false, level: .subsection),
-        Node(
-            text: "First node \u{1f602}👩‍👩‍👧‍👦éüő",
-            children: [
-                Node(
-                    text: "☼😂éüő Second node",
-                    children: [
-                        Node(text: "Third node and some more awesome stuff", style: .bullet),
-                        Node(text: "Fourth node", checked: true, style: .dash)
-                    ]
-                ),
-                Node(text: "Fifth node")
-            ]
-        ),
-        Section(text: "Chapter", checked: nil, level: .chapter),
-        Section(text: "Another section", checked: false, level: .section),
-        Node(
-            text: "Numbered list:",
-            children: [
-                Node(
-                    text: "First item",
-                    children: [
-                        Node(text: "First child oeiuryhg qoieurhg oqeiyruhg qoeiurygh qoeiuryghq oeirugh qpeirugh pqieurhg pqeiurhg pqeiurgh pqeiurgh pqieurhg qpeiurhg pqieurhqw", checked: false),
-                        Node(text: "Second child oeiuryhg qoieurhg oqeiyruhg qoeiurygh qoeiuryghq oeirugh qpeirugh pqieurhg pqeiurhg pqeiurgh pqeiurgh pqieurhg qpeiurhg pqieurhqw", checked: true),
-                        Node(text: "Third child")
-                    ],
-                    style: .number
-                ),
-                Node(text: "Second item", style: .number),
-                Node(text: "Third item", style: .number),
-                Node(text: "Back to normal")
-            ]
-        ),
-        Node(
-            text: "Another numbered list:",
-            children: [
-                Node(text: "Wait for it..."),
-                Node(text: "Another first item", style: .number),
-                Node(
-                    text: "Another second item",
-                    children: [
-                        Node(text: "Another first child", checked: false, style: .number),
-                        Node(text: "Another second child", style: .number)
-                    ],
-                    style: .number
-                ),
-                Node(text: "Back to normal again")
-            ]
-        ),
         Node(
             text: "Long hierarchy 1",
             children: [
@@ -76,48 +26,41 @@ var testDocument = TextState(
                                             text: "Long hierarchy 5",
                                             children: [
                                                 Node(
-                                                    text: "Long hierarchy 6",
+                                                    text: "Long hierarchy 6, with russian characters: абырвалг",
                                                     children: [
                                                         Node(
-                                                            text: "Long hierarchy 7",
+                                                            text: "Long hierarchy 7, with a dash",
                                                             children: [
                                                                 Node(
-                                                                    text: "Long hierarchy 8",
+                                                                    text: "Long hierarchy 8, with a bullet, checked",
                                                                     children: [
                                                                         Node(
-                                                                            text: "Long hierarchy 9",
+                                                                            text: "Long hierarchy 9, with a special symbol: ☼, numbered",
                                                                             children: [
                                                                                 Node(
-                                                                                    text: "Long hierarchy 10",
+                                                                                    text: "Long hierarchy 10, with emojis and non-ASCII characters: \u{1f602}👩‍👩‍👧‍👦éüő",
                                                                                     children: [
                                                                                         Node(
                                                                                             text: "Long hierarchy 11",
                                                                                             children: [
-                                                                                                Node(
-                                                                                                    text: "Long hierarchy 12",
-                                                                                                    children: [
-                                                                                                        Node(
-                                                                                                            text: "Long hierarchy 13",
-                                                                                                            children: [
-                                                                                                                Node(
-                                                                                                                    text: "Long hierarchy 14",
-                                                                                                                    children: [
-                                                                                                                        Node(text: "Long hierarchy 15", checked: true, style: .bullet)
-                                                                                                                    ]
-                                                                                                                )
-                                                                                                            ]
-                                                                                                        )
-                                                                                                    ]
-                                                                                                )
+                                                                                                Node(text: "Long hierarchy 12")
                                                                                             ]
                                                                                         )
                                                                                     ]
                                                                                 )
-                                                                            ]
-                                                                        )
-                                                                    ]
+                                                                            ],
+                                                                            style: .number
+                                                                        ),
+                                                                        Node(text: "Another numbered item, unchecked", checked: false, style: .number),
+                                                                        Node(text: "Yet another numbered item", style: .number),
+                                                                        Node(text: "Not numbered, but checked", checked: true),
+                                                                        Node(text: "Numbered again, checked", checked: true, style: .number)
+                                                                    ],
+                                                                    checked: true,
+                                                                    style: .bullet
                                                                 )
-                                                            ]
+                                                            ],
+                                                            style: .dash
                                                         )
                                                     ]
                                                 )
@@ -131,6 +74,12 @@ var testDocument = TextState(
                 )
             ]
         ),
+        Section(text: "Section", checked: true, level: .section),
+        Node(text: "Section content, with a dash", style: .dash),
+        Section(text: "Subsection", checked: false, level: .subsection),
+        Section(text: "Chapter", checked: nil, level: .chapter),
+        Node(text: "Chapter content"),
+        Section(text: "Another section", checked: false, level: .section),
         Node(text: "aaa"),
         Node(text: "aaa"),
         Node(text: "aaa"),
