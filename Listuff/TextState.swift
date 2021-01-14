@@ -178,7 +178,7 @@ class TextState {
         case .numbered(value: let value):
             let item = value.value!
             let width = calculateIndentStep(nlist: item.parent!)
-            let index = item.this!.position() + 1
+            let index = item.this!.range.location + 1
             indexIndent = width + numListPadding
             accessory = .number(value: "\(index).", indent: paragraphIndent, width: width, font: systemFont)
         case .regular(value: let value):

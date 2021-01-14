@@ -125,7 +125,8 @@ struct Partition<V>: Sequence {
                 return nil
             }
         }
-        func position() -> Int {
+        var range: NSRange {
+            let leftLength = self[.Left]?.node.totalLength() ?? 0
             var result = 0
             var current = self
             while let (parent, dir, _) = current.getChildInfo() {
@@ -134,10 +135,7 @@ struct Partition<V>: Sequence {
                 }
                 current = parent
             }
-            return result + (self[.Left]?.node.totalLength() ?? 0)
-        }
-        func length() -> Int {
-            return end - (self[.Left]?.node.totalLength() ?? 0)
+            return NSMakeRange(result + leftLength, end - leftLength)
         }
     }
     private(set) var root: Node? = nil
