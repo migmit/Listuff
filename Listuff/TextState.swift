@@ -128,7 +128,7 @@ class TextState {
             return ObjectIdentifier(lhs.value) == ObjectIdentifier(rhs.value)
         }
         func hash(into hasher: inout Hasher) {
-            ObjectIdentifier(value).hash(into: &hasher)
+            hasher.combine(ObjectIdentifier(value))
         }
     }
     var livingLinks: Partition<UUID?> = Partition()
