@@ -21,12 +21,21 @@ struct Node: Appendable {
     let children: [Node]
     let checked: Bool?
     let style: Style?
+    let linkId: String?
+    let links: [(Range<String.Index>, String)]
     
-    init(text: String, children: [Node] = [], checked: Bool? = nil, style: Style? = nil) {
+    init(text: String, children: [Node] = [], checked: Bool? = nil, style: Style? = nil, linkId: String? = nil, links: [(Range<Int>, String)] = []) {
         self.text = text
         self.children = children
         self.checked = checked
         self.style = style
+        self.linkId = linkId
+        self.links = links.map{
+            let (intRange, linkId) = $0
+            let start = text.index(text.startIndex, offsetBy: intRange.lowerBound)
+            let end = text.index(text.startIndex, offsetBy: intRange.upperBound)
+            return (start..<end, linkId)
+        }
     }
 
     func append(to: NodeAppender) {
