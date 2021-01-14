@@ -27,6 +27,7 @@
 		B5BEC4B825A9F99A00E52B5E /* TextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BEC4B725A9F99A00E52B5E /* TextView.swift */; };
 		B5BEC4C325AB278400E52B5E /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BEC4C225AB278400E52B5E /* SidebarView.swift */; };
 		B5C0BA8A25AE58AE003C5093 /* NodeAppender.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C0BA8925AE58AE003C5093 /* NodeAppender.swift */; };
+		B5C0BA9825B0E430003C5093 /* DocData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C0BA9725B0E430003C5093 /* DocData.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,6 +74,7 @@
 		B5BEC4B725A9F99A00E52B5E /* TextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextView.swift; sourceTree = "<group>"; };
 		B5BEC4C225AB278400E52B5E /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		B5C0BA8925AE58AE003C5093 /* NodeAppender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeAppender.swift; sourceTree = "<group>"; };
+		B5C0BA9725B0E430003C5093 /* DocData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocData.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -141,6 +143,7 @@
 				B5A165CD25A0A63200B483E3 /* Structure.swift */,
 				B53C4C7225992EC900DCED26 /* TextState.swift */,
 				B5BEC4B725A9F99A00E52B5E /* TextView.swift */,
+				B5C0BA9725B0E430003C5093 /* DocData.swift */,
 			);
 			path = Listuff;
 			sourceTree = "<group>";
@@ -309,6 +312,7 @@
 				B5C0BA8A25AE58AE003C5093 /* NodeAppender.swift in Sources */,
 				B5BEC4B325A9D68500E52B5E /* CGPoint.swift in Sources */,
 				B56B369225515B1C006C1FA6 /* Listuff.xcdatamodeld in Sources */,
+				B5C0BA9825B0E430003C5093 /* DocData.swift in Sources */,
 				B52D57F8258C346C0024FA43 /* NotePaste.swift in Sources */,
 				B53348822573156D0008FB49 /* Partition.swift in Sources */,
 				B5BEC4C325AB278400E52B5E /* SidebarView.swift in Sources */,
