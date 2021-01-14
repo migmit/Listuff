@@ -28,15 +28,7 @@ struct Node: Appendable {
         self.checked = checked
         self.style = style
     }
-    
-    func allNodes() -> [Node] {
-        var result = [self]
-        for child in children {
-            result = result + child.allNodes()
-        }
-        return result
-    }
-    
+
     func append(to: NodeAppender) {
         to.appendNode(node: self)
     }
