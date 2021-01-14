@@ -16,6 +16,7 @@ enum DocData: DocumentTypes {
     struct Line {
         weak var text: Partition<Structure<DocData>.Line>.Node?
         var cache: LineRenderingImpl?
+        var guid: UUID?
     }
     struct ListImpl {
         let version: Int

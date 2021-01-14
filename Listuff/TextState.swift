@@ -121,6 +121,22 @@ class TextState {
         }
         return result
     }
+    
+    struct LinkHolder: Equatable, Hashable {
+        let value: Partition<UUID?>.Node
+        static func ==(lhs: LinkHolder, rhs: LinkHolder) -> Bool {
+            return ObjectIdentifier(lhs.value) == ObjectIdentifier(rhs.value)
+        }
+        func hash(into hasher: inout Hasher) {
+            ObjectIdentifier(value).hash(into: &hasher)
+        }
+    }
+    var livingLinks: Partition<UUID?> = Partition()
+    var brokenLinks: Partition<UUID?> = Partition()
+    var linkTargets: [UUID: Doc.Line] = [:]
+    var brokenLinkSources: [UUID: Set<LinkHolder>] = [:]
+//    var previews: [UUID: String] = [:]
+    
     private let eventsPublisher = PassthroughSubject<Event, Never>()
     var events: EventPublisher {
         return eventsPublisher.eraseToAnyPublisher()
@@ -140,7 +156,7 @@ class TextState {
         self.structure = Structure.Document()
         let appender = NodeAppender {text, after, line in
             self.text += text
-            return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil)
+            return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil, guid: nil)
         }
         appendables.forEach{$0.append(to: appender)}
         self.structure = appender.document
