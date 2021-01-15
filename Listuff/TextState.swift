@@ -28,15 +28,16 @@ class TextState {
         let checkmark: UIImage?
         let textIndent: CGFloat
         let firstLineIndent: CGFloat
-        let prevTextIndent: CGFloat
-        let nextTextIndent: CGFloat
+        let parIndent: CGFloat
+        let prevParIndent: CGFloat
+        let nextParIndent: CGFloat
         let accessory: Accessory?
         let getCorrectFont: (Int) -> (UIFont, NSRange)
         func indentFold(textWidth: CGFloat) -> IndentFold {
-            let indentFoldCount = (textIndent * 2 / textWidth).rounded(.down)
+            let indentFoldCount = (parIndent * 2 / textWidth).rounded(.down)
             let indentFoldCountInt = Int(indentFoldCount)
-            let prevFoldCount = Int((prevTextIndent * 2 / textWidth).rounded(.down))
-            let nextFoldCount = Int((nextTextIndent * 2 / textWidth).rounded(.down))
+            let prevFoldCount = Int((prevParIndent * 2 / textWidth).rounded(.down))
+            let nextFoldCount = Int((nextParIndent * 2 / textWidth).rounded(.down))
             return IndentFold (
                 foldBack: indentFoldCount * textWidth / 2,
                 moreThanPrev: indentFoldCountInt - prevFoldCount,
@@ -220,8 +221,9 @@ class TextState {
             checkmark: line.checked.map{$0.value ? checked : unchecked},
             textIndent: textIndent,
             firstLineIndent: textIndent + checkedAddition,
-            prevTextIndent: (line.content?.text?.near(dir: .Left)?.value).map(calculateParIndent) ?? 0,
-            nextTextIndent: (line.content?.text?.near(dir: .Right)?.value).map(calculateParIndent) ?? 0,
+            parIndent: paragraphIndent,
+            prevParIndent: (line.content?.text?.near(dir: .Left)?.value).map(calculateParIndent) ?? 0,
+            nextParIndent: (line.content?.text?.near(dir: .Right)?.value).map(calculateParIndent) ?? 0,
             accessory: accessory,
             getCorrectFont: {(pos) in self.getCorrectFont(line: line, text: lineText, pos: pos)}
         )
