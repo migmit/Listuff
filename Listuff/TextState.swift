@@ -122,20 +122,7 @@ class TextState {
         return result
     }
     
-    struct LinkHolder: Equatable, Hashable {
-        let value: Partition<UUID?>.Node
-        static func ==(lhs: LinkHolder, rhs: LinkHolder) -> Bool {
-            return ObjectIdentifier(lhs.value) == ObjectIdentifier(rhs.value)
-        }
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(ObjectIdentifier(value))
-        }
-    }
-    var livingLinks: Partition<UUID?> = Partition()
-    var brokenLinks: Partition<UUID?> = Partition()
-    var linkTargets: [UUID: Doc.Line] = [:]
-    var brokenLinkSources: [UUID: Set<LinkHolder>] = [:]
-//    var previews: [UUID: String] = [:]
+    let linkStructure = LinkStructure()
     
     private let eventsPublisher = PassthroughSubject<Event, Never>()
     var events: EventPublisher {
@@ -154,12 +141,19 @@ class TextState {
         self.text = ""
         self.chunks = Partition()
         self.structure = Structure.Document()
-        let appender = NodeAppender {text, after, line in
+        let linkAppender = LinkAppender()
+        let appender = NodeAppender {text, linkId, links, after, line in
+            let nsLinks: [(NSRange, String)] = links.map {
+                let (range, lid) = $0
+                return (NSRange(range, in: text), lid)
+            }
+            linkAppender.appendLine(shift: self.text.utf16.count, linkId: linkId, nsLinks: nsLinks, line: line)
             self.text += text
-            return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil, guid: nil)
+            return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil, guid: nil, backlinks: [])
         }
         appendables.forEach{$0.append(to: appender)}
         self.structure = appender.document
+        linkAppender.processLinks(fullSize: self.text.utf16.count, linkStructure: self.linkStructure)
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
         let range = Partition.setLength(node: node, length: length)

@@ -7,8 +7,34 @@
 
 import Foundation
 
+struct AppendableBase {
+    let text: String
+    let checked: Bool?
+    let linkId: String?
+    let links: [(Range<String.Index>, String)]
+    init(text: String, checked: Bool? = nil, linkId: String? = nil, links: [(Range<Int>, String)] = []) {
+        self.text = text
+        self.checked = checked
+        self.linkId = linkId
+        self.links = links.map{
+            let (intRange, linkId) = $0
+            let start = text.index(text.startIndex, offsetBy: intRange.lowerBound)
+            let end = text.index(text.startIndex, offsetBy: intRange.upperBound)
+            return (start..<end, linkId)
+        }
+    }
+}
+
 protocol Appendable {
+    var base: AppendableBase {get}
     func append(to: NodeAppender)
+}
+
+extension Appendable {
+    var text: String {return base.text}
+    var checked: Bool? {return base.checked}
+    var linkId: String? {return base.linkId}
+    var links: [(Range<String.Index>, String)] {return base.links}
 }
 
 struct Node: Appendable {
@@ -17,25 +43,14 @@ struct Node: Appendable {
         case bullet
         case number
     }
-    let text: String
+    let base: AppendableBase
     let children: [Node]
-    let checked: Bool?
     let style: Style?
-    let linkId: String?
-    let links: [(Range<String.Index>, String)]
     
-    init(text: String, children: [Node] = [], checked: Bool? = nil, style: Style? = nil, linkId: String? = nil, links: [(Range<Int>, String)] = []) {
-        self.text = text
+    init(text: String, checked: Bool? = nil, style: Style? = nil, linkId: String? = nil, links: [(Range<Int>, String)] = [], children: [Node] = []) {
+        self.base = AppendableBase(text: text, checked: checked, linkId: linkId, links: links)
         self.children = children
-        self.checked = checked
         self.style = style
-        self.linkId = linkId
-        self.links = links.map{
-            let (intRange, linkId) = $0
-            let start = text.index(text.startIndex, offsetBy: intRange.lowerBound)
-            let end = text.index(text.startIndex, offsetBy: intRange.upperBound)
-            return (start..<end, linkId)
-        }
     }
 
     func append(to: NodeAppender) {
@@ -49,13 +64,11 @@ struct Section: Appendable {
         case section
         case subsection
     }
-    let text: String
-    let checked: Bool?
+    let base: AppendableBase
     let level: Level
     
-    init(text: String, checked: Bool? = nil, level: Level) {
-        self.text = text
-        self.checked = checked
+    init(text: String, checked: Bool? = nil, level: Level, linkId: String? = nil, links: [(Range<Int>, String)] = []) {
+        self.base = AppendableBase(text: text, checked: checked, linkId: linkId, links: links)
         self.level = level
     }
     
@@ -66,6 +79,7 @@ struct Section: Appendable {
 
 class NodeAppender {
     typealias Doc = Structure<DocData>
+    typealias LineId = String
     enum AppendedItem {
         case regular(value: Doc.RegularItem)
         case sublist(value: Doc.Sublist)
@@ -78,7 +92,7 @@ class NodeAppender {
             }
         }
     }
-    let callback: (String, Doc.Line?) -> (Doc.Line) -> DocData.Line
+    let callback: (String, LineId?, [(Range<String.Index>, LineId)], Doc.Line?) -> (Doc.Line) -> DocData.Line
     let document: Doc.Document
     var chapter: Doc.Chapter?
     var chapterContent: Doc.ChapterContent
@@ -88,14 +102,14 @@ class NodeAppender {
     var list: Doc.List?
     var item: AppendedItem?
     var line: Doc.Line?
-    init(insertLine: @escaping (String, Doc.Line?, Doc.Line) -> DocData.Line) {
+    init(insertLine: @escaping (String, LineId?, [(Range<String.Index>, LineId)], Doc.Line?, Doc.Line) -> DocData.Line) {
         self.document = Doc.Document()
         self.chapter = nil
         self.chapterContent = document.beforeItems
         self.section = nil
         self.sectionContent = chapterContent.beforeItems
         self.subsection = nil
-        self.callback = {content, after in {insertLine(content + "\n", after, $0)}}
+        self.callback = {content, linkId, links, after in {insertLine(content + "\n", linkId, links, after, $0)}}
         self.line = nil
     }
     func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) {
@@ -130,7 +144,7 @@ class NodeAppender {
             if case .numbered(value: let value, item: let lastItem) = item {
                 appendNodeChildren(
                     numberedList: value,
-                    numberedItem: value.insertLine(checked: node.checked, dir: .Right, nearItem: lastItem, callback: callback(node.text, line)),
+                    numberedItem: value.insertLine(checked: node.checked, dir: .Right, nearItem: lastItem, callback: callback(node.text, node.linkId, node.links, line)),
                     nodes: node.children
                 )
             } else {
@@ -140,14 +154,14 @@ class NodeAppender {
                         dir: .Right,
                         nearItem: item?.it,
                         nlistData: nil,
-                        callback: callback(node.text, line)
+                        callback: callback(node.text, node.linkId, node.links, line)
                     )
                 appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children)
             }
             return
         case nil: style = nil
         }
-        let insertedLine = lst.insertLine(checked: node.checked, style: style, dir: .Right, nearItem: item?.it, callback: callback(node.text, line))
+        let insertedLine = lst.insertLine(checked: node.checked, style: style, dir: .Right, nearItem: item?.it, callback: callback(node.text, node.linkId, node.links, line))
         item = .regular(value: insertedLine)
         line = insertedLine.content
         appendSublist(list: lst, nodes: node.children)
@@ -165,7 +179,7 @@ class NodeAppender {
                     nearItem: item?.it,
                     listData: nil,
                     nlistData: nil,
-                    callback: callback(node.text, line)
+                    callback: callback(node.text, node.linkId, node.links, line)
                 )
             appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children)
             return sublist
@@ -178,7 +192,7 @@ class NodeAppender {
                 dir: .Right,
                 nearItem: item?.it,
                 listData: nil,
-                callback: callback(node.text, line)
+                callback: callback(node.text, node.linkId, node.links, line)
             )
         item = .regular(value: insertedItem)
         line = insertedItem.content
@@ -197,19 +211,19 @@ class NodeAppender {
     func appendSection(sect: Section) {
         switch sect.level {
         case .subsection:
-            let newItem = sectionContent.insertSubsection(checked: sect.checked, dir: .Right, nearItem: subsection, callback: callback(sect.text, line))
+            let newItem = sectionContent.insertSubsection(checked: sect.checked, dir: .Right, nearItem: subsection, callback: callback(sect.text, sect.linkId, sect.links, line))
             subsection = newItem
             list = nil
             line = newItem.header
         case .section:
-            let newItem = chapterContent.insertSection(checked: sect.checked, dir: .Right, nearItem: section, callback: callback(sect.text, line))
+            let newItem = chapterContent.insertSection(checked: sect.checked, dir: .Right, nearItem: section, callback: callback(sect.text, sect.linkId, sect.links, line))
             section = newItem
             sectionContent = newItem.content
             subsection = nil
             list = nil
             line = newItem.header
         case .chapter:
-            let newItem = document.insertChapter(checked: sect.checked, dir: .Right, nearItem: chapter, callback: callback(sect.text, line))
+            let newItem = document.insertChapter(checked: sect.checked, dir: .Right, nearItem: chapter, callback: callback(sect.text, sect.linkId, sect.links, line))
             chapter = newItem
             chapterContent = newItem.content
             section = nil

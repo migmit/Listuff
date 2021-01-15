@@ -12,30 +12,39 @@ var testDocument = TextState(
     appendables: [
         Node(
             text: "Long hierarchy 1",
+            linkId: "linked_node",
             children: [
                 Node(
                     text: "Long hierarchy 2",
                     children: [
                         Node(
-                            text: "Long hierarchy 3",
+                            text: "Long hierarchy 3, with a link",
+                            links: [(25..<29, "linked_chapter")],
                             children: [
                                 Node(
-                                    text: "Long hierarchy 4",
+                                    text: "Long hierarchy 4, with a broken link",
+                                    links: [(25..<36, "broken_link")],
                                     children: [
                                         Node(
-                                            text: "Long hierarchy 5",
+                                            text: "Long hierarchy 5, with two links, one broken",
+                                            links: [(25..<28, "linked_chapter"), (29..<34, "broken_too")],
                                             children: [
                                                 Node(
                                                     text: "Long hierarchy 6, with russian characters: абырвалг",
                                                     children: [
                                                         Node(
-                                                            text: "Long hierarchy 7, with a dash",
+                                                            text: "Long hierarchy 7, with a dash and a link",
+                                                            style: .dash,
+                                                            links: [(30..<34, "linked_node")],
                                                             children: [
                                                                 Node(
                                                                     text: "Long hierarchy 8, with a bullet, checked",
+                                                                    checked: true,
+                                                                    style: .bullet,
                                                                     children: [
                                                                         Node(
                                                                             text: "Long hierarchy 9, with a special symbol: ☼, numbered",
+                                                                            style: .number,
                                                                             children: [
                                                                                 Node(
                                                                                     text: "Long hierarchy 10, with emojis and non-ASCII characters: \u{1f602}👩‍👩‍👧‍👦éüő",
@@ -48,19 +57,15 @@ var testDocument = TextState(
                                                                                         )
                                                                                     ]
                                                                                 )
-                                                                            ],
-                                                                            style: .number
+                                                                            ]
                                                                         ),
                                                                         Node(text: "Another numbered item, unchecked", checked: false, style: .number),
                                                                         Node(text: "Yet another numbered item", style: .number),
                                                                         Node(text: "Not numbered, but checked", checked: true),
                                                                         Node(text: "Numbered again, checked", checked: true, style: .number)
-                                                                    ],
-                                                                    checked: true,
-                                                                    style: .bullet
+                                                                    ]
                                                                 )
-                                                            ],
-                                                            style: .dash
+                                                            ]
                                                         )
                                                     ]
                                                 )
@@ -80,25 +85,33 @@ var testDocument = TextState(
         Section(text: "Chapter", checked: nil, level: .chapter),
         Node(text: "Chapter content"),
         Section(text: "Another section", checked: false, level: .section),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa"),
-        Node(text: "aaa")
+        Node(text: "a"),
+        Node(text: "b"),
+        Node(text: "c"),
+        Node(text: "d"),
+        Node(text: "e"),
+        Node(text: "f"),
+        Node(text: "g"),
+        Node(text: "h"),
+        Node(text: "i"),
+        Node(text: "j"),
+        Node(text: "k"),
+        Node(text: "l"),
+        Node(text: "m"),
+        Node(text: "n"),
+        Node(text: "o"),
+        Node(text: "p"),
+        Node(text: "q"),
+        Node(text: "r"),
+        Node(text: "s"),
+        Node(text: "t"),
+        Node(text: "u"),
+        Section(text: "Linked chapter", level: .chapter, linkId: "linked_chapter"),
+        Node(text: "v"),
+        Node(text: "w"),
+        Node(text: "x"),
+        Node(text: "y"),
+        Node(text: "z", linkId: "not_mentioned")
     ]
 )
 

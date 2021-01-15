@@ -17,6 +17,7 @@ enum DocData: DocumentTypes {
         weak var text: Partition<Structure<DocData>.Line>.Node?
         var cache: LineRenderingImpl?
         var guid: UUID?
+        var backlinks: Set<IdHolder<Partition<UUID?>.Node>>
     }
     struct ListImpl {
         let version: Int
