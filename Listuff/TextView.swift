@@ -132,10 +132,35 @@ struct HierarchyViewImpl: UIViewRepresentable {
             self.textWidth = textWidth
         }
         override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
+            let limitingRange: NSRange?
+            let liveLink: Bool?
+            let liveInfo = content.linkStructure.livingLinks.search(pos: location)
+            let brokenInfo = content.linkStructure.brokenLinks.search(pos: location)
+            if let (lr, _) = liveInfo {
+                if let (br, _) = brokenInfo {
+                    limitingRange = NSIntersectionRange(lr, br)
+                } else {
+                    limitingRange = lr
+                }
+            } else {
+                limitingRange = brokenInfo?.0
+            }
+            if let (_, guidOpt) = liveInfo, guidOpt != nil {
+                liveLink = true
+            } else if let (_, guidOpt) = brokenInfo, guidOpt != nil {
+                liveLink = false
+            } else {
+                liveLink = nil
+            }
             for lineInfo in content.lineInfos(charRange: NSRange.item(at: location)) {
                 let (font, fontRange) = lineInfo.getCorrectFont(location - lineInfo.range.location)
                 if let rangePtr = range {
-                    rangePtr[0] = fontRange.shift(by: lineInfo.range.location)
+                    let realFontRange = fontRange.shift(by: lineInfo.range.location)
+                    if let lRange = limitingRange {
+                        rangePtr[0] = NSIntersectionRange(realFontRange, lRange)
+                    } else {
+                        rangePtr[0] = realFontRange
+                    }
                 }
                 let paragraphStyle = NSMutableParagraphStyle()
                 if lineInfo.checkmark != nil {
@@ -148,7 +173,8 @@ struct HierarchyViewImpl: UIViewRepresentable {
                 return [
                     .font: font,
                     .foregroundColor: content.systemColor,
-                    .paragraphStyle: paragraphStyle
+                    .paragraphStyle: paragraphStyle,
+                    .underlineStyle: liveLink != nil ? NSUnderlineStyle.single.rawValue : 0
                 ]
             }
             NSException(name: .rangeException, reason: "Position \(location) out of bounds", userInfo: [:]).raise()

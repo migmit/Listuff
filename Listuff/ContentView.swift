@@ -27,7 +27,7 @@ var testDocument = TextState(
                                     children: [
                                         Node(
                                             text: "Long hierarchy 5, with two links, one broken",
-                                            links: [(25..<28, "linked_chapter"), (29..<34, "broken_too")],
+                                            links: [(23..<26, "linked_chapter"), (27..<32, "broken_too")],
                                             children: [
                                                 Node(
                                                     text: "Long hierarchy 6, with russian characters: абырвалг",
@@ -35,7 +35,7 @@ var testDocument = TextState(
                                                         Node(
                                                             text: "Long hierarchy 7, with a dash and a link",
                                                             style: .dash,
-                                                            links: [(30..<34, "linked_node")],
+                                                            links: [(36..<40, "linked_node")],
                                                             children: [
                                                                 Node(
                                                                     text: "Long hierarchy 8, with a bullet, checked",
