@@ -11,7 +11,7 @@ struct HierarchyView: View {
     let content: TextState
     var body: some View {
         GeometryReader {geometry in
-            HierarchyViewImpl(content: content, textWidth: geometry.size.width)
+            HierarchyViewImpl(content: content, textSize: geometry.size)
         }
     }
 }
@@ -20,24 +20,31 @@ struct HierarchyViewImpl: UIViewRepresentable {
     typealias UIViewType = TextView
     
     class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var textView: TextView? = nil
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            return true
+        }
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            textView?.saveSelectedRange()
             return true
         }
     }
     
     let content: TextState
-    let textWidth: CGFloat
+    let textSize: CGSize
     
     func makeCoordinator() -> Coordinator {
         return Coordinator()
     }
     
     func makeUIView(context: Context) -> TextView {
-        return TextView(frame: .zero, content: content, textWidth: textWidth, context: context)
+        let textView = TextView(frame: .zero, content: content, textSize: textSize, context: context)
+        context.coordinator.textView = textView
+        return textView
     }
     
     func updateUIView(_ uiView: TextView, context: Context) {
-        uiView.updateTextWidth(textWidth: textWidth)
+        uiView.updateTextSize(textSize: textSize)
     }
     
     class TextView: UITextView, UIGestureRecognizerDelegate {
@@ -46,15 +53,17 @@ struct HierarchyViewImpl: UIViewRepresentable {
         let manager: LayoutManager
         let container: NSTextContainer
         var gesture: UIGestureRecognizer? = nil
-        var textWidth: CGFloat
-        init(frame: CGRect, content: TextState, textWidth: CGFloat, context: Context) {
+        var textSize: CGSize
+        var savedSelectedRange: NSRange
+        init(frame: CGRect, content: TextState, textSize: CGSize, context: Context) {
             self.content = content
-            self.storage = TextStorage(content: content, textWidth: textWidth)
-            self.manager = LayoutManager(content: content, textWidth: textWidth)
+            self.storage = TextStorage(content: content, textWidth: textSize.width)
+            self.manager = LayoutManager(content: content, textWidth: textSize.width)
             self.container = NSTextContainer()
-            self.textWidth = textWidth
+            self.textSize = textSize
             self.storage.addLayoutManager(self.manager)
             self.manager.addTextContainer(self.container)
+            self.savedSelectedRange = NSRange.empty(at: 0)
             super.init(frame: frame, textContainer: container)
             let gesture = UITapGestureRecognizer(target: self, action: #selector(tapped))
             self.gesture = gesture
@@ -66,10 +75,32 @@ struct HierarchyViewImpl: UIViewRepresentable {
             return nil
         }
         
-        func updateTextWidth(textWidth: CGFloat) {
-            self.textWidth = textWidth
-            storage.updateTextWidth(textWidth: textWidth)
-            manager.updateTextWidth(textWidth: textWidth)
+        func saveSelectedRange() {
+            savedSelectedRange = selectedRange
+        }
+        
+        func updateTextSize(textSize: CGSize) {
+            self.textSize = textSize
+            storage.updateTextWidth(textWidth: textSize.width)
+            manager.updateTextWidth(textWidth: textSize.width)
+        }
+        
+        func scrollToRange(range: NSRange) {
+            let boundingBox = manager.boundingRect(forGlyphRange: manager.glyphRange(forCharacterRange: range, actualCharacterRange: nil), in: container)
+            let scrollPos: CGFloat
+            if boundingBox.height > textSize.height {
+                scrollPos = boundingBox.minY
+            } else if boundingBox.height > textSize.height / 2 {
+                scrollPos = boundingBox.maxY - textSize.height
+            } else {
+                scrollPos = boundingBox.minY - textSize.height / 2
+            }
+            scrollRectToVisible(CGRect(origin: CGPoint(x: 0, y: max(0, scrollPos)), size: CGSize.zero), animated: true)
+            if savedSelectedRange.length <= 0 {
+                selectedRange = NSRange.empty(at: range.end - 1)
+            } else {
+                selectedRange = savedSelectedRange
+            }
         }
         
         @objc func tapped(gestureRecognizer: UIGestureRecognizer) {
@@ -78,7 +109,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             let idx = layoutManager.characterIndex(for: realLocation, in: container, fractionOfDistanceBetweenInsertionPoints: nil)
             if let (range, line) = content.chunks.search(pos: idx), let checked = line.checked {
                 let lineInfo = content.lineInfo(range: range, line: line)
-                let indentFold = lineInfo.indentFold(textWidth: textWidth)
+                let indentFold = lineInfo.indentFold(textWidth: textSize.width)
                 let glRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
                 if glRange.length <= 0 {return}
                 let correctedGlyphRange = glRange.firstItem
@@ -95,6 +126,13 @@ struct HierarchyViewImpl: UIViewRepresentable {
                         self.selectedRange = NSRange.empty(at: range.end - 1) // accounting for that "\n"
                     }
                     ptrStop[0] = true
+                }
+            } else {
+                let linkInfo = content.linkInfo(pos: idx)
+                if let guid = linkInfo.guid {
+                    if let targetLine = content.linkStructure.linkTargets[guid] {
+                        scrollToRange(range: targetLine.content!.text!.range)
+                    } // TODO: handle the case of a broken link
                 }
             }
         }
@@ -132,31 +170,12 @@ struct HierarchyViewImpl: UIViewRepresentable {
             self.textWidth = textWidth
         }
         override func attributes(at location: Int, effectiveRange range: NSRangePointer?) -> [NSAttributedString.Key : Any] {
-            let limitingRange: NSRange?
-            let liveLink: Bool?
-            let liveInfo = content.linkStructure.livingLinks.search(pos: location)
-            let brokenInfo = content.linkStructure.brokenLinks.search(pos: location)
-            if let (lr, _) = liveInfo {
-                if let (br, _) = brokenInfo {
-                    limitingRange = NSIntersectionRange(lr, br)
-                } else {
-                    limitingRange = lr
-                }
-            } else {
-                limitingRange = brokenInfo?.0
-            }
-            if let (_, guidOpt) = liveInfo, guidOpt != nil {
-                liveLink = true
-            } else if let (_, guidOpt) = brokenInfo, guidOpt != nil {
-                liveLink = false
-            } else {
-                liveLink = nil
-            }
+            let linkInfo = content.linkInfo(pos: location)
             for lineInfo in content.lineInfos(charRange: NSRange.item(at: location)) {
                 let (font, fontRange) = lineInfo.getCorrectFont(location - lineInfo.range.location)
                 if let rangePtr = range {
                     let realFontRange = fontRange.shift(by: lineInfo.range.location)
-                    if let lRange = limitingRange {
+                    if let lRange = linkInfo.linkRange {
                         rangePtr[0] = NSIntersectionRange(realFontRange, lRange)
                     } else {
                         rangePtr[0] = realFontRange
@@ -170,17 +189,11 @@ struct HierarchyViewImpl: UIViewRepresentable {
                 paragraphStyle.headIndent = lineInfo.textIndent - indentFold.foldBack
                 paragraphStyle.firstLineHeadIndent = lineInfo.firstLineIndent - indentFold.foldBack
                 paragraphStyle.paragraphSpacing = CGFloat(content.paragraphSpacing)
-                let color: UIColor
-                if let ll = liveLink {
-                    color = ll ? content.liveLinkColor : content.brokenLinkColor
-                } else {
-                    color = content.systemColor
-                }
                 return [
                     .font: font,
-                    .foregroundColor: color,
+                    .foregroundColor: linkInfo.color,
                     .paragraphStyle: paragraphStyle,
-                    .underlineStyle: liveLink != nil ? NSUnderlineStyle.single.rawValue : 0
+                    .underlineStyle: linkInfo.isLink ? NSUnderlineStyle.single.rawValue : 0
                 ]
             }
             NSException(name: .rangeException, reason: "Position \(location) out of bounds", userInfo: [:]).raise()

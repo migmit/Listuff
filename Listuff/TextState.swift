@@ -44,6 +44,12 @@ class TextState {
             )
         }
     }
+    struct LinkInfo {
+        let linkRange: NSRange?
+        let color: UIColor
+        let isLink: Bool
+        let guid: UUID?
+    }
     struct ListItemInfoIterator: Sequence, IteratorProtocol {
         var lineIterator: Partition<Doc.Line>.Iterator
         let textState: TextState
@@ -223,6 +229,39 @@ class TextState {
     }
     func lineInfos(charRange: NSRange) -> ListItemInfoIterator {
         return ListItemInfoIterator(textState: self, charRange: charRange)
+    }
+    func linkInfo(pos: Int) -> LinkInfo {
+        let liveInfo = linkStructure.livingLinks.search(pos: pos)
+        let brokenInfo = linkStructure.brokenLinks.search(pos: pos)
+        let liveLink: Bool?
+        let guid: UUID?
+        if let (_, guidOpt) = liveInfo, let g = guidOpt {
+            liveLink = true
+            guid = g
+        } else if let (_, guidOpt) = brokenInfo, let g = guidOpt {
+            liveLink = false
+            guid = g
+        } else {
+            liveLink = nil
+            guid = nil
+        }
+        let linkRange: NSRange?
+        if let (lr, _) = liveInfo {
+            if let (br, _) = brokenInfo {
+                linkRange = NSIntersectionRange(lr, br)
+            } else {
+                linkRange = lr
+            }
+        } else {
+            linkRange = brokenInfo?.0
+        }
+        let color: UIColor
+        if let ll = liveLink {
+            color = ll ? liveLinkColor : brokenLinkColor
+        } else {
+            color = systemColor
+        }
+        return LinkInfo(linkRange: linkRange, color: color, isLink: liveLink != nil, guid: guid)
     }
     func calculateIndentStep(nlist: Doc.NumberedList) -> CGFloat {
         if let listData = nlist.listData, listData.version == renderingCache.version {
