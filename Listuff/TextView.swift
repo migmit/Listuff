@@ -92,7 +92,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
                     if imageRect.contains(realLocation.shift(by: CGVector(dx: indentFold.foldBack, dy: 0))) {
                         line.checked = TextState.Doc.Checked(value: !checked.value)
                         self.layoutManager.invalidateDisplay(forGlyphRange: correctedGlyphRange)
-                        self.selectedRange = NSRange.empty(at: self.content.text.getLineEnd(pos: range.location))
+                        self.selectedRange = NSRange.empty(at: range.end - 1) // accounting for that "\n"
                     }
                     ptrStop[0] = true
                 }
@@ -172,7 +172,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
                 paragraphStyle.paragraphSpacing = CGFloat(content.paragraphSpacing)
                 let color: UIColor
                 if let ll = liveLink {
-                    color = ll ? UIColor.blue : UIColor.red
+                    color = ll ? content.liveLinkColor : content.brokenLinkColor
                 } else {
                     color = content.systemColor
                 }

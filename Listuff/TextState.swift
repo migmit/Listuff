@@ -94,6 +94,8 @@ class TextState {
     let sectionFont = UIFont.preferredFont(forTextStyle: .title2)
     let subsectionFont = UIFont.preferredFont(forTextStyle: .title3)
     let systemColor = UIColor.label
+    let liveLinkColor = UIColor.link
+    let brokenLinkColor = UIColor.red
     let indentationStep = CGFloat(35.0)
     let numIndentStep = CGFloat(25.0)
     let paragraphSpacing = 7.0
