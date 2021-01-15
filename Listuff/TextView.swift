@@ -170,9 +170,15 @@ struct HierarchyViewImpl: UIViewRepresentable {
                 paragraphStyle.headIndent = lineInfo.textIndent - indentFold.foldBack
                 paragraphStyle.firstLineHeadIndent = lineInfo.firstLineIndent - indentFold.foldBack
                 paragraphStyle.paragraphSpacing = CGFloat(content.paragraphSpacing)
+                let color: UIColor
+                if let ll = liveLink {
+                    color = ll ? UIColor.blue : UIColor.red
+                } else {
+                    color = content.systemColor
+                }
                 return [
                     .font: font,
-                    .foregroundColor: content.systemColor,
+                    .foregroundColor: color,
                     .paragraphStyle: paragraphStyle,
                     .underlineStyle: liveLink != nil ? NSUnderlineStyle.single.rawValue : 0
                 ]
