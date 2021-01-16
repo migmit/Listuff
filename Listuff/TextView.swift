@@ -95,12 +95,21 @@ struct HierarchyViewImpl: UIViewRepresentable {
             } else {
                 scrollPos = boundingBox.minY - textSize.height / 2
             }
-            scrollRectToVisible(CGRect(origin: CGPoint(x: 0, y: max(0, scrollPos)), size: CGSize.zero), animated: true)
-            if savedSelectedRange.length <= 0 {
-                selectedRange = NSRange.empty(at: range.end - 1)
+            let maxScrollPos = max(0, contentSize.height - textSize.height)
+            let realScrollPos: CGFloat
+            if scrollPos < 0 {
+                realScrollPos = 0
+            } else if scrollPos > maxScrollPos {
+                realScrollPos = maxScrollPos
             } else {
-                selectedRange = savedSelectedRange
+                realScrollPos = scrollPos
             }
+            setContentOffset(CGPoint(x: 0, y: realScrollPos), animated: true)
+//            if savedSelectedRange.length <= 0 {
+//                selectedRange = NSRange.empty(at: range.end - 1)
+//            } else {
+//                selectedRange = savedSelectedRange
+//            }
         }
         
         @objc func tapped(gestureRecognizer: UIGestureRecognizer) {
