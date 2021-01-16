@@ -137,14 +137,11 @@ struct HierarchyViewImpl: UIViewRepresentable {
         
         func getLastGlyphIndex(box: CGRect) -> Int? {
             var result = 0
-            print(box)
             manager.enumerateLineFragments(forGlyphRange: manager.glyphRange(forBoundingRect: box, in: container)) {_, usedRect, _, glyphRange, _ in
-                print(usedRect)
                 if usedRect.maxY <= box.maxY {
                     result = max(result, glyphRange.end)
                 }
             }
-            print(result)
             return result > 0 ? result : nil
         }
         
