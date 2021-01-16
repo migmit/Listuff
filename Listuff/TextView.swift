@@ -47,7 +47,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: TextView, context: Context) {
-        uiView.updateTextSize(textWidth: textWidth)
+        uiView.updateTextWidth(textWidth: textWidth)
     }
     
     class TextView: UITextView, UIGestureRecognizerDelegate {
@@ -94,10 +94,11 @@ struct HierarchyViewImpl: UIViewRepresentable {
             savedSelectedRange = selectedRange
         }
         
-        func updateTextSize(textWidth: CGFloat) {
+        func updateTextWidth(textWidth: CGFloat) {
             self.textWidth = textWidth
             storage.updateTextWidth(textWidth: textWidth)
             manager.updateTextWidth(textWidth: textWidth)
+            linkAnimationCleanup()
         }
         
         func linkAnimationCleanup() {
@@ -108,32 +109,28 @@ struct HierarchyViewImpl: UIViewRepresentable {
         }
         
         func didSetContentOffset() {
-            guard let savedRange = savedSelectedRange else {return}
-            savedSelectedRange = nil
-            if (savedRange.length > 0) {
-                selectedRange = savedRange
-            } else if let targetPos = targetPosition {
-                selectedRange = NSRange.empty(at: max(0, targetPos))
+            if let savedRange = savedSelectedRange {
+                savedSelectedRange = nil
+                if (savedRange.length > 0) {
+                    selectedRange = savedRange
+                } else if let targetPos = targetPosition {
+                    selectedRange = NSRange.empty(at: max(0, targetPos))
+                }
             }
             if let trect = targetRect {
+                targetRect = nil
                 linkAnimationCleanup()
                 linkTargetShade.isHidden = false
                 linkTargetShade.frame = trect.offsetBy(dx: textContainerInset.left, dy: textContainerInset.top)
-                let animation = UIViewPropertyAnimator(duration: 0.1, curve: .easeOut) {
-                    self.linkTargetShade.backgroundColor = UIColor.yellow.withAlphaComponent(0.6)
+                self.linkTargetShade.backgroundColor = UIColor.yellow.withAlphaComponent(0.6)
+                let reverseAnimation = UIViewPropertyAnimator(duration: 0.9, curve: .easeIn) {
+                    self.linkTargetShade.backgroundColor = UIColor.yellow.withAlphaComponent(0)
                 }
-                animation.addCompletion{_ in
-                    let reverseAnimation = UIViewPropertyAnimator(duration: 0.9, curve: .easeIn) {
-                        self.linkTargetShade.backgroundColor = UIColor.yellow.withAlphaComponent(0)
-                    }
-                    reverseAnimation.addCompletion{_ in
-                        self.linkAnimationCleanup()
-                    }
-                    self.linkJumpAnimation = reverseAnimation
-                    reverseAnimation.startAnimation()
+                reverseAnimation.addCompletion{_ in
+                    self.linkAnimationCleanup()
                 }
-                self.linkJumpAnimation = animation
-                animation.startAnimation()
+                self.linkJumpAnimation = reverseAnimation
+                reverseAnimation.startAnimation()
             }
         }
         
