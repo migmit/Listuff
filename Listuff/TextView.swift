@@ -11,7 +11,7 @@ struct HierarchyView: View {
     let content: TextState
     var body: some View {
         GeometryReader {geometry in
-            HierarchyViewImpl(content: content, textSize: geometry.size)
+            HierarchyViewImpl(content: content, textWidth: geometry.size.width)
         }
     }
 }
@@ -19,7 +19,7 @@ struct HierarchyView: View {
 struct HierarchyViewImpl: UIViewRepresentable {
     typealias UIViewType = TextView
     
-    class Coordinator: NSObject, UIGestureRecognizerDelegate {
+    class Coordinator: NSObject, UIGestureRecognizerDelegate, UITextViewDelegate {
         var textView: TextView? = nil
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
             return true
@@ -28,23 +28,26 @@ struct HierarchyViewImpl: UIViewRepresentable {
             textView?.saveSelectedRange()
             return true
         }
+        func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+            textView?.didSetContentOffset()
+        }
     }
     
     let content: TextState
-    let textSize: CGSize
+    let textWidth: CGFloat
     
     func makeCoordinator() -> Coordinator {
         return Coordinator()
     }
     
     func makeUIView(context: Context) -> TextView {
-        let textView = TextView(frame: .zero, content: content, textSize: textSize, context: context)
+        let textView = TextView(frame: .zero, content: content, textWidth: textWidth, context: context)
         context.coordinator.textView = textView
         return textView
     }
     
     func updateUIView(_ uiView: TextView, context: Context) {
-        uiView.updateTextSize(textSize: textSize)
+        uiView.updateTextSize(textWidth: textWidth)
     }
     
     class TextView: UITextView, UIGestureRecognizerDelegate {
@@ -53,18 +56,19 @@ struct HierarchyViewImpl: UIViewRepresentable {
         let manager: LayoutManager
         let container: NSTextContainer
         var gesture: UIGestureRecognizer? = nil
-        var textSize: CGSize
-        var savedSelectedRange: NSRange
-        init(frame: CGRect, content: TextState, textSize: CGSize, context: Context) {
+        var textWidth: CGFloat
+        var savedSelectedRange: NSRange? = nil
+        var targetPosition: Int? = nil
+        init(frame: CGRect, content: TextState, textWidth: CGFloat, context: Context) {
             self.content = content
-            self.storage = TextStorage(content: content, textWidth: textSize.width)
-            self.manager = LayoutManager(content: content, textWidth: textSize.width)
+            self.storage = TextStorage(content: content, textWidth: textWidth)
+            self.manager = LayoutManager(content: content, textWidth: textWidth)
             self.container = NSTextContainer()
-            self.textSize = textSize
+            self.textWidth = textWidth
             self.storage.addLayoutManager(self.manager)
             self.manager.addTextContainer(self.container)
-            self.savedSelectedRange = NSRange.empty(at: 0)
             super.init(frame: frame, textContainer: container)
+            self.delegate = context.coordinator
             let gesture = UITapGestureRecognizer(target: self, action: #selector(tapped))
             self.gesture = gesture
             gesture.delegate = context.coordinator
@@ -79,37 +83,47 @@ struct HierarchyViewImpl: UIViewRepresentable {
             savedSelectedRange = selectedRange
         }
         
-        func updateTextSize(textSize: CGSize) {
-            self.textSize = textSize
-            storage.updateTextWidth(textWidth: textSize.width)
-            manager.updateTextWidth(textWidth: textSize.width)
+        func updateTextSize(textWidth: CGFloat) {
+            self.textWidth = textWidth
+            storage.updateTextWidth(textWidth: textWidth)
+            manager.updateTextWidth(textWidth: textWidth)
         }
         
-        func scrollToRange(range: NSRange) {
-            let boundingBox = manager.boundingRect(forGlyphRange: manager.glyphRange(forCharacterRange: range, actualCharacterRange: nil), in: container)
-            let scrollPos: CGFloat
-            if boundingBox.height > textSize.height {
-                scrollPos = boundingBox.minY
-            } else if boundingBox.height > textSize.height / 2 {
-                scrollPos = boundingBox.maxY - textSize.height
-            } else {
-                scrollPos = boundingBox.minY - textSize.height / 2
+        func didSetContentOffset() {
+            guard let savedRange = savedSelectedRange else {return}
+            savedSelectedRange = nil
+            if (savedRange.length > 0) {
+                selectedRange = savedRange
+            } else if let targetPos = targetPosition {
+                selectedRange = NSRange.empty(at: max(0, targetPos))
             }
-            let maxScrollPos = max(0, contentSize.height - textSize.height)
-            let realScrollPos: CGFloat
-            if scrollPos < 0 {
-                realScrollPos = 0
-            } else if scrollPos > maxScrollPos {
-                realScrollPos = maxScrollPos
+        }
+        
+        func jumpToRange(range: NSRange) {
+            // Ending TC means "in text container coordinates"
+            // Ending SV means "in scroll view coordinates"
+            let boundingBoxTC = manager.boundingRect(forGlyphRange: manager.glyphRange(forCharacterRange: range, actualCharacterRange: nil), in: container)
+            let viewFrameTC = bounds.offsetBy(dx: -textContainerInset.left, dy: -textContainerInset.top)
+            let scrollPosTC: CGFloat
+            if boundingBoxTC.minY >= viewFrameTC.minY && boundingBoxTC.maxY <= viewFrameTC.maxY {
+                scrollPosTC = contentOffset.y - textContainerInset.top // contentOffset is in scroll view coordinates
+            } else if boundingBoxTC.height > viewFrameTC.height {
+                scrollPosTC = boundingBoxTC.minY
+            } else if boundingBoxTC.height > viewFrameTC.height / 2 {
+                scrollPosTC = boundingBoxTC.maxY - viewFrameTC.height
             } else {
-                realScrollPos = scrollPos
+                scrollPosTC = boundingBoxTC.minY - viewFrameTC.height / 2
             }
-//                if self.savedSelectedRange.length <= 0 {
-//                    self.selectedRange = NSRange.empty(at: range.end - 1)
-//                } else {
-//                    self.selectedRange = self.savedSelectedRange
-//                }
-            setContentOffset(CGPoint(x: 0, y: realScrollPos), animated: true)
+            let realScrollPosSV = min(contentSize.height - viewFrameTC.height, max(0, scrollPosTC + textContainerInset.top))
+            let scrollChange = realScrollPosSV - contentOffset.y
+            let visibleBoxTC = viewFrameTC.offsetBy(dx: 0, dy: scrollChange).intersection(boundingBoxTC)
+            targetPosition = visibleBoxTC.isEmpty ? nil : manager.characterRange(forGlyphRange: manager.glyphRange(forBoundingRect: visibleBoxTC, in: container), actualGlyphRange: nil).end-1
+            if scrollChange > -5 && scrollChange < 5 {
+                setContentOffset(CGPoint(x: 0, y: realScrollPosSV), animated: false)
+                didSetContentOffset()
+            } else {
+                setContentOffset(CGPoint(x: 0, y: realScrollPosSV), animated: true)
+            }
         }
         
         @objc func tapped(gestureRecognizer: UIGestureRecognizer) {
@@ -118,7 +132,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             let idx = layoutManager.characterIndex(for: realLocation, in: container, fractionOfDistanceBetweenInsertionPoints: nil)
             if let (range, line) = content.chunks.search(pos: idx), let checked = line.checked {
                 let lineInfo = content.lineInfo(range: range, line: line)
-                let indentFold = lineInfo.indentFold(textWidth: textSize.width)
+                let indentFold = lineInfo.indentFold(textWidth: textWidth)
                 let glRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
                 if glRange.length <= 0 {return}
                 let correctedGlyphRange = glRange.firstItem
@@ -140,7 +154,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
                 let linkInfo = content.linkInfo(pos: idx)
                 if let guid = linkInfo.guid {
                     if let targetLine = content.linkStructure.linkTargets[guid] {
-                        scrollToRange(range: targetLine.content!.text!.range)
+                        jumpToRange(range: targetLine.content!.text!.range)
                     } // TODO: handle the case of a broken link
                 }
             }
