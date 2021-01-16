@@ -106,7 +106,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             let viewFrameTC = bounds.offsetBy(dx: -textContainerInset.left, dy: -textContainerInset.top)
             let scrollPosTC: CGFloat
             if boundingBoxTC.minY >= viewFrameTC.minY && boundingBoxTC.maxY <= viewFrameTC.maxY {
-                scrollPosTC = contentOffset.y - textContainerInset.top // contentOffset is in scroll view coordinates
+                scrollPosTC = viewFrameTC.minY // contentOffset is in scroll view coordinates
             } else if boundingBoxTC.height > viewFrameTC.height {
                 scrollPosTC = boundingBoxTC.minY
             } else if boundingBoxTC.height > viewFrameTC.height / 2 {
