@@ -12,7 +12,7 @@ struct ViewWithControls: ViewModifier {
     func body(content: Content) -> some View {
         VStack(spacing: 0) {
             ZStack {
-                Color(UIColor.systemGray4)
+                Color(UIColor.systemGray4).padding(5)
                 HStack {
                     controls
                 }.padding([.leading, .trailing], 10)
