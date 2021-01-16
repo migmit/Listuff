@@ -58,7 +58,10 @@ struct HierarchyViewImpl: UIViewRepresentable {
         var gesture: UIGestureRecognizer? = nil
         var textWidth: CGFloat
         var savedSelectedRange: NSRange? = nil
+        var targetRect: CGRect? = nil
         var targetPosition: Int? = nil
+        var linkTargetShade: UIView
+        var linkJumpAnimation: UIViewAnimating? = nil
         init(frame: CGRect, content: TextState, textWidth: CGFloat, context: Context) {
             self.content = content
             self.storage = TextStorage(content: content, textWidth: textWidth)
@@ -67,7 +70,15 @@ struct HierarchyViewImpl: UIViewRepresentable {
             self.textWidth = textWidth
             self.storage.addLayoutManager(self.manager)
             self.manager.addTextContainer(self.container)
+            self.linkTargetShade = UIView()
             super.init(frame: frame, textContainer: container)
+            self.linkTargetShade.isUserInteractionEnabled = false
+            self.linkTargetShade.layer.cornerRadius = 10.0
+            self.linkTargetShade.layer.masksToBounds = true
+            self.linkTargetShade.isHidden = true
+            self.linkTargetShade.backgroundColor = UIColor.yellow.withAlphaComponent(0)
+            self.linkTargetShade.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
+            self.addSubview(self.linkTargetShade)
             self.delegate = context.coordinator
             let gesture = UITapGestureRecognizer(target: self, action: #selector(tapped))
             self.gesture = gesture
@@ -89,6 +100,13 @@ struct HierarchyViewImpl: UIViewRepresentable {
             manager.updateTextWidth(textWidth: textWidth)
         }
         
+        func linkAnimationCleanup() {
+            linkJumpAnimation?.stopAnimation(true)
+            linkTargetShade.backgroundColor = UIColor.yellow.withAlphaComponent(0)
+            linkTargetShade.isHidden = true
+            linkJumpAnimation = nil
+        }
+        
         func didSetContentOffset() {
             guard let savedRange = savedSelectedRange else {return}
             savedSelectedRange = nil
@@ -96,6 +114,26 @@ struct HierarchyViewImpl: UIViewRepresentable {
                 selectedRange = savedRange
             } else if let targetPos = targetPosition {
                 selectedRange = NSRange.empty(at: max(0, targetPos))
+            }
+            if let trect = targetRect {
+                linkAnimationCleanup()
+                linkTargetShade.isHidden = false
+                linkTargetShade.frame = trect.offsetBy(dx: textContainerInset.left, dy: textContainerInset.top)
+                let animation = UIViewPropertyAnimator(duration: 0.1, curve: .easeOut) {
+                    self.linkTargetShade.backgroundColor = UIColor.yellow.withAlphaComponent(0.6)
+                }
+                animation.addCompletion{_ in
+                    let reverseAnimation = UIViewPropertyAnimator(duration: 0.9, curve: .easeIn) {
+                        self.linkTargetShade.backgroundColor = UIColor.yellow.withAlphaComponent(0)
+                    }
+                    reverseAnimation.addCompletion{_ in
+                        self.linkAnimationCleanup()
+                    }
+                    self.linkJumpAnimation = reverseAnimation
+                    reverseAnimation.startAnimation()
+                }
+                self.linkJumpAnimation = animation
+                animation.startAnimation()
             }
         }
         
@@ -118,6 +156,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             let scrollChange = realScrollPosSV - contentOffset.y
             let visibleBoxTC = viewFrameTC.offsetBy(dx: 0, dy: scrollChange).intersection(boundingBoxTC)
             targetPosition = visibleBoxTC.isEmpty ? nil : manager.characterRange(forGlyphRange: manager.glyphRange(forBoundingRect: visibleBoxTC, in: container), actualGlyphRange: nil).end-1
+            targetRect = boundingBoxTC
             if scrollChange > -5 && scrollChange < 5 {
                 setContentOffset(CGPoint(x: 0, y: realScrollPosSV), animated: false)
                 didSetContentOffset()
