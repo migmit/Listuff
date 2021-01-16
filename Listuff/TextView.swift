@@ -114,6 +114,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
                 if (savedRange.length > 0) {
                     selectedRange = savedRange
                 } else if let targetPos = targetPosition {
+                    targetPosition = nil
                     selectedRange = NSRange.empty(at: max(0, targetPos))
                 }
             }
@@ -134,6 +135,19 @@ struct HierarchyViewImpl: UIViewRepresentable {
             }
         }
         
+        func getLastGlyphIndex(box: CGRect) -> Int? {
+            var result = 0
+            print(box)
+            manager.enumerateLineFragments(forGlyphRange: manager.glyphRange(forBoundingRect: box, in: container)) {_, usedRect, _, glyphRange, _ in
+                print(usedRect)
+                if usedRect.maxY <= box.maxY {
+                    result = max(result, glyphRange.end)
+                }
+            }
+            print(result)
+            return result > 0 ? result : nil
+        }
+        
         func jumpToRange(range: NSRange) {
             // Ending TC means "in text container coordinates"
             // Ending SV means "in scroll view coordinates"
@@ -152,7 +166,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             let realScrollPosSV = min(contentSize.height - viewFrameTC.height, max(0, scrollPosTC + textContainerInset.top))
             let scrollChange = realScrollPosSV - contentOffset.y
             let visibleBoxTC = viewFrameTC.offsetBy(dx: 0, dy: scrollChange).intersection(boundingBoxTC)
-            targetPosition = visibleBoxTC.isEmpty ? nil : manager.characterRange(forGlyphRange: manager.glyphRange(forBoundingRect: visibleBoxTC, in: container), actualGlyphRange: nil).end-1
+            targetPosition = visibleBoxTC.isEmpty ? nil : getLastGlyphIndex(box: visibleBoxTC).map{manager.characterIndexForGlyph(at: $0-1)}
             targetRect = boundingBoxTC
             if scrollChange > -5 && scrollChange < 5 {
                 setContentOffset(CGPoint(x: 0, y: realScrollPosSV), animated: false)
