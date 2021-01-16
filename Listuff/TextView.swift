@@ -104,6 +104,11 @@ struct HierarchyViewImpl: UIViewRepresentable {
             } else {
                 realScrollPos = scrollPos
             }
+//                if self.savedSelectedRange.length <= 0 {
+//                    self.selectedRange = NSRange.empty(at: range.end - 1)
+//                } else {
+//                    self.selectedRange = self.savedSelectedRange
+//                }
             setContentOffset(CGPoint(x: 0, y: realScrollPos), animated: true)
         }
         
