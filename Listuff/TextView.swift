@@ -104,12 +104,16 @@ struct HierarchyViewImpl: UIViewRepresentable {
             } else {
                 realScrollPos = scrollPos
             }
+            UIView.animate(withDuration: 0.5, delay: 0, options: .allowAnimatedContent) {
+                self.setContentOffset(CGPoint(x: 0, y: realScrollPos), animated: false)
+            } completion: { _ in
+                if self.savedSelectedRange.length <= 0 {
+                    self.selectedRange = NSRange.empty(at: range.end - 1)
+                } else {
+                    self.selectedRange = self.savedSelectedRange
+                }
+            }
             setContentOffset(CGPoint(x: 0, y: realScrollPos), animated: true)
-//            if savedSelectedRange.length <= 0 {
-//                selectedRange = NSRange.empty(at: range.end - 1)
-//            } else {
-//                selectedRange = savedSelectedRange
-//            }
         }
         
         @objc func tapped(gestureRecognizer: UIGestureRecognizer) {
@@ -224,7 +228,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             self.content = content
             self.textWidth = textWidth
             super.init()
-            self.allowsNonContiguousLayout = true
+//            self.allowsNonContiguousLayout = true
         }
         required init?(coder: NSCoder) {
             return nil
