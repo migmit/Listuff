@@ -79,6 +79,7 @@
 		B5C0BA9725B0E430003C5093 /* DocData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocData.swift; sourceTree = "<group>"; };
 		B5C0BA9F25B1E0BF003C5093 /* IdHolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdHolder.swift; sourceTree = "<group>"; };
 		B5C0BAA725B1E247003C5093 /* LinkStructure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkStructure.swift; sourceTree = "<group>"; };
+		B5FB2DB925B4C6590001C729 /* _generate_pictures.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = _generate_pictures.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -129,6 +130,7 @@
 		B56B368425515B1B006C1FA6 /* Listuff */ = {
 			isa = PBXGroup;
 			children = (
+				B5FB2DB925B4C6590001C729 /* _generate_pictures.sh */,
 				B56B368925515B1C006C1FA6 /* Assets.xcassets */,
 				B5BEC4B225A9D68500E52B5E /* CGPoint.swift */,
 				B56B368725515B1B006C1FA6 /* ContentView.swift */,
