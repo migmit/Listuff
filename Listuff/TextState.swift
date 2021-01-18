@@ -106,15 +106,15 @@ class TextState {
     let indentationStep = CGFloat(35.0)
     let numIndentStep = CGFloat(25.0)
     let paragraphSpacing = 7.0
-    let checked = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
-    let unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
+    var checked = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
+    var unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
     let checkmarkPadding = CGFloat(5.0)
-    let checkmarkSize: CGSize
+    var checkmarkSize: CGSize
     let bullet = "◦"
     let dash = "-"
     let bulletPadding = CGFloat(10.0)
-    var bulletFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
-    let bulletWidth: CGFloat
+    var bulletFont: UIFont
+    var bulletWidth: CGFloat
     let numListPadding = CGFloat(5.0)
 
     var text: String
@@ -140,7 +140,8 @@ class TextState {
     
     init(appendables: [Appendable]) {
         self.checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
-        let bulletFont = self.bulletFont // to avoid capturing self by closure
+        let bulletFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular) // to avoid capturing self by closure
+        self.bulletFont = bulletFont
         self.bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
 //        self.chapterFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 20.0)
 //        self.sectionFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 18.0)
@@ -169,7 +170,11 @@ class TextState {
         chapterFont = UIFont.preferredFont(forTextStyle: .title1)
         sectionFont = UIFont.preferredFont(forTextStyle: .title2)
         subsectionFont = UIFont.preferredFont(forTextStyle: .title3)
-        bulletFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
+        bulletFont = UIFont.monospacedSystemFont(ofSize: systemFont.pointSize, weight: .regular)
+        bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
+        checked = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
+        unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
+        checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
         renderingCache.invalidate()
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {

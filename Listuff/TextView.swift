@@ -106,8 +106,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             linkAnimationCleanup()
             content.invalidate()
             let range = NSMakeRange(0, content.text.utf16.count)
-            layoutManager.invalidateGlyphs(forCharacterRange: range, changeInLength: 0, actualCharacterRange: nil)
-            layoutManager.invalidateLayout(forCharacterRange: range, actualCharacterRange: nil)
+            layoutManager.processEditing(for: textStorage, edited: .editedAttributes, range: range, changeInLength: 0, invalidatedRange: range)
         }
         
         func linkAnimationCleanup() {
