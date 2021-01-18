@@ -140,7 +140,7 @@ class TextState {
     
     init(appendables: [Appendable]) {
         self.checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
-        let bulletFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular) // to avoid capturing self by closure
+        let bulletFont = UIFont.monospacedSystemFont(ofSize: systemFont.pointSize, weight: .regular) // to avoid capturing self by closure
         self.bulletFont = bulletFont
         self.bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
 //        self.chapterFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 20.0)
@@ -171,6 +171,7 @@ class TextState {
         sectionFont = UIFont.preferredFont(forTextStyle: .title2)
         subsectionFont = UIFont.preferredFont(forTextStyle: .title3)
         bulletFont = UIFont.monospacedSystemFont(ofSize: systemFont.pointSize, weight: .regular)
+        print(bulletFont.pointSize)
         bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
         checked = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
         unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
