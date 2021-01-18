@@ -84,6 +84,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             self.gesture = gesture
             gesture.delegate = context.coordinator
             self.addGestureRecognizer(gesture)
+            NotificationCenter.default.addObserver(self, selector: #selector(dynamicTypeChanged(_:)), name: UIContentSizeCategory.didChangeNotification, object: nil)
         }
         
         required init?(coder: NSCoder) {
@@ -99,6 +100,14 @@ struct HierarchyViewImpl: UIViewRepresentable {
             storage.updateTextWidth(textWidth: textWidth)
             manager.updateTextWidth(textWidth: textWidth)
             linkAnimationCleanup()
+        }
+        
+        @objc func dynamicTypeChanged(_: Notification) {
+            linkAnimationCleanup()
+            content.invalidate()
+            let range = NSMakeRange(0, content.text.utf16.count)
+            layoutManager.invalidateGlyphs(forCharacterRange: range, changeInLength: 0, actualCharacterRange: nil)
+            layoutManager.invalidateLayout(forCharacterRange: range, actualCharacterRange: nil)
         }
         
         func linkAnimationCleanup() {

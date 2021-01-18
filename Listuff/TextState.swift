@@ -96,10 +96,10 @@ class TextState {
 //    let systemFont = UIFont(name: "Apple Color Emoji", size: UIFont.labelFontSize)! // <-- what should be instead of .AppleColorEmojiUI (name) or .Apple Color Emoji UI (family)
 //    let systemFont = UIFont(name: ".AppleSystemUIFontMonospaced", size: UIFont.labelFontSize)!
 //    let systemFont = UIFont(name: "TimesNewRomanPSMT", size: UIFont.labelFontSize)!
-    let systemFont = UIFont.preferredFont(forTextStyle: .body)
-    let chapterFont = UIFont.preferredFont(forTextStyle: .title1)
-    let sectionFont = UIFont.preferredFont(forTextStyle: .title2)
-    let subsectionFont = UIFont.preferredFont(forTextStyle: .title3)
+    var systemFont = UIFont.preferredFont(forTextStyle: .body)
+    var chapterFont = UIFont.preferredFont(forTextStyle: .title1)
+    var sectionFont = UIFont.preferredFont(forTextStyle: .title2)
+    var subsectionFont = UIFont.preferredFont(forTextStyle: .title3)
     let systemColor = UIColor.label
     let liveLinkColor = UIColor.link
     let brokenLinkColor = UIColor.red
@@ -113,7 +113,7 @@ class TextState {
     let bullet = "◦"
     let dash = "-"
     let bulletPadding = CGFloat(10.0)
-    let bulletFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
+    var bulletFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
     let bulletWidth: CGFloat
     let numListPadding = CGFloat(5.0)
 
@@ -163,6 +163,14 @@ class TextState {
         appendables.forEach{$0.append(to: appender)}
         self.structure = appender.document
         linkAppender.processLinks(fullSize: self.text.utf16.count, linkStructure: self.linkStructure)
+    }
+    func invalidate() {
+        systemFont = UIFont.preferredFont(forTextStyle: .body)
+        chapterFont = UIFont.preferredFont(forTextStyle: .title1)
+        sectionFont = UIFont.preferredFont(forTextStyle: .title2)
+        subsectionFont = UIFont.preferredFont(forTextStyle: .title3)
+        bulletFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
+        renderingCache.invalidate()
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
         let range = Partition.setLength(node: node, length: length)
