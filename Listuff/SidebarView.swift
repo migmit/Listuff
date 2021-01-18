@@ -5,10 +5,23 @@
 //  Created by MigMit on 10.01.2021.
 //
 
+import Combine
 import SwiftUI
 
 struct ViewWithControls: ViewModifier {
+    class FontModel: ObservableObject {
+        @Published var headlineFont = UIFont.preferredFont(forTextStyle: .headline)
+        private var cancellableSet: Set<AnyCancellable> = []
+        init() {
+            NotificationCenter.default.publisher(for: UIContentSizeCategory.didChangeNotification).map{_ in UIFont.preferredFont(forTextStyle: .headline)}.assign(to: \.headlineFont, on: self).store(in: &cancellableSet)
+        }
+    }
+    @ObservedObject var fontModel: FontModel
     let controls: AnyView
+    init(controls: AnyView) {
+        self.controls = controls
+        self.fontModel = FontModel()
+    }
     func body(content: Content) -> some View {
         VStack(spacing: 0) {
             ZStack {
@@ -16,7 +29,7 @@ struct ViewWithControls: ViewModifier {
                 HStack {
                     controls
                 }.padding([.leading, .trailing], 5)
-            }.padding(5).frame(height: 40)
+            }.frame(height: fontModel.headlineFont.pointSize + 15).padding(5)
             content
         }
     }

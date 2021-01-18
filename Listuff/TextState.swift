@@ -171,7 +171,6 @@ class TextState {
         sectionFont = UIFont.preferredFont(forTextStyle: .title2)
         subsectionFont = UIFont.preferredFont(forTextStyle: .title3)
         bulletFont = UIFont.monospacedSystemFont(ofSize: systemFont.pointSize, weight: .regular)
-        print(bulletFont.pointSize)
         bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
         checked = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
         unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
