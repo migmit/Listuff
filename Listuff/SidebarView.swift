@@ -13,7 +13,7 @@ struct ViewWithControls: ViewModifier {
         @Published var headlineFont = UIFont.preferredFont(forTextStyle: .headline)
         private var cancellableSet: Set<AnyCancellable> = []
         init() {
-            NotificationCenter.default.publisher(for: UIContentSizeCategory.didChangeNotification).map{_ in UIFont.preferredFont(forTextStyle: .headline)}.assign(to: \.headlineFont, on: self).store(in: &cancellableSet)
+            NotificationCenter.default.publisher(for: UIContentSizeCategory.didChangeNotification).receive(on: DispatchQueue.main).map{_ in UIFont.preferredFont(forTextStyle: .headline)}.assign(to: \.headlineFont, on: self).store(in: &cancellableSet)
         }
     }
     @ObservedObject var fontModel: FontModel

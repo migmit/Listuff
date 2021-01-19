@@ -5,6 +5,7 @@
 //  Created by MigMit on 09.01.2021.
 //
 
+import Combine
 import SwiftUI
 
 struct HierarchyView: View {
@@ -62,6 +63,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
         var targetPosition: Int? = nil
         var linkTargetShade: UIView
         var linkJumpAnimation: UIViewAnimating? = nil
+        var cancellableSet: Set<AnyCancellable> = []
         init(frame: CGRect, content: TextState, textWidth: CGFloat, context: Context) {
             self.content = content
             self.storage = TextStorage(content: content, textWidth: textWidth)
@@ -84,7 +86,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             self.gesture = gesture
             gesture.delegate = context.coordinator
             self.addGestureRecognizer(gesture)
-            NotificationCenter.default.addObserver(self, selector: #selector(dynamicTypeChanged(_:)), name: UIContentSizeCategory.didChangeNotification, object: nil)
+            NotificationCenter.default.publisher(for: UIContentSizeCategory.didChangeNotification).receive(on: DispatchQueue.main).sink{_ in self.dynamicTypeChanged()}.store(in: &cancellableSet)
         }
         
         required init?(coder: NSCoder) {
@@ -102,7 +104,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             linkAnimationCleanup()
         }
         
-        @objc func dynamicTypeChanged(_: Notification) {
+        @objc func dynamicTypeChanged() {
             linkAnimationCleanup()
             content.invalidate()
             let range = NSMakeRange(0, content.text.utf16.count)
