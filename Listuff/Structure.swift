@@ -8,27 +8,28 @@
 import Foundation
 
 protocol DocumentTypes {
+    associatedtype Text
     associatedtype Line
     associatedtype List
     associatedtype NumberedList
 }
 
 enum Structure<DT: DocumentTypes> {
-    typealias LineCallback = (Line) -> DT.Line
+    typealias LineCallback = (Line) -> DT.Text
     class WeakProxy<C: AnyObject> {
         weak var value: C?
     }
     class Document {
         var beforeItems: ChapterContent
         var items: Partition<Chapter> = Partition()
-        init(listData: DT.List) {
+        init() {
             let documentProxy = WeakProxy<Document>()
-            let beforeItems = ChapterContent(parent: .document(value: documentProxy), listData: listData)
+            let beforeItems = ChapterContent(parent: .document(value: documentProxy))
             self.beforeItems = beforeItems
             documentProxy.value = self
         }
-        func insertChapter(checked: Bool?, dir: Direction, nearItem: Chapter?, listData: DT.List, callback: LineCallback) -> Chapter {
-            let chapter = Chapter(checked: checked, parent: self, listData: listData, callback: callback)
+        func insertChapter(checked: Bool?, dir: Direction, nearItem: Chapter?, callback: LineCallback) -> Chapter {
+            let chapter = Chapter(checked: checked, parent: self, callback: callback)
             chapter.this = items.insert(value: chapter, length: 1, dir: dir, near: nearItem?.this).0
             return chapter
         }
@@ -38,10 +39,10 @@ enum Structure<DT: DocumentTypes> {
         var content: ChapterContent
         weak var parent: Document?
         weak var this: Partition<Chapter>.Node? = nil
-        init(checked: Bool?, parent: Document, listData: DT.List, callback: LineCallback) {
+        init(checked: Bool?, parent: Document, callback: LineCallback) {
             let chapterProxy = WeakProxy<Chapter>()
             self.header = Line(checked: checked, parent: .chapter(value: chapterProxy), callback: callback)
-            self.content = ChapterContent(parent: .chapter(value: chapterProxy), listData: listData)
+            self.content = ChapterContent(parent: .chapter(value: chapterProxy))
             self.parent = parent
             chapterProxy.value = self
         }
@@ -50,14 +51,14 @@ enum Structure<DT: DocumentTypes> {
         var beforeItems: SectionContent
         var items: Partition<Section> = Partition()
         var parent: ChapterContentParent
-        init(parent: ChapterContentParent, listData: DT.List) {
+        init(parent: ChapterContentParent) {
             let chapterProxy = WeakProxy<ChapterContent>()
-            self.beforeItems = SectionContent(parent: .chapter(value: chapterProxy), listData: listData)
+            self.beforeItems = SectionContent(parent: .chapter(value: chapterProxy))
             self.parent = parent
             chapterProxy.value = self
         }
-        func insertSection(checked: Bool?, dir: Direction, nearItem: Section?, listData: DT.List, callback: LineCallback) -> Section {
-            let section = Section(checked: checked, parent: self, listData: listData, callback: callback)
+        func insertSection(checked: Bool?, dir: Direction, nearItem: Section?, callback: LineCallback) -> Section {
+            let section = Section(checked: checked, parent: self, callback: callback)
             section.this = items.insert(value: section, length: 1, dir: dir, near: nearItem?.this).0
             return section
         }
@@ -67,10 +68,10 @@ enum Structure<DT: DocumentTypes> {
         var content: SectionContent
         weak var parent: ChapterContent?
         weak var this: Partition<Section>.Node? = nil
-        init(checked: Bool?, parent: ChapterContent, listData: DT.List, callback: LineCallback) {
+        init(checked: Bool?, parent: ChapterContent, callback: LineCallback) {
             let sectionProxy = WeakProxy<Section>()
             self.header = Line(checked: checked, parent: .section(value: sectionProxy), callback: callback)
-            self.content = SectionContent(parent: .section(value: sectionProxy), listData: listData)
+            self.content = SectionContent(parent: .section(value: sectionProxy))
             self.parent = parent
             sectionProxy.value = self
         }
@@ -79,14 +80,14 @@ enum Structure<DT: DocumentTypes> {
         var beforeItems: List
         var items: Partition<SubSection> = Partition()
         var parent: SectionContentParent
-        init(parent: SectionContentParent, listData: DT.List) {
+        init(parent: SectionContentParent) {
             let scProxy = WeakProxy<SectionContent>()
-            self.beforeItems = List(listData: listData, parent: .section(value: scProxy))
+            self.beforeItems = List(parent: .section(value: scProxy))
             self.parent = parent
             scProxy.value = self
         }
-        func insertSubsection(checked: Bool?, dir: Direction, nearItem: SubSection?, listData: DT.List, callback: LineCallback) -> SubSection {
-            let subsection = SubSection(checked: checked, parent: self, listData: listData, callback: callback)
+        func insertSubsection(checked: Bool?, dir: Direction, nearItem: SubSection?, callback: LineCallback) -> SubSection {
+            let subsection = SubSection(checked: checked, parent: self, callback: callback)
             subsection.this = items.insert(value: subsection, length: 1, dir: dir, near: nearItem?.this).0
             return subsection
         }
@@ -96,32 +97,30 @@ enum Structure<DT: DocumentTypes> {
         var content: List
         weak var parent: SectionContent?
         weak var this: Partition<SubSection>.Node? = nil
-        init(checked: Bool?, parent: SectionContent, listData: DT.List, callback: LineCallback) {
+        init(checked: Bool?, parent: SectionContent, callback: LineCallback) {
             let ssProxy = WeakProxy<SubSection>()
             self.header = Line(checked: checked, parent: .subsection(value: ssProxy), callback: callback)
-            self.content = List(listData: listData, parent: .subsection(value: ssProxy))
+            self.content = List(parent: .subsection(value: ssProxy))
             self.parent = parent
             ssProxy.value = self
         }
     }
     class List {
-        var items: Partition<Item>
+        var items: Partition<Item> = Partition()
         var parent: ListParent
-        var listData: DT.List
-        init(listData: DT.List, parent: ListParent) {
-            self.items = Partition()
-            self.listData = listData
+        var listData: DT.List? = nil
+        init(parent: ListParent) {
             self.parent = parent
         }
-        func insertLine(checked: Bool?, style: LineStyle?, dir: Direction, nearItem: Item?, listData: DT.List, callback: LineCallback) -> RegularItem {
-            let item = RegularItem(checked: checked, style: style, parent: self, listData: listData, callback: callback)
+        func insertLine(checked: Bool?, style: LineStyle?, dir: Direction, nearItem: Item?, callback: LineCallback) -> RegularItem {
+            let item = RegularItem(checked: checked, style: style, parent: self, callback: callback)
             item.this = items.insert(value: .regular(value: item), length: 1, dir: dir, near: nearItem?.impl.this).0
             return item
         }
-        func insertLineNumberedList(checked: Bool?, dir: Direction, nearItem: Item?, listData: DT.List, nlistData: DT.NumberedList, callback: LineCallback) -> (NumberedList, NumberedItem) {
-            let numberedList = NumberedList(listData: nlistData, parent: self)
+        func insertLineNumberedList(checked: Bool?, dir: Direction, nearItem: Item?, callback: LineCallback) -> (NumberedList, NumberedItem) {
+            let numberedList = NumberedList(parent: self)
             numberedList.this = items.insert(value: .numbered(value: numberedList), length: 1, dir: dir, near: nearItem?.impl.this).0
-            let item = numberedList.insertLine(checked: checked, dir: dir, nearItem: nil, listData: listData, callback: callback)
+            let item = numberedList.insertLine(checked: checked, dir: dir, nearItem: nil, callback: callback)
             return (numberedList, item)
         }
     }
@@ -152,25 +151,20 @@ enum Structure<DT: DocumentTypes> {
         var content: Line
         var style: LineStyle?
         var sublist: List
-        init(checked: Bool?, style: LineStyle?, parent: List, listData: DT.List, callback: LineCallback) {
+        init(checked: Bool?, style: LineStyle?, parent: List, callback: LineCallback) {
             let itemProxy = WeakProxy<RegularItem>()
             self.content = Line(checked: checked, parent: .regular(value: itemProxy), callback: callback)
             self.style = style
-            self.sublist = List(listData: listData, parent: .regular(value: itemProxy))
+            self.sublist = List(parent: .regular(value: itemProxy))
             super.init(parent: parent)
             itemProxy.value = self
         }
     }
     class NumberedList: ListItem {
-        var items: Partition<NumberedItem>
-        var listData: DT.NumberedList
-        init(listData: DT.NumberedList, parent: List) {
-            self.items = Partition()
-            self.listData = listData
-            super.init(parent: parent)
-        }
-        func insertLine(checked: Bool?, dir: Direction, nearItem: NumberedItem?, listData: DT.List, callback: LineCallback) -> NumberedItem {
-            let item = NumberedItem(checked: checked, parent: self, listData: listData, callback: callback)
+        var items: Partition<NumberedItem> = Partition()
+        var listData: DT.NumberedList? = nil
+        func insertLine(checked: Bool?, dir: Direction, nearItem: NumberedItem?, callback: LineCallback) -> NumberedItem {
+            let item = NumberedItem(checked: checked, parent: self, callback: callback)
             item.this = items.insert(value: item, length: 1, dir: dir, near: nearItem?.this).0
             return item
         }
@@ -183,10 +177,10 @@ enum Structure<DT: DocumentTypes> {
         var sublist: List
         weak var parent: NumberedList?
         weak var this: Partition<NumberedItem>.Node? = nil
-        init(checked: Bool?, parent: NumberedList, listData: DT.List, callback: LineCallback) {
+        init(checked: Bool?, parent: NumberedList, callback: LineCallback) {
             let itemProxy = WeakProxy<NumberedItem>()
             self.content = Line(checked: checked, parent: .numbered(value: itemProxy), callback: callback)
-            self.sublist = List(listData: listData, parent: .numbered(value: itemProxy))
+            self.sublist = List(parent: .numbered(value: itemProxy))
             self.parent = parent
             itemProxy.value = self
         }
@@ -195,7 +189,8 @@ enum Structure<DT: DocumentTypes> {
         }
     }
     class Line {
-        var content: DT.Line? = nil
+        var content: DT.Text? = nil
+        var lineData: DT.Line? = nil
         var checked: Checked?
         var parent: LineParent
         init(checked: Bool?, parent: LineParent, callback: LineCallback) {

@@ -169,7 +169,7 @@ class TextState {
         self.renderingCache = RenderingCache(version: 0)
         self.text = ""
         self.chunks = Partition()
-        self.structure = Structure.Document(listData: nil)
+        self.structure = Structure.Document()
         let linkAppender = LinkAppender()
         let appender = NodeAppender {text, linkId, links, after, line in
             let nsLinks: [(NSRange, String)] = links.map {
@@ -178,7 +178,7 @@ class TextState {
             }
             linkAppender.appendLine(shift: self.text.utf16.count, linkId: linkId, nsLinks: nsLinks, line: line)
             self.text += text
-            return DocData.Line(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, cache: nil, guid: nil, backlinks: [])
+            return DocData.Text(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, guid: nil, backlinks: [])
         }
         appendables.forEach{$0.append(to: appender)}
         self.structure = appender.document
@@ -295,7 +295,7 @@ class TextState {
             return listData.indentStep
         }
         let indentStep = renderingCache.numWidth(num: nlist.items.totalLength(), font: fontCache.systemFont)
-        nlist.listData = DocData.NumberedListImpl(version: renderingCache.version, indentStep: indentStep)
+        nlist.listData = DocData.NumberedList(version: renderingCache.version, indentStep: indentStep)
         return indentStep
     }
     struct IndentStack {
@@ -327,7 +327,7 @@ class TextState {
         }
         for (list, indentStep) in indentStack.stack.reversed() {
             result += indentStep
-            list.listData = DocData.ListImpl(version: renderingCache.version, indent: result)
+            list.listData = DocData.List(version: renderingCache.version, indent: result)
         }
         return result
     }
@@ -342,9 +342,8 @@ class TextState {
         }
     }
     func getCorrectFont(line: Doc.Line, text: String, pos: Int) -> (UIFont, NSRange) {
-        let content = line.content!
         var range: NSRange = NSRange.item(at: pos)
-        if let cache = content.cache, cache.version == renderingCache.version {
+        if let cache = line.lineData, cache.version == renderingCache.version {
             let font = cache.rendered.attribute(.font, at: pos, effectiveRange: &range) as? UIFont
             return (font ?? fontCache.systemFont, range)
         }
@@ -357,7 +356,7 @@ class TextState {
         }
         let rendered = NSMutableAttributedString(string: text, attributes: [.font: baseFont])
         rendered.fixAttributes(in: rendered.fullRange)
-        line.content?.cache = DocData.LineRenderingImpl(version: renderingCache.version, rendered: rendered)
+        line.lineData = DocData.Line(version: renderingCache.version, rendered: rendered)
         let font = rendered.attribute(.font, at: pos, effectiveRange: &range) as? UIFont
         return (font ?? baseFont, range)
     }

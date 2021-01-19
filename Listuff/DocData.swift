@@ -9,24 +9,21 @@ import Foundation
 import CoreGraphics
 
 enum DocData: DocumentTypes {
-    struct LineRenderingImpl {
-        let version: Int
-        let rendered: NSMutableAttributedString
-    }
-    struct Line {
+    struct Text {
         weak var text: Partition<Structure<DocData>.Line>.Node?
-        var cache: LineRenderingImpl?
         var guid: UUID?
         var backlinks: Set<IdHolder<Partition<UUID?>.Node>>
     }
-    struct ListImpl {
+    struct Line {
+        let version: Int
+        let rendered: NSMutableAttributedString
+    }
+    struct List {
         let version: Int
         let indent: CGFloat
     }
-    typealias List = ListImpl?
-    struct NumberedListImpl {
+    struct NumberedList {
         let version: Int
         let indentStep: CGFloat
     }
-    typealias NumberedList = NumberedListImpl?
 }
