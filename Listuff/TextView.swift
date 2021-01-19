@@ -85,7 +85,9 @@ struct HierarchyViewImpl: UIViewRepresentable {
             self.gesture = gesture
             gesture.delegate = context.coordinator
             self.addGestureRecognizer(gesture)
-            NotificationCenter.default.publisher(for: UIContentSizeCategory.didChangeNotification).receive(on: DispatchQueue.main).sink{_ in self.dynamicTypeChanged()}.store(in: &cancellableSet)
+            NotificationCenter.default.publisher(for: UIContentSizeCategory.didChangeNotification)
+                .sink{_ in self.dynamicTypeChanged()}
+                .store(in: &cancellableSet)
         }
         
         required init?(coder: NSCoder) {
