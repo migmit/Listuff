@@ -66,6 +66,48 @@ class TextState {
         case bullet(value: String, indent: CGFloat, height: CGFloat, font: UIFont)
         case number(value: String, indent: CGFloat, width: CGFloat, font: UIFont)
     }
+    class FontCache {
+        private var _systemFont: UIFont? = nil
+        var systemFont: UIFont {setOption(&_systemFont){UIFont.preferredFont(forTextStyle: .body)}}
+        private var _chapterFont: UIFont? = nil
+        var chapterFont: UIFont {setOption(&_chapterFont){UIFont.preferredFont(forTextStyle: .title1)}}
+        private var _sectionFont: UIFont? = nil
+        var sectionFont: UIFont {setOption(&_sectionFont){UIFont.preferredFont(forTextStyle: .title2)}}
+        private var _subsectionFont: UIFont? = nil
+        var subsectionFont: UIFont {setOption(&_subsectionFont){UIFont.preferredFont(forTextStyle: .title3)}}
+        let bullet = "◦"
+        let dash = "-"
+        private var _bulletFont: UIFont? = nil
+        var bulletFont: UIFont {setOption(&_bulletFont){UIFont.monospacedSystemFont(ofSize: systemFont.pointSize, weight: .regular)}}
+        private var _bulletWidth: CGFloat? = nil
+        var bulletWidth: CGFloat {setOption(&_bulletWidth){[bullet, dash].map{$0.size(font: bulletFont).width}.max()!}}
+        private var _checked: UIImage? = nil
+        var checked: UIImage {setOption(&_checked){UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)}}
+        private var _unchecked: UIImage? = nil
+        var unchecked: UIImage {setOption(&_unchecked){UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)}}
+        private var _checkmarkSize: CGSize? = nil
+        var checkmarkSize: CGSize {setOption(&_checkmarkSize){CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))}}
+        private func setOption<V>(_ cached: inout V?, calculate: () -> V) -> V {
+            if let result = cached {
+                return result
+            } else {
+                let value = calculate()
+                cached = value
+                return value
+            }
+        }
+        func invalidate() {
+            _systemFont = nil
+            _chapterFont = nil
+            _sectionFont = nil
+            _subsectionFont = nil
+            _bulletFont = nil
+            _bulletWidth = nil
+            _checked = nil
+            _unchecked = nil
+            _checkmarkSize = nil
+        }
+    }
     struct RenderingCache {
         var version: Int
         var numWidths: [CGFloat]
@@ -90,36 +132,20 @@ class TextState {
             version += 1
         }
     }
-//    let systemFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
-//    let systemFont = UIFont(name: "Arial", size: UIFont.labelFontSize)!
-//    let systemFont = UIFont.systemFont(ofSize: UIFont.labelFontSize, weight: .regular)
-//    let systemFont = UIFont(name: "Apple Color Emoji", size: UIFont.labelFontSize)! // <-- what should be instead of .AppleColorEmojiUI (name) or .Apple Color Emoji UI (family)
-//    let systemFont = UIFont(name: ".AppleSystemUIFontMonospaced", size: UIFont.labelFontSize)!
-//    let systemFont = UIFont(name: "TimesNewRomanPSMT", size: UIFont.labelFontSize)!
-    var systemFont = UIFont.preferredFont(forTextStyle: .body)
-    var chapterFont = UIFont.preferredFont(forTextStyle: .title1)
-    var sectionFont = UIFont.preferredFont(forTextStyle: .title2)
-    var subsectionFont = UIFont.preferredFont(forTextStyle: .title3)
     let systemColor = UIColor.label
     let liveLinkColor = UIColor.link
     let brokenLinkColor = UIColor.red
     let indentationStep = CGFloat(35.0)
     let numIndentStep = CGFloat(25.0)
     let paragraphSpacing = 7.0
-    var checked = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
-    var unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
     let checkmarkPadding = CGFloat(5.0)
-    var checkmarkSize: CGSize
-    let bullet = "◦"
-    let dash = "-"
     let bulletPadding = CGFloat(10.0)
-    var bulletFont: UIFont
-    var bulletWidth: CGFloat
     let numListPadding = CGFloat(5.0)
 
     var text: String
     var chunks: Partition<Doc.Line>
     var structure: Doc.Document
+    var fontCache: FontCache
     var renderingCache: RenderingCache
     var items: [Substring] {
         var result: [Substring] = []
@@ -139,14 +165,7 @@ class TextState {
     }
     
     init(appendables: [Appendable]) {
-        self.checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
-        let bulletFont = UIFont.monospacedSystemFont(ofSize: systemFont.pointSize, weight: .regular) // to avoid capturing self by closure
-        self.bulletFont = bulletFont
-        self.bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
-//        self.chapterFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 20.0)
-//        self.sectionFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 18.0)
-//        self.subsectionFont = UIFont(descriptor: systemFont.fontDescriptor.withSymbolicTraits(.traitBold)!, size: 16.0)
-
+        self.fontCache = FontCache()
         self.renderingCache = RenderingCache(version: 0)
         self.text = ""
         self.chunks = Partition()
@@ -165,16 +184,9 @@ class TextState {
         self.structure = appender.document
         linkAppender.processLinks(fullSize: self.text.utf16.count, linkStructure: self.linkStructure)
     }
+    var checkmarkSize: CGSize {fontCache.checkmarkSize}
     func invalidate() {
-        systemFont = UIFont.preferredFont(forTextStyle: .body)
-        chapterFont = UIFont.preferredFont(forTextStyle: .title1)
-        sectionFont = UIFont.preferredFont(forTextStyle: .title2)
-        subsectionFont = UIFont.preferredFont(forTextStyle: .title3)
-        bulletFont = UIFont.monospacedSystemFont(ofSize: systemFont.pointSize, weight: .regular)
-        bulletWidth = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
-        checked = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
-        unchecked = UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
-        checkmarkSize = CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))
+        fontCache.invalidate()
         renderingCache.invalidate()
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
@@ -202,7 +214,7 @@ class TextState {
         case .regular(value: let value): hasBullet = value.value?.style != nil
         default: hasBullet = false
         }
-        let bulletAddition: CGFloat = hasBullet ? bulletWidth + bulletPadding : 0
+        let bulletAddition: CGFloat = hasBullet ? fontCache.bulletWidth + bulletPadding : 0
         let paragraphIndent: CGFloat = calculateParIndent(line: line)
         let indexIndent: CGFloat
         let accessory: Accessory?
@@ -212,26 +224,26 @@ class TextState {
             let width = calculateIndentStep(nlist: item.parent!)
             let index = item.this!.range.location + 1
             indexIndent = width + numListPadding
-            accessory = .number(value: "\(index).", indent: paragraphIndent, width: width, font: systemFont)
+            accessory = .number(value: "\(index).", indent: paragraphIndent, width: width, font: fontCache.systemFont)
         case .regular(value: let value):
             let bulletString: String?
             switch value.value!.style {
-            case .bullet: bulletString = bullet
-            case .dash: bulletString = dash
+            case .bullet: bulletString = fontCache.bullet
+            case .dash: bulletString = fontCache.dash
             case nil: bulletString = nil
             }
             indexIndent = 0
-            accessory = bulletString.map{.bullet(value: $0, indent: paragraphIndent, height: $0.size(font: bulletFont).height, font: bulletFont)}
+            accessory = bulletString.map{.bullet(value: $0, indent: paragraphIndent, height: $0.size(font: fontCache.bulletFont).height, font: fontCache.bulletFont)}
         default:
             indexIndent = 0
             accessory = nil
         }
-        let checkedAddition = line.checked != nil ? checkmarkSize.width + checkmarkPadding : 0
+        let checkedAddition = line.checked != nil ? fontCache.checkmarkSize.width + checkmarkPadding : 0
         let textIndent = paragraphIndent + indexIndent + bulletAddition
         let lineText = text[range]
         let info = ListItemInfo(
             range: range,
-            checkmark: line.checked.map{$0.value ? checked : unchecked},
+            checkmark: line.checked.map{$0.value ? fontCache.checked : fontCache.unchecked},
             textIndent: textIndent,
             firstLineIndent: textIndent + checkedAddition,
             parIndent: paragraphIndent,
@@ -282,7 +294,7 @@ class TextState {
         if let listData = nlist.listData, listData.version == renderingCache.version {
             return listData.indentStep
         }
-        let indentStep = renderingCache.numWidth(num: nlist.items.totalLength(), font: systemFont)
+        let indentStep = renderingCache.numWidth(num: nlist.items.totalLength(), font: fontCache.systemFont)
         nlist.listData = DocData.NumberedListImpl(version: renderingCache.version, indentStep: indentStep)
         return indentStep
     }
@@ -334,14 +346,14 @@ class TextState {
         var range: NSRange = NSRange.item(at: pos)
         if let cache = content.cache, cache.version == renderingCache.version {
             let font = cache.rendered.attribute(.font, at: pos, effectiveRange: &range) as? UIFont
-            return (font ?? systemFont, range)
+            return (font ?? fontCache.systemFont, range)
         }
         let baseFont: UIFont
         switch line.parent {
-        case .chapter(value: _): baseFont = chapterFont
-        case .section(value: _): baseFont = sectionFont
-        case .subsection(value: _): baseFont = subsectionFont
-        default: baseFont = systemFont
+        case .chapter(value: _): baseFont = fontCache.chapterFont
+        case .section(value: _): baseFont = fontCache.sectionFont
+        case .subsection(value: _): baseFont = fontCache.subsectionFont
+        default: baseFont = fontCache.systemFont
         }
         let rendered = NSMutableAttributedString(string: text, attributes: [.font: baseFont])
         rendered.fixAttributes(in: rendered.fullRange)
