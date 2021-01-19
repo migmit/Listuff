@@ -104,7 +104,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             linkAnimationCleanup()
         }
         
-        @objc func dynamicTypeChanged() {
+        func dynamicTypeChanged() {
             linkAnimationCleanup()
             content.invalidate()
             let range = NSMakeRange(0, content.text.utf16.count)
