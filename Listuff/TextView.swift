@@ -42,9 +42,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
     }
     
     func makeUIView(context: Context) -> TextView {
-        let textView = TextView(frame: .zero, content: content, textWidth: textWidth, context: context)
-        context.coordinator.textView = textView
-        return textView
+        return TextView(frame: .zero, content: content, textWidth: textWidth, context: context)
     }
     
     func updateUIView(_ uiView: TextView, context: Context) {
@@ -81,6 +79,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             self.linkTargetShade.backgroundColor = UIColor.yellow.withAlphaComponent(0)
             self.linkTargetShade.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
             self.addSubview(self.linkTargetShade)
+            context.coordinator.textView = self
             self.delegate = context.coordinator
             let gesture = UITapGestureRecognizer(target: self, action: #selector(tapped))
             self.gesture = gesture
