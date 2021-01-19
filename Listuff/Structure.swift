@@ -185,7 +185,7 @@ enum Structure<DT: DocumentTypes> {
             itemProxy.value = self
         }
         func near(dir: Direction) -> NumberedItem? {
-            return this.flatMap{$0.near(dir: dir).map{$0.value}}
+            return this?.near(dir: dir)?.value
         }
     }
     class Line {
