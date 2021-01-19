@@ -296,7 +296,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
             self.content = content
             self.textWidth = textWidth
             super.init()
-//            self.allowsNonContiguousLayout = true
+            self.allowsNonContiguousLayout = true
         }
         required init?(coder: NSCoder) {
             return nil

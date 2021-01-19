@@ -169,7 +169,7 @@ class TextState {
         self.renderingCache = RenderingCache(version: 0)
         self.text = ""
         self.chunks = Partition()
-        self.structure = Structure.Document()
+        self.structure = Structure.Document(listData: nil)
         let linkAppender = LinkAppender()
         let appender = NodeAppender {text, linkId, links, after, line in
             let nsLinks: [(NSRange, String)] = links.map {
@@ -303,13 +303,13 @@ class TextState {
         var stack: [(Doc.List, CGFloat)]
         mutating func append(current: Doc.List) -> Doc.List? {
             switch current.parent {
+            case .regular(value: let value):
+                stack.append((current, textState.indentationStep))
+                return value.value!.parent!
             case .numbered(value: let value):
                 let parent = value.value!.parent!
                 stack.append((current, textState.numIndentStep + textState.calculateIndentStep(nlist: parent)))
                 return parent.parent!
-            case .sublist(value: let value):
-                stack.append((current, textState.indentationStep))
-                return value.value!.parent!
             default:
                 return nil
             }
