@@ -128,24 +128,28 @@ class NodeAppender {
         case .bullet: style = .bullet
         case .dash: style = .dash
         case .number:
-            let numberedList: Doc.NumberedList
-            let numberedItem: Doc.NumberedItem
-            if case .numbered(value: let value, item: let lastItem) = item {
+            let lastRegularItem: Doc.RegularItem?
+            switch item {
+            case .numbered(value: let value, item: let lastItem):
                 appendNodeChildren(
                     numberedList: value,
                     numberedItem: value.insertLine(checked: node.checked, dir: .Right, nearItem: lastItem, callback: callback(node.text, node.linkId, node.links, line)),
                     nodes: node.children
                 )
-            } else {
-                (numberedList, numberedItem) =
-                    list.insertLineNumberedList(
-                        checked: node.checked,
-                        dir: .Right,
-                        nearItem: item?.it,
-                        callback: callback(node.text, node.linkId, node.links, line)
-                    )
-                appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children)
+                return
+            case .regular(value: let value):
+                lastRegularItem = value
+            case nil:
+                lastRegularItem = nil
             }
+            let (numberedList, numberedItem) =
+                list.insertLineNumberedList(
+                    checked: node.checked,
+                    dir: .Right,
+                    nearItem: lastRegularItem,
+                    callback: callback(node.text, node.linkId, node.links, line)
+                )
+            appendNodeChildren(numberedList: numberedList, numberedItem: numberedItem, nodes: node.children)
             return
         case nil: style = nil
         }

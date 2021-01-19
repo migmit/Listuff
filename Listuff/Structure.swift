@@ -117,9 +117,9 @@ enum Structure<DT: DocumentTypes> {
             item.this = items.insert(value: .regular(value: item), length: 1, dir: dir, near: nearItem?.impl.this).0
             return item
         }
-        func insertLineNumberedList(checked: Bool?, dir: Direction, nearItem: Item?, callback: LineCallback) -> (NumberedList, NumberedItem) {
+        func insertLineNumberedList(checked: Bool?, dir: Direction, nearItem: RegularItem?, callback: LineCallback) -> (NumberedList, NumberedItem) {
             let numberedList = NumberedList(parent: self)
-            numberedList.this = items.insert(value: .numbered(value: numberedList), length: 1, dir: dir, near: nearItem?.impl.this).0
+            numberedList.this = items.insert(value: .numbered(value: numberedList), length: 1, dir: dir, near: nearItem?.this).0
             let item = numberedList.insertLine(checked: checked, dir: dir, nearItem: nil, callback: callback)
             return (numberedList, item)
         }
