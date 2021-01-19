@@ -49,7 +49,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
         uiView.updateTextWidth(textWidth: textWidth)
     }
     
-    class TextView: UITextView, UIGestureRecognizerDelegate {
+    class TextView: UITextView {
         let content: TextState
         let storage: TextStorage
         let manager: LayoutManager
