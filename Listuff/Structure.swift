@@ -33,17 +33,6 @@ enum Structure<DT: DocumentTypes> {
             chapter.this = items.insert(value: chapter, length: 1, dir: dir, near: nearItem?.this).0
             return chapter
         }
-        func join(other: Document) {
-            if let lastChapter = items.sideValue(dir: .Right) {
-                lastChapter.content.join(other: other.beforeItems)
-            } else {
-                beforeItems.join(other: other.beforeItems)
-            }
-            for (_, chapter) in other.items {
-                chapter.parent = self
-            }
-            items.union(with: &other.items)
-        }
     }
     class Chapter {
         var header: Line
@@ -73,16 +62,11 @@ enum Structure<DT: DocumentTypes> {
             section.this = items.insert(value: section, length: 1, dir: dir, near: nearItem?.this).0
             return section
         }
-        func join(other: ChapterContent) {
-            if let lastSection = items.sideValue(dir: .Right) {
-                lastSection.content.join(other: other.beforeItems)
-            } else {
-                beforeItems.join(other: other.beforeItems)
-            }
-            for (_, section) in other.items {
+        func join(other: inout Partition<Section>) {
+            for (_, section) in other {
                 section.parent = self
             }
-            items.union(with: &other.items)
+            items.union(with: &other)
         }
     }
     class Section {
@@ -113,16 +97,11 @@ enum Structure<DT: DocumentTypes> {
             subsection.this = items.insert(value: subsection, length: 1, dir: dir, near: nearItem?.this).0
             return subsection
         }
-        func join(other: SectionContent) {
-            if let lastSubSection = items.sideValue(dir: .Right) {
-                lastSubSection.content.join(other: other.beforeItems)
-            } else {
-                beforeItems.join(other: other.beforeItems)
-            }
-            for (_, subsection) in other.items {
+        func join(other: inout Partition<SubSection>) {
+            for (_, subsection) in other {
                 subsection.parent = self
             }
-            items.union(with: &other.items)
+            items.union(with: &other)
         }
     }
     class SubSection {
@@ -156,15 +135,15 @@ enum Structure<DT: DocumentTypes> {
             let item = numberedList.insertLine(checked: checked, dir: dir, nearItem: nil, callback: callback)
             return (numberedList, item)
         }
-        func join(other: List) {
-            if case .numbered(value: let otherNumbered) = other.items.sideValue(dir: .Left), case .numbered(value: let thisNumbered) = items.sideValue(dir: .Right) {
+        func join(other: inout Partition<Item>) {
+            if case .numbered(value: let otherNumbered) = other.sideValue(dir: .Left), case .numbered(value: let thisNumbered) = items.sideValue(dir: .Right) {
                 thisNumbered.join(other: otherNumbered)
-                _ = other.items.remove(node: otherNumbered.this!)
+                _ = other.remove(node: otherNumbered.this!)
             }
-            for (_, item) in other.items {
+            for (_, item) in other {
                 item.impl.parent = self
             }
-            items.union(with: &other.items)
+            items.union(with: &other)
         }
     }
     enum Item {
