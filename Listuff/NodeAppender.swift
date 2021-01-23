@@ -177,7 +177,7 @@ class NodeAppender {
             section = newItem
             sectionContent = newItem.content
             subsection = nil
-            list = newItem.content.beforeItems
+            list = sectionContent.beforeItems
             line = newItem.header
         case .chapter:
             let newItem = document.insertChapter(checked: sect.checked, dir: .Right, nearItem: chapter, callback: callback(sect.text, sect.linkId, sect.links, line))
@@ -186,7 +186,7 @@ class NodeAppender {
             section = nil
             sectionContent = chapterContent.beforeItems
             subsection = nil
-            list = newItem.content.beforeItems.beforeItems
+            list = sectionContent.beforeItems
             line = newItem.header
         }
     }
