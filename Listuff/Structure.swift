@@ -198,6 +198,7 @@ enum Structure<DT: DocumentTypes> {
                 line.parent = self
             }
             items.union(with: &other.items)
+            listData = nil
         }
     }
     class NumberedItem {
