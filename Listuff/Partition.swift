@@ -205,6 +205,16 @@ struct Partition<V>: Sequence {
     func isEmpty() -> Bool {
         return root == nil
     }
+    func sideValue(dir: Direction) -> V? {
+        guard let r = root else {return nil}
+        var current = r
+        var child = current[dir]?.node
+        while let c = child {
+            current = c
+            child = current[dir]?.node
+        }
+        return current.value
+    }
     mutating func replace(node: Node, with: Node?) {
         if let (parent, dir, isDeep) = node.getChildInfo() {
             parent[dir] = with?.mkSubNode(deep: isDeep)
