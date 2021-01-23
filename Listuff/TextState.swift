@@ -67,46 +67,24 @@ class TextState {
         case number(value: String, indent: CGFloat, width: CGFloat, font: UIFont)
     }
     class FontCache {
-        private var _systemFont: UIFont? = nil
-        var systemFont: UIFont {setOption(&_systemFont){UIFont.preferredFont(forTextStyle: .body)}}
-        private var _chapterFont: UIFont? = nil
-        var chapterFont: UIFont {setOption(&_chapterFont){UIFont.preferredFont(forTextStyle: .title1)}}
-        private var _sectionFont: UIFont? = nil
-        var sectionFont: UIFont {setOption(&_sectionFont){UIFont.preferredFont(forTextStyle: .title2)}}
-        private var _subsectionFont: UIFont? = nil
-        var subsectionFont: UIFont {setOption(&_subsectionFont){UIFont.preferredFont(forTextStyle: .title3)}}
+        lazy var systemFont: UIFont = {UIFont.preferredFont(forTextStyle: .body)}()
+        lazy var chapterFont: UIFont = {UIFont.preferredFont(forTextStyle: .title1)}()
+        lazy var sectionFont: UIFont = {UIFont.preferredFont(forTextStyle: .title2)}()
+        lazy var subsectionFont: UIFont = {UIFont.preferredFont(forTextStyle: .title3)}()
         let bullet = "◦"
         let dash = "-"
-        private var _bulletFont: UIFont? = nil
-        var bulletFont: UIFont {setOption(&_bulletFont){UIFont.monospacedSystemFont(ofSize: systemFont.pointSize, weight: .regular)}}
-        private var _bulletWidth: CGFloat? = nil
-        var bulletWidth: CGFloat {setOption(&_bulletWidth){[bullet, dash].map{$0.size(font: bulletFont).width}.max()!}}
-        private var _checked: UIImage? = nil
-        var checked: UIImage {setOption(&_checked){UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)}}
-        private var _unchecked: UIImage? = nil
-        var unchecked: UIImage {setOption(&_unchecked){UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)}}
-        private var _checkmarkSize: CGSize? = nil
-        var checkmarkSize: CGSize {setOption(&_checkmarkSize){CGSize(width: max(checked.size.width, unchecked.size.width), height: max(checked.size.height, unchecked.size.height))}}
-        private func setOption<V>(_ cached: inout V?, calculate: () -> V) -> V {
-            if let result = cached {
-                return result
-            } else {
-                let value = calculate()
-                cached = value
-                return value
-            }
-        }
-        func invalidate() {
-            _systemFont = nil
-            _chapterFont = nil
-            _sectionFont = nil
-            _subsectionFont = nil
-            _bulletFont = nil
-            _bulletWidth = nil
-            _checked = nil
-            _unchecked = nil
-            _checkmarkSize = nil
-        }
+        lazy var bulletFont: UIFont =
+            UIFont.monospacedSystemFont(ofSize: systemFont.pointSize, weight: .regular)
+        lazy var bulletWidth: CGFloat = [bullet, dash].map{$0.size(font: bulletFont).width}.max()!
+        lazy var checked: UIImage =
+            UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGreen)
+        lazy var unchecked: UIImage =
+            UIImage(systemName: "circle", withConfiguration: UIImage.SymbolConfiguration(textStyle: .body, scale: .medium))!.withTintColor(UIColor.systemGray2)
+        lazy var checkmarkSize: CGSize =
+            CGSize(
+                width: max(checked.size.width, unchecked.size.width),
+                height: max(checked.size.height, unchecked.size.height)
+            )
     }
     struct RenderingCache {
         var version: Int
@@ -186,7 +164,7 @@ class TextState {
     }
     var checkmarkSize: CGSize {fontCache.checkmarkSize}
     func invalidate() {
-        fontCache.invalidate()
+        fontCache = FontCache()
         renderingCache.invalidate()
     }
     func setChunkLength(node: Chunk, length: Int) -> NSRange {
