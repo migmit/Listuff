@@ -100,16 +100,17 @@ class NodeAppender {
     var list: Doc.List
     var item: AppendedItem?
     var line: Doc.Line?
-    init(insertLine: @escaping (String, LineId?, [(Range<String.Index>, LineId)], Doc.Line?, Doc.Line) -> DocData.Text) {
-        self.document = Doc.Document()
+    init(title: String, checked: Bool? = nil, linkId: String? = nil, links: [(Range<Int>, String)], insertLine: @escaping (String, LineId?, [(Range<String.Index>, LineId)], Doc.Line?, Doc.Line) -> DocData.Text) {
+        self.callback = {content, linkId, links, after in {insertLine(content + "\n", linkId, links, after, $0)}}
+        let appendableTitle = AppendableBase(text: title, checked: checked, linkId: linkId, links: links)
+        self.document = Doc.Document(checked: appendableTitle.checked, callback: self.callback(appendableTitle.text, appendableTitle.linkId, appendableTitle.links, nil))
         self.chapter = nil
         self.chapterContent = document.beforeItems
         self.section = nil
         self.sectionContent = chapterContent.beforeItems
         self.subsection = nil
-        self.callback = {content, linkId, links, after in {insertLine(content + "\n", linkId, links, after, $0)}}
         self.list = document.beforeItems.beforeItems.beforeItems
-        self.line = nil
+        self.line = self.document.header
     }
     func appendNodeChildren(numberedList: Doc.NumberedList, numberedItem: Doc.NumberedItem, nodes: [Node]) {
         line = numberedItem.content

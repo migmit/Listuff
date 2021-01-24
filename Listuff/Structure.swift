@@ -20,10 +20,12 @@ enum Structure<DT: DocumentTypes> {
         weak var value: C?
     }
     class Document {
+        var header: Line
         var beforeItems: ChapterContent
         var items: Partition<Chapter> = Partition()
-        init() {
+        init(checked: Bool?, callback: LineCallback) {
             let documentProxy = WeakProxy<Document>()
+            self.header = Line(checked: checked, parent: .document(value: documentProxy), callback: callback)
             let beforeItems = ChapterContent(parent: .document(value: documentProxy))
             self.beforeItems = beforeItems
             documentProxy.value = self
@@ -244,6 +246,7 @@ enum Structure<DT: DocumentTypes> {
     enum LineParent {
         case regular(value: WeakProxy<RegularItem>)
         case numbered(value: WeakProxy<NumberedItem>)
+        case document(value: WeakProxy<Document>)
         case chapter(value: WeakProxy<Chapter>)
         case section(value: WeakProxy<Section>)
         case subsection(value: WeakProxy<SubSection>)

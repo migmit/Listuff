@@ -67,10 +67,11 @@ class TextState {
         case number(value: String, indent: CGFloat, width: CGFloat, font: UIFont)
     }
     class FontCache {
-        lazy var systemFont: UIFont = {UIFont.preferredFont(forTextStyle: .body)}()
-        lazy var chapterFont: UIFont = {UIFont.preferredFont(forTextStyle: .title1)}()
-        lazy var sectionFont: UIFont = {UIFont.preferredFont(forTextStyle: .title2)}()
-        lazy var subsectionFont: UIFont = {UIFont.preferredFont(forTextStyle: .title3)}()
+        lazy var systemFont: UIFont = UIFont.preferredFont(forTextStyle: .body)
+        lazy var titleFont: UIFont = UIFont.preferredFont(forTextStyle: .largeTitle)
+        lazy var chapterFont: UIFont = UIFont.preferredFont(forTextStyle: .title1)
+        lazy var sectionFont: UIFont = UIFont.preferredFont(forTextStyle: .title2)
+        lazy var subsectionFont: UIFont = UIFont.preferredFont(forTextStyle: .title3)
         let bullet = "◦"
         let dash = "-"
         lazy var bulletFont: UIFont =
@@ -142,23 +143,24 @@ class TextState {
         return eventsPublisher.eraseToAnyPublisher()
     }
     
-    init(appendables: [Appendable]) {
+    init(title: String, checked: Bool? = nil, linkId: String? = nil, links: [(Range<Int>, String)] = [], appendables: [Appendable]) {
         self.fontCache = FontCache()
         self.renderingCache = RenderingCache(version: 0)
-        self.text = ""
-        self.chunks = Partition()
-        self.structure = Structure.Document()
+        var fulltext = ""
+        var chunks = Partition<Doc.Line>()
         let linkAppender = LinkAppender()
-        let appender = NodeAppender {text, linkId, links, after, line in
+        let appender = NodeAppender(title: title, checked: checked, linkId: linkId, links: links) {text, linkId, links, after, line in
             let nsLinks: [(NSRange, String)] = links.map {
                 let (range, lid) = $0
                 return (NSRange(range, in: text), lid)
             }
-            linkAppender.appendLine(shift: self.text.utf16.count, linkId: linkId, nsLinks: nsLinks, line: line)
-            self.text += text
-            return DocData.Text(text: self.chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, guid: nil, backlinks: [])
+            linkAppender.appendLine(shift: fulltext.utf16.count, linkId: linkId, nsLinks: nsLinks, line: line)
+            fulltext += text
+            return DocData.Text(text: chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, guid: nil, backlinks: [])
         }
         appendables.forEach{$0.append(to: appender)}
+        self.text = fulltext
+        self.chunks = chunks
         self.structure = appender.document
         linkAppender.processLinks(fullSize: self.text.utf16.count, linkStructure: self.linkStructure)
     }
@@ -327,6 +329,7 @@ class TextState {
         }
         let baseFont: UIFont
         switch line.parent {
+        case .document(value: _): baseFont = fontCache.titleFont
         case .chapter(value: _): baseFont = fontCache.chapterFont
         case .section(value: _): baseFont = fontCache.sectionFont
         case .subsection(value: _): baseFont = fontCache.subsectionFont

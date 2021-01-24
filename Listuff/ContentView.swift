@@ -9,10 +9,10 @@ import SwiftUI
 //import CoreData
 
 var testDocument = TextState(
+    title: "Test document", checked: false, linkId: "title", links: [],
     appendables: [
         Node(
             text: "Long hierarchy 1",
-            linkId: "linked_node",
             children: [
                 Node(
                     text: "Long hierarchy 2",
@@ -35,7 +35,7 @@ var testDocument = TextState(
                                                         Node(
                                                             text: "Long hierarchy 7, with a dash and a link",
                                                             style: .dash,
-                                                            links: [(36..<40, "linked_node")],
+                                                            links: [(36..<40, "title")],
                                                             children: [
                                                                 Node(
                                                                     text: "Long hierarchy 8, with a bullet, checked",
