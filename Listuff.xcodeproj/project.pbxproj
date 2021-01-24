@@ -30,6 +30,7 @@
 		B5C0BA9825B0E430003C5093 /* DocData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C0BA9725B0E430003C5093 /* DocData.swift */; };
 		B5C0BAA025B1E0BF003C5093 /* IdHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C0BA9F25B1E0BF003C5093 /* IdHolder.swift */; };
 		B5C0BAA825B1E247003C5093 /* LinkStructure.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C0BAA725B1E247003C5093 /* LinkStructure.swift */; };
+		B5F6054925BDE81300EF95D0 /* Structure_del.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F6054825BDE81300EF95D0 /* Structure_del.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -79,6 +80,7 @@
 		B5C0BA9725B0E430003C5093 /* DocData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocData.swift; sourceTree = "<group>"; };
 		B5C0BA9F25B1E0BF003C5093 /* IdHolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdHolder.swift; sourceTree = "<group>"; };
 		B5C0BAA725B1E247003C5093 /* LinkStructure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkStructure.swift; sourceTree = "<group>"; };
+		B5F6054825BDE81300EF95D0 /* Structure_del.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Structure_del.swift; sourceTree = "<group>"; };
 		B5FB2DB925B4C6590001C729 /* _generate_pictures.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = _generate_pictures.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -149,6 +151,7 @@
 				B56B368B25515B1C006C1FA6 /* Preview Content */,
 				B5BEC4C225AB278400E52B5E /* SidebarView.swift */,
 				B5BEC4AD25A9D4AD00E52B5E /* String.swift */,
+				B5F6054825BDE81300EF95D0 /* Structure_del.swift */,
 				B5A165CD25A0A63200B483E3 /* Structure.swift */,
 				B53C4C7225992EC900DCED26 /* TextState.swift */,
 				B5BEC4B725A9F99A00E52B5E /* TextView.swift */,
@@ -313,6 +316,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B53C4C7325992EC900DCED26 /* TextState.swift in Sources */,
+				B5F6054925BDE81300EF95D0 /* Structure_del.swift in Sources */,
 				B5BEC4AE25A9D4AD00E52B5E /* String.swift in Sources */,
 				B56B368F25515B1C006C1FA6 /* Persistence.swift in Sources */,
 				B5BEC4B825A9F99A00E52B5E /* TextView.swift in Sources */,
