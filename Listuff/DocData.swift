@@ -10,9 +10,9 @@ import CoreGraphics
 
 enum DocData: DocumentTypes {
     struct Text {
-        weak var text: Partition<Structure<DocData>.Line>.Node?
+        weak var text: Partition<Structure<DocData>.Line, ()>.Node?
         var guid: UUID?
-        var backlinks: Set<IdHolder<Partition<UUID?>.Node>>
+        var backlinks: Set<IdHolder<Partition<UUID?, ()>.Node>>
     }
     struct Line {
         let version: Int

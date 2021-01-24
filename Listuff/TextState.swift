@@ -11,7 +11,7 @@ import UIKit
 class TextState {
     typealias Dir = Direction
     typealias Doc = Structure<DocData>
-    typealias Chunk = Partition<Doc.Line>.Node
+    typealias Chunk = Partition<Doc.Line, ()>.Node
     typealias EventPublisher = AnyPublisher<Event, Never>
     enum Event {
         case Insert(node: Chunk, range: NSRange)
@@ -52,7 +52,7 @@ class TextState {
         let guid: UUID?
     }
     struct ListItemInfoIterator: Sequence, IteratorProtocol {
-        var lineIterator: Partition<Doc.Line>.Iterator
+        var lineIterator: Partition<Doc.Line, ()>.Iterator
         let textState: TextState
         init(textState: TextState, charRange: NSRange) {
             self.textState = textState
@@ -122,7 +122,7 @@ class TextState {
     let numListPadding = CGFloat(5.0)
 
     var text: String
-    var chunks: Partition<Doc.Line>
+    var chunks: Partition<Doc.Line, ()>
     var structure: Doc.Document
     var fontCache: FontCache
     var renderingCache: RenderingCache
@@ -147,7 +147,7 @@ class TextState {
         self.fontCache = FontCache()
         self.renderingCache = RenderingCache(version: 0)
         var fulltext = ""
-        var chunks = Partition<Doc.Line>()
+        var chunks = Partition<Doc.Line, ()>(parent: ())
         let linkAppender = LinkAppender()
         let appender = NodeAppender(title: title, checked: checked, linkId: linkId, links: links) {text, linkId, links, after, line in
             let nsLinks: [(NSRange, String)] = links.map {
@@ -201,7 +201,7 @@ class TextState {
         switch line.parent {
         case .numbered(value: let value):
             let item = value.value!
-            let width = calculateIndentStep(nlist: item.parent!)
+            let width = calculateIndentStep(nlist: item.this!.partitionParent.value!)
             let index = item.this!.range.location + 1
             indexIndent = width + numListPadding
             accessory = .number(value: "\(index).", indent: paragraphIndent, width: width, font: fontCache.systemFont)
@@ -285,11 +285,11 @@ class TextState {
             switch current.parent {
             case .regular(value: let value):
                 stack.append((current, textState.indentationStep))
-                return value.value!.parent!
+                return value.value!.this!.partitionParent.value!
             case .numbered(value: let value):
-                let parent = value.value!.parent!
+                let parent = value.value!.this!.partitionParent.value!
                 stack.append((current, textState.numIndentStep + textState.calculateIndentStep(nlist: parent)))
-                return parent.parent!
+                return parent.this!.partitionParent.value!
             default:
                 return nil
             }
@@ -314,9 +314,9 @@ class TextState {
     func calculateParIndent(line: Doc.Line) -> CGFloat {
         switch line.parent {
         case .numbered(value: let value):
-            return calculateIndent(list: value.value!.parent!.parent!)
+            return calculateIndent(list: value.value!.this!.partitionParent.value!.this!.partitionParent.value!)
         case .regular(value: let value):
-            return calculateIndent(list: value.value!.parent!)
+            return calculateIndent(list: value.value!.this!.partitionParent.value!)
         default:
             return 0
         }

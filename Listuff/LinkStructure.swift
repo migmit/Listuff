@@ -9,10 +9,10 @@ import Foundation
 
 class LinkStructure {
     typealias Doc = Structure<DocData>
-    var livingLinks: Partition<UUID?> = Partition()
-    var brokenLinks: Partition<UUID?> = Partition()
+    var livingLinks: Partition<UUID?, ()> = Partition(parent: ())
+    var brokenLinks: Partition<UUID?, ()> = Partition(parent: ())
     var linkTargets: [UUID: Doc.Line] = [:]
-    var brokenLinkSources: [UUID: Set<IdHolder<Partition<UUID?>.Node>>] = [:]
+    var brokenLinkSources: [UUID: Set<IdHolder<Partition<UUID?, ()>.Node>>] = [:]
     //    var previews: [UUID: String] = [:]
 }
 

@@ -24,7 +24,7 @@ protocol Sequence {
     mutating func split(node: Node) -> (Self, NSRange, Self)
 }
 
-extension Partition: Sequence {
+extension Partition: Sequence where Parent == () {
     func setLength(node: Node, length: Int) -> NSRange {
         return Partition.setLength(node: node, length: length)
     }
@@ -46,6 +46,13 @@ extension Partition: Sequence {
         return result
     }
     func checkBalanced() -> Bool {
+        func nodeParent(node: Node?) -> Node? {
+            if case .node(value: let parent) = node?.parent {
+                return parent
+            } else {
+                return nil
+            }
+        }
         func checkBalance(node: Node?, level: Int) -> Bool {
             if let current = node {
                 let leftNode = current[.Left]?.node
@@ -53,18 +60,18 @@ extension Partition: Sequence {
                 let leftShift = current.deep(dir: .Left) ? 2 : 1
                 let rightShift = current.deep(dir: .Right) ? 2 : 1
                 return (
-                    (leftNode?.parent ?? current === current) &&
-                    (rightNode?.parent ?? current === current) &&
-                    (leftNode != nil || rightShift == 1) &&
-                    (rightNode != nil || leftShift == 1) &&
-                    (checkBalance(node: leftNode, level: level - leftShift)) &&
-                    (checkBalance(node: rightNode, level: level - rightShift))
+                    (nodeParent(node: leftNode) ?? current === current) &&
+                        (nodeParent(node: rightNode) ?? current === current) &&
+                        (leftNode != nil || rightShift == 1) &&
+                        (rightNode != nil || leftShift == 1) &&
+                        (checkBalance(node: leftNode, level: level - leftShift)) &&
+                        (checkBalance(node: rightNode, level: level - rightShift))
                 )
             } else {
                 return level == 0
             }
         }
-        return root?.parent == nil && checkBalance(node: root, level: rank)
+        return nodeParent(node: root) == nil && checkBalance(node: root, level: rank)
     }
     func getAllNodes() -> [Node] {
         func getSubnodes(node: Node?) -> [Node] {
@@ -287,7 +294,7 @@ func checkSame(t1: (NSRange, Int)?, t2: (NSRange, Int)?) -> Bool {
     }
 }
 func testCommands(cmds: [WAVLCommand]) throws {
-    let tester1 = WAVLTester(tree: Partition())
+    let tester1 = WAVLTester(tree: Partition(parent: ()))
     let tester2 = WAVLTester(tree: SimpleSequence())
     var index = 0
     for cmd in cmds {

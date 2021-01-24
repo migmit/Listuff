@@ -28,21 +28,21 @@ extension Structure.Document: Layer {
         switch line.parent {
         case .regular(value: let regularItem):
             let item = regularItem.value!
-            return item.parent!.fullPath(item: .regular(value: item))
+            return item.this!.partitionParent.value!.fullPath(item: .regular(value: item))
         case .numbered(value: let numberedItem):
             let item = numberedItem.value!
-            let numberedList = item.parent!
-            return numberedList.parent!.fullPath(item: .numbered(list: numberedList, value: item))
+            let numberedList = item.this!.partitionParent.value!
+            return numberedList.this!.partitionParent.value!.fullPath(item: .numbered(list: numberedList, value: item))
         case .document(value: let doc): return doc.value!.fullPath(item: nil)
         case .chapter(value: let chapter):
             let item = chapter.value!
-            return item.parent!.fullPath(item: item)
+            return item.this!.partitionParent.value!.fullPath(item: item)
         case .section(value: let section):
             let item = section.value!
-            return item.parent!.fullPath(item: item)
+            return item.this!.partitionParent.value!.fullPath(item: item)
         case .subsection(value: let subsection):
             let item = subsection.value!
-            return item.parent!.fullPath(item: item)
+            return item.this!.partitionParent.value!.fullPath(item: item)
         }
     }
 }
@@ -56,7 +56,7 @@ extension Structure.ChapterContent: Layer {
         case .document(value: let document): return .step(continuation: {document.value!.appendPath(item: nil, path: consPath)})
         case .chapter(value: let chapter):
             let upItem = chapter.value!
-            return .step(continuation: {upItem.parent!.appendPath(item: upItem, path: consPath)})
+            return .step {upItem.this!.partitionParent.value!.appendPath(item: upItem, path: consPath)}
         }
     }
 }
@@ -70,7 +70,7 @@ extension Structure.SectionContent: Layer {
         case .chapter(value: let chapterContent): return .step(continuation: {chapterContent.value!.appendPath(item: nil, path: consPath)})
         case .section(value: let section):
             let upItem = section.value!
-            return .step(continuation: {upItem.parent!.appendPath(item: upItem, path: consPath)})
+            return .step {upItem.this!.partitionParent.value!.appendPath(item: upItem, path: consPath)}
         }
     }
 }
@@ -86,15 +86,15 @@ extension Structure.List: Layer {
         switch parent {
         case .regular(value: let regularItem):
             let upItem = regularItem.value!
-            return .step(continuation: {regularItem.value!.parent!.appendPath(item: .regular(value: upItem), path: consPath)})
+            return .step {upItem.this!.partitionParent.value!.appendPath(item: .regular(value: upItem), path: consPath)}
         case .numbered(value: let numberedItem):
             let upItem = numberedItem.value!
-            let upList = upItem.parent!
-            return .step(continuation: {numberedItem.value!.parent!.parent!.appendPath(item: .numbered(list: upList, value: upItem), path: consPath)})
+            let upList = upItem.this!.partitionParent.value!
+            return .step {upList.this!.partitionParent.value!.appendPath(item: .numbered(list: upList, value: upItem), path: consPath)}
         case .section(value: let sectionContent): return .step(continuation: {sectionContent.value!.appendPath(item: nil, path: consPath)})
         case .subsection(value: let subsection):
             let upItem = subsection.value!
-            return .step(continuation: {upItem.parent!.appendPath(item: upItem, path: consPath)})
+            return .step {upItem.this!.partitionParent.value!.appendPath(item: upItem, path: consPath)}
         }
     }
 }
