@@ -99,7 +99,7 @@ class NodeAppender {
     var subsection: Doc.SubSection?
     var list: Doc.List
     var item: AppendedItem?
-    var line: Doc.Line?
+    var line: Doc.Line
     init(title: String, checked: Bool? = nil, linkId: String? = nil, links: [(Range<Int>, String)], insertLine: @escaping (String, LineId?, [(Range<String.Index>, LineId)], Doc.Line?, Doc.Line) -> DocData.Text) {
         self.callback = {content, linkId, links, after in {insertLine(content + "\n", linkId, links, after, $0)}}
         let appendableTitle = AppendableBase(text: title, checked: checked, linkId: linkId, links: links)
