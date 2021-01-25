@@ -528,4 +528,8 @@ struct Partition<V, P>: Sequence {
         if current === root {self = Partition(parent: self.parent)}
         return (Partition(root: results[.Left], rank: oldRank + ranks[.Left], parent: self.parent), NSMakeRange(shift - length, length), Partition(root: results[.Right], rank: oldRank + ranks[.Right], parent: self.parent))
     }
+    mutating func retarget(newParent: Parent) {
+        parent = newParent
+        root?.detach(parent: newParent)
+    }
 }

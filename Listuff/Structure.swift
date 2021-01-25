@@ -64,9 +64,6 @@ enum Structure<DT: DocumentTypes> {
             section.this = items.insert(value: section, length: 1, dir: dir, near: nearItem?.this).0
             return section
         }
-        func join(other: inout Partition<Section, WeakProxy<ChapterContent>>) {
-            items.union(with: &other)
-        }
     }
     class Section {
         var header: Line
@@ -94,9 +91,6 @@ enum Structure<DT: DocumentTypes> {
             let subsection = SubSection(checked: checked, callback: callback)
             subsection.this = items.insert(value: subsection, length: 1, dir: dir, near: nearItem?.this).0
             return subsection
-        }
-        func join(other: inout Partition<SubSection, WeakProxy<SectionContent>>) {
-            items.union(with: &other)
         }
     }
     class SubSection {
@@ -130,13 +124,6 @@ enum Structure<DT: DocumentTypes> {
             numberedList.this = items.insert(value: .numbered(value: numberedList), length: 1, dir: dir, near: nearItem?.this).0
             let item = numberedList.insertLine(checked: checked, dir: dir, nearItem: nil, callback: callback)
             return (numberedList, item)
-        }
-        func join(other: inout Partition<Item, WeakProxy<List>>) {
-            if case .numbered(value: let otherNumbered) = other.sideValue(dir: .Left), case .numbered(value: let thisNumbered) = items.sideValue(dir: .Right) {
-                thisNumbered.join(other: otherNumbered)
-                _ = other.remove(node: otherNumbered.this!)
-            }
-            items.union(with: &other)
         }
     }
     enum Item {
