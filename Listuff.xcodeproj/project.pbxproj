@@ -155,9 +155,9 @@
 				B5BEC4AD25A9D4AD00E52B5E /* String.swift */,
 				B5F6054825BDE81300EF95D0 /* Structure_del.swift */,
 				B5A165CD25A0A63200B483E3 /* Structure.swift */,
+				B5F6055925BEB62900EF95D0 /* TailCall.swift */,
 				B53C4C7225992EC900DCED26 /* TextState.swift */,
 				B5BEC4B725A9F99A00E52B5E /* TextView.swift */,
-				B5F6055925BEB62900EF95D0 /* TailCall.swift */,
 			);
 			path = Listuff;
 			sourceTree = "<group>";
