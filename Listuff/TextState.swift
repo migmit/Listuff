@@ -149,14 +149,14 @@ class TextState {
         var fulltext = ""
         var chunks = Partition<Doc.Line, ()>(parent: ())
         let linkAppender = LinkAppender()
-        let appender = NodeAppender(title: title, checked: checked, linkId: linkId, links: links) {text, linkId, links, after, line in
+        let appender = NodeAppender(title: title, checked: checked, linkId: linkId, links: links) {text, linkId, links, line in
             let nsLinks: [(NSRange, String)] = links.map {
                 let (range, lid) = $0
                 return (NSRange(range, in: text), lid)
             }
             linkAppender.appendLine(shift: fulltext.utf16.count, linkId: linkId, nsLinks: nsLinks, line: line)
             fulltext += text
-            return DocData.Text(text: chunks.insert(value: line, length: text.utf16.count, dir: .Right, near: after?.content?.text).0, guid: nil, backlinks: [])
+            return DocData.Text(text: chunks.insert(value: line, length: text.utf16.count, dir: .Left, near: nil).0, guid: nil, backlinks: [])
         }
         appendables.forEach{$0.append(to: appender)}
         self.text = fulltext
