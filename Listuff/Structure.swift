@@ -16,7 +16,7 @@ protocol DocumentTypes {
 
 enum Structure<DT: DocumentTypes> {
     typealias LineCallback = (Line) -> DT.Text
-    class WeakProxy<C: AnyObject> {
+    final class WeakProxy<C: AnyObject> {
         weak var value: C?
     }
     class Document {
