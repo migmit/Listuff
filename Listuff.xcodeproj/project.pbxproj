@@ -31,6 +31,7 @@
 		B5C0BAA025B1E0BF003C5093 /* IdHolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C0BA9F25B1E0BF003C5093 /* IdHolder.swift */; };
 		B5C0BAA825B1E247003C5093 /* LinkStructure.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C0BAA725B1E247003C5093 /* LinkStructure.swift */; };
 		B5F6054925BDE81300EF95D0 /* Structure_del.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F6054825BDE81300EF95D0 /* Structure_del.swift */; };
+		B5F6055A25BEB62900EF95D0 /* TailCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F6055925BEB62900EF95D0 /* TailCall.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -81,6 +82,7 @@
 		B5C0BA9F25B1E0BF003C5093 /* IdHolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdHolder.swift; sourceTree = "<group>"; };
 		B5C0BAA725B1E247003C5093 /* LinkStructure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkStructure.swift; sourceTree = "<group>"; };
 		B5F6054825BDE81300EF95D0 /* Structure_del.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Structure_del.swift; sourceTree = "<group>"; };
+		B5F6055925BEB62900EF95D0 /* TailCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TailCall.swift; sourceTree = "<group>"; };
 		B5FB2DB925B4C6590001C729 /* _generate_pictures.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = _generate_pictures.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -155,6 +157,7 @@
 				B5A165CD25A0A63200B483E3 /* Structure.swift */,
 				B53C4C7225992EC900DCED26 /* TextState.swift */,
 				B5BEC4B725A9F99A00E52B5E /* TextView.swift */,
+				B5F6055925BEB62900EF95D0 /* TailCall.swift */,
 			);
 			path = Listuff;
 			sourceTree = "<group>";
@@ -334,6 +337,7 @@
 				B56B368825515B1B006C1FA6 /* ContentView.swift in Sources */,
 				B56B368625515B1B006C1FA6 /* ListuffApp.swift in Sources */,
 				B533488C2573D1570008FB49 /* ObservableProxy.swift in Sources */,
+				B5F6055A25BEB62900EF95D0 /* TailCall.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -11,7 +11,7 @@ protocol Layer {
     associatedtype Document: Layer
     associatedtype SubLayer: Layer
     associatedtype SubItem
-    func appendPath(item: SubItem, path: LayerPath<SubLayer>?) -> DelayedCalculation<LayerPath<Document>>
+    func appendPath(item: SubItem, path: LayerPath<SubLayer>?) -> TailCall<LayerPath<Document>>
 }
 extension Layer {
     func fullPath(item: SubItem) -> LayerPath<Document> {appendPath(item: item, path: nil).result}
@@ -21,7 +21,7 @@ extension Structure.Document: Layer {
     typealias Document = Structure.Document
     typealias SubLayer = Structure.ChapterContent
     typealias SubItem = Structure.Chapter?
-    func appendPath(item: SubItem, path: LayerPath<SubLayer>?) -> DelayedCalculation<LayerPath<Document>> {
+    func appendPath(item: SubItem, path: LayerPath<SubLayer>?) -> TailCall<LayerPath<Document>> {
         .done(result: LayerPath(head: self, item: item, tail: path))
     }
     func linePath(line: Structure.Line) -> LayerPath<Document> {
@@ -50,7 +50,7 @@ extension Structure.ChapterContent: Layer {
     typealias Document = Structure.Document
     typealias SubLayer = Structure.SectionContent
     typealias SubItem = Structure.Section?
-    func appendPath(item: SubItem, path: LayerPath<SubLayer>?) -> DelayedCalculation<LayerPath<Document>> {
+    func appendPath(item: SubItem, path: LayerPath<SubLayer>?) -> TailCall<LayerPath<Document>> {
         let consPath = LayerPath(head: self, item: item, tail: path)
         switch parent {
         case .document(value: let document): return .step(continuation: {document.value!.appendPath(item: nil, path: consPath)})
@@ -64,7 +64,7 @@ extension Structure.SectionContent: Layer {
     typealias Document = Structure.Document
     typealias SubLayer = Structure.List
     typealias SubItem = Structure.SubSection?
-    func appendPath(item: SubItem, path: LayerPath<SubLayer>?) -> DelayedCalculation<LayerPath<Document>> {
+    func appendPath(item: SubItem, path: LayerPath<SubLayer>?) -> TailCall<LayerPath<Document>> {
         let consPath = LayerPath(head: self, item: item, tail: path)
         switch parent {
         case .chapter(value: let chapterContent): return .step(continuation: {chapterContent.value!.appendPath(item: nil, path: consPath)})
@@ -81,7 +81,7 @@ extension Structure.List: Layer {
         case regular(value: Structure.RegularItem)
         case numbered(list: Structure.NumberedList, value: Structure.NumberedItem)
     }
-    func appendPath(item: SubItem, path: LayerPath<SubLayer>?) -> DelayedCalculation<LayerPath<Document>> {
+    func appendPath(item: SubItem, path: LayerPath<SubLayer>?) -> TailCall<LayerPath<Document>> {
         let consPath = LayerPath(head: self, item: item, tail: path)
         switch parent {
         case .regular(value: let regularItem):
@@ -107,19 +107,5 @@ class LayerPath<From: Layer> {
         self.head = head
         self.item = item
         self.tail = tail
-    }
-}
-
-enum DelayedCalculation<T> {
-    case done(result: T)
-    case step(continuation: () -> DelayedCalculation<T>)
-    var result: T {
-        var current = self
-        while true {
-            switch current {
-            case .done(result: let result): return result
-            case .step(continuation: let cont): current = cont()
-            }
-        }
     }
 }
