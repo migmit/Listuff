@@ -238,7 +238,7 @@ extension Structure.List: Layer {
         listData = nil
         if case .numbered(value: let otherNumbered) = newItems.sideValue(dir: .Left), case .numbered(value: let thisNumbered) = items.sideValue(dir: .Right) {
             thisNumbered.listData = nil
-            thisNumbered.join(other: otherNumbered)
+            thisNumbered.items.union(with: &otherNumbered.items)
             _ = newItems.remove(node: otherNumbered.this!)
         }
         items.union(with: &newItems)

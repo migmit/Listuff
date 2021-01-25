@@ -175,10 +175,6 @@ enum Structure<DT: DocumentTypes> {
         var count: Int {
             return items.totalLength()
         }
-        func join(other: NumberedList) {
-            items.union(with: &other.items)
-            listData = nil
-        }
     }
     class NumberedItem {
         var content: Line
