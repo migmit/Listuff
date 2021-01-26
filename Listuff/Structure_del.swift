@@ -34,15 +34,23 @@ extension Layer {
         }
     }
     func copyAfterPath(other: Self, path: LayerPath<Self>?) -> TailCall<()> {
-        guard let p = path else {
-            empty().result
-            return copyFrom(other: other)
-        }
+        guard let p = path else {return copyFrom(other: other)}
         let nextLayer = other.sublayer(item: p.item)
         var itms = other.splitOff(item: p.item)
-        emptyLayer()
         let subLayer = prependSubitems(newItems: &itms)
         return .step {subLayer.copyAfterPath(other: nextLayer, path: p.tail)}
+    }
+    func emptyAndCopyAfterPath(other: Self, path: LayerPath<Self>?) -> TailCall<()> {
+        guard other === self else {
+            empty().result // not doing emptyLayer in each copyAfterPath iteration, because the layer might stay the same, and we will undo our own work from the previous iteration
+            return copyAfterPath(other: other, path: path)
+        }
+        guard let p = path else {return .done(result: ())}
+        let nextLayer = sublayer(item: p.item)
+        var itms = splitOff(item: p.item)
+        emptyLayer()
+        let subLayer = prependSubitems(newItems: &itms)
+        return .step {subLayer.emptyAndCopyAfterPath(other: nextLayer, path: p.tail)}
     }
     func cutOffAfterPath(path: LayerPath<Self>?) -> TailCall<()> {
         guard let p = path else {return .done(result: ())}
@@ -51,10 +59,7 @@ extension Layer {
         return .step {sub.cutOffAfterPath(path: p.tail)}
     }
     func putAfterPath(path: LayerPath<Self>?, other: Self) -> TailCall<()> {
-        guard let p = path else {
-            empty().result
-            return copyFrom(other: other)
-        }
+        guard let p = path else {return copyFrom(other: other)}
         var (defaultSublayer, itms) = other.allChildren()
         let subLayer = sublayer(item: p.item)
         _ = splitOff(item: p.item)
@@ -67,17 +72,16 @@ extension Layer {
     }
     func cutBetweenPaths(thisPath: LayerPath<Self>?, other: Self, otherPath: LayerPath<Self>?) -> TailCall<()> {
         guard let path1 = thisPath else {
-            return copyAfterPath(other: other, path: otherPath)
+            return emptyAndCopyAfterPath(other: other, path: otherPath)
         }
         guard let path2 = otherPath else {return putAfterPath(path: path1, other: other)}
         let sub1 = sublayer(item: path1.item)
-        guard other !== self || !Self.itemsAreSame(item1: path1.item, item2: path2.item) else {
-            return .step {sub1.cutBetweenPaths(thisPath: path1.tail, other: sub1, otherPath: path2.tail)}
-        }
         let sub2 = other.sublayer(item: path2.item)
-        var itms = other.splitOff(item: path2.item)
-        _ = splitOff(item: path1.item)
-        appendSubitems(newItems: &itms)
+        if other !== self || !Self.itemsAreSame(item1: path1.item, item2: path2.item) {
+            var itms = other.splitOff(item: path2.item)
+            _ = splitOff(item: path1.item)
+            appendSubitems(newItems: &itms)
+        }
         return .step {sub1.cutBetweenPaths(thisPath: path1.tail, other: sub2, otherPath: path2.tail)}
     }
 }
