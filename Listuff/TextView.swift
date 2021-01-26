@@ -185,6 +185,7 @@ struct HierarchyViewImpl: UIViewRepresentable {
         }
         
         @objc func tapped(gestureRecognizer: UIGestureRecognizer) {
+//            content.structure.cutBetweenLines(after: content.structure.header, upto: (content.structure.items.sideValue(dir: .Right)!.content.beforeItems.beforeItems.items.sideValue(dir: .Right)!.impl as! Structure.RegularItem).content)
             let location = gestureRecognizer.location(in: self)
             let realLocation = location.shift(by: CGVector(dx: -textContainerInset.left, dy: -textContainerInset.top))
             let idx = layoutManager.characterIndex(for: realLocation, in: container, fractionOfDistanceBetweenInsertionPoints: nil)

@@ -7,31 +7,91 @@
 
 import Foundation
 
-protocol Layer {
+fileprivate protocol Layer: AnyObject {
     associatedtype Document: Layer
     associatedtype SubLayer: Layer
     associatedtype SubItem
     associatedtype SubItemCollection
     func appendPath(item: SubItem, path: LayerPath<SubLayer>?) -> TailCall<LayerPath<Document>>
     static func itemsAreSame(item1: SubItem, item2: SubItem) -> Bool
-    func sublayer(item: SubItem) -> SubLayer?
+    func sublayer(item: SubItem) -> SubLayer
     func splitOff(item: SubItem) -> SubItemCollection
-    func join(newItems: inout SubItemCollection)
+    func appendSubitems(newItems: inout SubItemCollection)
+    func prependSubitems(newItems: inout SubItemCollection) -> SubLayer
+    func empty() -> TailCall<()>
+    func emptyLayer()
+    func allChildren() -> (SubLayer?, SubItemCollection)
 }
 extension Layer {
     func fullPath(item: SubItem) -> LayerPath<Document> {appendPath(item: item, path: nil).result}
+    func copyFrom(other: Self) -> TailCall<()> {
+        var (defaultSublayer, itms) = other.allChildren()
+        let subLayer = prependSubitems(newItems: &itms)
+        if let next = defaultSublayer {
+            return .step {subLayer.copyFrom(other: next)}
+        } else {
+            return .done(result: ())
+        }
+    }
+    func copyAfterPath(other: Self, path: LayerPath<Self>?) -> TailCall<()> {
+        guard let p = path else {
+            empty().result
+            return copyFrom(other: other)
+        }
+        let nextLayer = other.sublayer(item: p.item)
+        var itms = other.splitOff(item: p.item)
+        emptyLayer()
+        let subLayer = prependSubitems(newItems: &itms)
+        return .step {subLayer.copyAfterPath(other: nextLayer, path: p.tail)}
+    }
+    func cutOffAfterPath(path: LayerPath<Self>?) -> TailCall<()> {
+        guard let p = path else {return .done(result: ())}
+        _ = splitOff(item: p.item)
+        let sub = sublayer(item: p.item)
+        return .step {sub.cutOffAfterPath(path: p.tail)}
+    }
+    func putAfterPath(path: LayerPath<Self>?, other: Self) -> TailCall<()> {
+        guard let p = path else {
+            empty().result
+            return copyFrom(other: other)
+        }
+        var (defaultSublayer, itms) = other.allChildren()
+        let subLayer = sublayer(item: p.item)
+        _ = splitOff(item: p.item)
+        appendSubitems(newItems: &itms)
+        if let next = defaultSublayer {
+            return .step {subLayer.putAfterPath(path: p.tail, other: next)}
+        } else {
+            return subLayer.cutOffAfterPath(path: p.tail)
+        }
+    }
+    func cutBetweenPaths(thisPath: LayerPath<Self>?, other: Self, otherPath: LayerPath<Self>?) -> TailCall<()> {
+        guard let path1 = thisPath else {
+            return copyAfterPath(other: other, path: otherPath)
+        }
+        guard let path2 = otherPath else {return putAfterPath(path: path1, other: other)}
+        let sub1 = sublayer(item: path1.item)
+        guard other !== self || !Self.itemsAreSame(item1: path1.item, item2: path2.item) else {
+            return .step {sub1.cutBetweenPaths(thisPath: path1.tail, other: sub1, otherPath: path2.tail)}
+        }
+        let sub2 = other.sublayer(item: path2.item)
+        var itms = other.splitOff(item: path2.item)
+        _ = splitOff(item: path1.item)
+        appendSubitems(newItems: &itms)
+        return .step {sub1.cutBetweenPaths(thisPath: path1.tail, other: sub2, otherPath: path2.tail)}
+    }
 }
 
-protocol WeakProxyProtocol: AnyObject {
+fileprivate protocol WeakProxyProtocol: AnyObject {
     associatedtype C
     var value: C? {get set}
     init()
 }
 extension Structure.WeakProxy: WeakProxyProtocol {}
 
-protocol ItemSection: AnyObject {
+fileprivate protocol ItemSection: AnyObject {
     associatedtype ParentProxy
-    associatedtype Content
+    associatedtype Content: Layer
     var this: Partition<Self, ParentProxy>.Node? {get set}
     var content: Content {get}
 }
@@ -39,7 +99,7 @@ extension Structure.Chapter: ItemSection {}
 extension Structure.Section: ItemSection {}
 extension Structure.SubSection: ItemSection {}
 
-protocol SectionLayer: AnyObject {
+fileprivate protocol SectionLayer: AnyObject {
     associatedtype ConcreteItem: ItemSection where ConcreteItem.ParentProxy == WProxy
     associatedtype WProxy: WeakProxyProtocol where WProxy.C == Self
     var beforeItems: ConcreteItem.Content {get set}
@@ -49,7 +109,7 @@ extension SectionLayer {
     static func itemsAreSame(item1: ConcreteItem?, item2: ConcreteItem?) -> Bool {
         return item1 === item2
     }
-    func sublayer(item: ConcreteItem?) -> ConcreteItem.Content? {
+    func sublayer(item: ConcreteItem?) -> ConcreteItem.Content {
         if let i = item {
             return i.content
         } else {
@@ -70,16 +130,38 @@ extension SectionLayer {
             return result
         }
     }
-    func join(newItems: inout Partition<ConcreteItem, WProxy>) {
+    func appendSubitems(newItems: inout Partition<ConcreteItem, WProxy>) {
         items.union(with: &newItems)
+    }
+    func empty() -> TailCall<()> {
+        let proxy = WProxy()
+        proxy.value = self
+        items = Partition(parent: proxy)
+        return .step {self.beforeItems.empty()}
+    }
+    func emptyLayer() {
+        let proxy = WProxy()
+        proxy.value = self
+        items = Partition(parent: proxy)
+    }
+    func prependSubitems(newItems: inout Partition<ConcreteItem, WProxy>) -> ConcreteItem.Content {
+        newItems.union(with: &items)
+        items = newItems
+        let proxy = WProxy()
+        proxy.value = self
+        items.retarget(newParent: proxy)
+        return beforeItems
+    }
+    func allChildren() -> (ConcreteItem.Content?, Partition<ConcreteItem, WProxy>) {
+        return (beforeItems, items)
     }
 }
 
 extension Structure.Document: SectionLayer, Layer {
-    func appendPath(item: Structure.Chapter?, path: LayerPath<Structure.ChapterContent>?) -> TailCall<LayerPath<Structure.Document>> {
+    fileprivate func appendPath(item: Structure.Chapter?, path: LayerPath<Structure.ChapterContent>?) -> TailCall<LayerPath<Structure.Document>> {
         .done(result: LayerPath(item: item, tail: path))
     }
-    func linePath(line: Structure.Line) -> LayerPath<Structure.Document> {
+    fileprivate func linePath(line: Structure.Line) -> LayerPath<Structure.Document>? {
         switch line.parent {
         case .regular(value: let regularItem):
             let item = regularItem.value!
@@ -88,7 +170,7 @@ extension Structure.Document: SectionLayer, Layer {
             let item = numberedItem.value!
             let numberedList = item.this!.partitionParent.value!
             return numberedList.this!.partitionParent.value!.fullPath(item: .numbered(list: numberedList, value: item))
-        case .document(value: let doc): return doc.value!.fullPath(item: nil)
+        case .document(value: _): return nil
         case .chapter(value: let chapter):
             let item = chapter.value!
             return item.this!.partitionParent.value!.fullPath(item: item)
@@ -100,9 +182,14 @@ extension Structure.Document: SectionLayer, Layer {
             return item.this!.partitionParent.value!.fullPath(item: item)
         }
     }
+    func cutBetweenLines(after: Structure.Line, upto: Structure.Line) {
+        let afterPath = linePath(line: after)
+        let uptoPath = linePath(line: upto)
+        cutBetweenPaths(thisPath: afterPath, other: self, otherPath: uptoPath).result
+    }
 }
 extension Structure.ChapterContent: SectionLayer, Layer {
-    func appendPath(item: Structure.Section?, path: LayerPath<Structure.SectionContent>?) -> TailCall<LayerPath<Structure.Document>> {
+    fileprivate func appendPath(item: Structure.Section?, path: LayerPath<Structure.SectionContent>?) -> TailCall<LayerPath<Structure.Document>> {
         let consPath = LayerPath<Structure.ChapterContent>(item: item, tail: path)
         switch parent {
         case .document(value: let document): return .step(continuation: {document.value!.appendPath(item: nil, path: consPath)})
@@ -113,7 +200,7 @@ extension Structure.ChapterContent: SectionLayer, Layer {
     }
 }
 extension Structure.SectionContent: SectionLayer, Layer {
-    func appendPath(item: Structure.SubSection?, path: LayerPath<Structure.List>?) -> TailCall<LayerPath<Structure.Document>> {
+    fileprivate func appendPath(item: Structure.SubSection?, path: LayerPath<Structure.List>?) -> TailCall<LayerPath<Structure.Document>> {
         let consPath = LayerPath<Structure.SectionContent>(item: item, tail: path)
         switch parent {
         case .chapter(value: let chapterContent): return .step(continuation: {chapterContent.value!.appendPath(item: nil, path: consPath)})
@@ -124,12 +211,12 @@ extension Structure.SectionContent: SectionLayer, Layer {
     }
 }
 extension Structure.List: Layer {
-    enum SubItem {
+    fileprivate enum SubItem {
         case regular(value: Structure.RegularItem)
         case numbered(list: Structure.NumberedList, value: Structure.NumberedItem)
     }
-    typealias SubItemCollection = Partition<Structure.Item, Structure.WeakProxy<Structure.List>>
-    func appendPath(item: SubItem, path: LayerPath<Structure.List>?) -> TailCall<LayerPath<Structure.Document>> {
+    fileprivate typealias ListItemCollection = Partition<Structure.Item, Structure.WeakProxy<Structure.List>>
+    fileprivate func appendPath(item: SubItem, path: LayerPath<Structure.List>?) -> TailCall<LayerPath<Structure.Document>> {
         let consPath = LayerPath<Structure.List>(item: item, tail: path)
         switch parent {
         case .regular(value: let regularItem):
@@ -145,7 +232,7 @@ extension Structure.List: Layer {
             return .step {upItem.this!.partitionParent.value!.appendPath(item: upItem, path: consPath)}
         }
     }
-    static func itemsAreSame(item1: SubItem, item2: SubItem) -> Bool {
+    fileprivate static func itemsAreSame(item1: SubItem, item2: SubItem) -> Bool {
         switch item1 {
         case .regular(value: let regularItem):
             if case .regular(value: let otherRegularItem) = item2 {
@@ -161,14 +248,13 @@ extension Structure.List: Layer {
             }
         }
     }
-    func sublayer(item: SubItem) -> SubLayer? {
+    fileprivate func sublayer(item: SubItem) -> Structure.List {
         switch item {
         case .regular(value: let regularItem): return regularItem.sublist
         case .numbered(list: _, value: let numberedItem): return numberedItem.sublist
         }
     }
-    func splitOff(item: SubItem) -> SubItemCollection {
-        listData = nil
+    fileprivate func splitOff(item: SubItem) -> ListItemCollection {
         switch(item) {
         case .regular(value: let regularItem):
             let (before, _, after) = items.split(node: regularItem.this!)
@@ -176,7 +262,6 @@ extension Structure.List: Layer {
             regularItem.this = items.insert(value: .regular(value: regularItem), length: 1, dir: .Left).0
             return after
         case .numbered(list: let numberedList, value: let numberedItem):
-            numberedList.listData = nil
             var (before, _, after) = items.split(node: numberedList.this!)
             items = before
             let (numBefore, _, numAfter) = numberedList.items.split(node: numberedItem.this!)
@@ -192,18 +277,38 @@ extension Structure.List: Layer {
             return after
         }
     }
-    func join(newItems: inout SubItemCollection) {
-        listData = nil
+    fileprivate func appendSubitems(newItems: inout ListItemCollection) {
         if case .numbered(value: let otherNumbered) = newItems.sideValue(dir: .Left), case .numbered(value: let thisNumbered) = items.sideValue(dir: .Right) {
-            thisNumbered.listData = nil
             thisNumbered.items.union(with: &otherNumbered.items)
             _ = newItems.remove(node: otherNumbered.this!)
         }
         items.union(with: &newItems)
     }
+    fileprivate func empty() -> TailCall<()> {
+        let listProxy = Structure.WeakProxy<Structure.List>()
+        listProxy.value = self
+        items = Partition(parent: listProxy)
+        return .done(result: ())
+    }
+    fileprivate func emptyLayer() {
+        let listProxy = Structure.WeakProxy<Structure.List>()
+        listProxy.value = self
+        items = Partition(parent: listProxy)
+    }
+    fileprivate func prependSubitems(newItems: inout ListItemCollection) -> Structure<DT>.List {
+        let listProxy = Structure.WeakProxy<Structure.List>()
+        listProxy.value = self
+        newItems.retarget(newParent: listProxy)
+        newItems.union(with: &items)
+        items = newItems
+        return self
+    }
+    fileprivate func allChildren() -> (Structure.List?, ListItemCollection) {
+        return (nil, items)
+    }
 }
 
-class LayerPath<From: Layer> {
+fileprivate class LayerPath<From: Layer> {
     let item: From.SubItem
     let tail: LayerPath<From.SubLayer>?
     init(item: From.SubItem, tail: LayerPath<From.SubLayer>?) {
