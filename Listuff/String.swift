@@ -25,4 +25,7 @@ extension String {
         (self as NSString).getLineStart(nil, end: nil, contentsEnd: &result, for: NSRange.empty(at: pos))
         return result
     }
+    mutating func remove(nsRange: NSRange) -> Bool {
+        return Range(nsRange, in: self).map{removeSubrange($0)} != nil
+    }
 }
