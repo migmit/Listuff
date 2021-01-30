@@ -274,7 +274,7 @@ class TextState {
         if let listData = nlist.listData, listData.version == renderingCache.version {
             return listData.indentStep
         }
-        let indentStep = renderingCache.numWidth(num: nlist.items.totalLength(), font: fontCache.systemFont)
+        let indentStep = renderingCache.numWidth(num: nlist.count, font: fontCache.systemFont)
         nlist.listData = DocData.NumberedList(version: renderingCache.version, indentStep: indentStep)
         return indentStep
     }

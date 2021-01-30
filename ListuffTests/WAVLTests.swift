@@ -71,7 +71,7 @@ extension Partition: Sequence where Parent == () {
                 return level == 0
             }
         }
-        return nodeParent(node: root) == nil && checkBalance(node: root, level: rank)
+        return nodeParent(node: root) == nil && checkBalance(node: root, level: root?.totalLengthAndRank().1 ?? 0)
     }
     func getAllNodes() -> [Node] {
         func getSubnodes(node: Node?) -> [Node] {

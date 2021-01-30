@@ -111,14 +111,19 @@ struct Partition<V, P>: Sequence {
             while let child = current[.Left]?.node {current = child}
             return current
         }
-        func totalLength() -> Int {
-            var result = end
+        func totalLengthAndRank() -> (Int, Int) {
+            var len = end
             var current = self
+            var rank = current.deep(dir: .Right) ? 2 : 1
             while let sub = current[.Right]?.node {
                 current = sub
-                result += current.end
+                len += current.end
+                rank += current.deep(dir: .Right) ? 2 : 1
             }
-            return result
+            return (len, rank)
+        }
+        func totalLength() -> Int {
+            totalLengthAndRank().0
         }
         func near(dir: Direction) -> Node? {
             if let n = self[dir]?.node {
@@ -157,14 +162,12 @@ struct Partition<V, P>: Sequence {
         }
     }
     private(set) var root: Node? = nil
-    private(set) var rank: Int = 0
     private var parent: Parent
     init(parent: Parent) {
         self.parent = parent
     }
-    private init(root: Node?, rank: Int, parent: Parent) {
+    private init(root: Node?, parent: Parent) {
         self.root = root
-        self.rank = rank
         self.parent = parent
         root?.detach(parent: parent)
     }
@@ -263,7 +266,7 @@ struct Partition<V, P>: Sequence {
         _ = node.advance(dir: .Left, length: advance)
         return NSMakeRange(shift + advanceRecurse(node: node, length: advance), oldLength)
     }
-    private mutating func insertRebalance(startWith: Node, topChild: Node, subDeep: Bool, subOtherDeep: Bool, dir: Direction, length: Int) -> Int {
+    private mutating func insertRebalance(startWith: Node, topChild: Node, subDeep: Bool, subOtherDeep: Bool, dir: Direction, length: Int) -> (Int, Bool) { // node left shift, was it raised?
         var current = startWith
         var child = topChild
         var isDeep = subDeep
@@ -274,10 +277,7 @@ struct Partition<V, P>: Sequence {
             child = current
             current[side.other]?.deep = true
             shift += current.advance(dir: side, length: length)
-            guard let childInfo = current.getChildInfo() else {
-                rank += 1
-                return shift
-            }
+            guard let childInfo = current.getChildInfo() else {return (shift, true)}
             (current, side, isDeep) = childInfo
             isOtherDeep = current.deep(dir: side.other)
         }
@@ -308,12 +308,11 @@ struct Partition<V, P>: Sequence {
             child[side.other] = current.mkSubNode(deep: false)
             shift += Partition.advanceRecurse(node: child, length: length)
         }
-        return shift
+        return (shift, false)
     }
     mutating func insert(value: V, length: Int, dir: Direction = .Right, near: Node? = nil) -> (Node, Int) {
         let newNode = Node(value: value, length: length, parent: parent)
         guard let r = root else {
-            rank = 1
             root = newNode
             return (newNode, 0)
         }
@@ -322,7 +321,7 @@ struct Partition<V, P>: Sequence {
         let isDeep = current.deep(dir: side)
         let isOtherDeep = current.deep(dir: side.other)
         current[side] = newNode.mkSubNode(deep: false)
-        return (newNode, insertRebalance(startWith: current, topChild: newNode, subDeep: isDeep, subOtherDeep: isOtherDeep, dir: side, length: length))
+        return (newNode, insertRebalance(startWith: current, topChild: newNode, subDeep: isDeep, subOtherDeep: isOtherDeep, dir: side, length: length).0)
     }
     mutating func remove(node: Node) -> NSRange {
         var current: Node
@@ -363,7 +362,6 @@ struct Partition<V, P>: Sequence {
         } else {
             guard let childInfo = node.getChildInfo() else {
                 if root === node {
-                    rank -= 1
                     root = node[.Right]?.node
                     root?.detach(parent: parent)
                 }
@@ -374,20 +372,14 @@ struct Partition<V, P>: Sequence {
         }
         if !isDeep && current[dir] == nil && current[dir.other] == nil {
             shift += current.advance(dir: dir, length: -length)
-            guard let childInfo = current.getChildInfo() else {
-                rank -= 1
-                return NSMakeRange(shift, length)
-            }
+            guard let childInfo = current.getChildInfo() else {return NSMakeRange(shift, length)}
             (current, dir, isDeep) = childInfo
         }
         while isDeep {
             if current.deep(dir: dir.other) {
                 shift += current.advance(dir: dir, length: -length)
                 current[dir.other]?.deep = false
-                guard let childInfo = current.getChildInfo() else {
-                    rank -= 1
-                    return NSMakeRange(shift, length)
-                }
+                guard let childInfo = current.getChildInfo() else {return NSMakeRange(shift, length)}
                 (current, dir, isDeep) = childInfo
             } else {
                 let child = current[dir.other]!.node
@@ -396,10 +388,7 @@ struct Partition<V, P>: Sequence {
                         shift += current.advance(dir: dir, length: -length)
                         child[dir]?.deep = false
                         child[dir.other]?.deep = false
-                        guard let childInfo = current.getChildInfo() else {
-                            rank -= 1
-                            return NSMakeRange(shift, length)
-                        }
+                        guard let childInfo = current.getChildInfo() else {return NSMakeRange(shift, length)}
                         (current, dir, isDeep) = childInfo
                     } else {
                         let grandchild = child[dir]!.node
@@ -442,7 +431,7 @@ struct Partition<V, P>: Sequence {
         _ = remove(node: current)
         return current
     }
-    private static func rebalanceHook(root: Node, ranks: DirectionMap<Int>, parent: Parent) -> (Node, Int) { // returned value: root rank raise
+    private static func rebalanceHook(root: Node, ranks: DirectionMap<Int>, parent: Parent) -> (Node, Int) { // returned value: root rank
         let lRank = ranks[.Left]
         let rRank = ranks[.Right]
         let lrRankDiff = lRank - rRank
@@ -454,20 +443,20 @@ struct Partition<V, P>: Sequence {
             return (root, maxRank + 1)
         }
         let (dir, initialRank) = lrRankDiff > 0 ? (Direction.Right, lRank) : (Direction.Left, rRank)
-        var tree = Partition(root: root[dir.other]?.node, rank: initialRank, parent: parent) // real rank doesn't matter, we are only interested in relatives
+        var tree = Partition(root: root[dir.other]?.node, parent: parent)
         var curRankDiff = absRankDiff
         var isDeep: Bool
-        var parent: Node
+        var parentNode: Node
         var current = tree.root
         repeat {
-            parent = current! // current.rank - other.rank == curRankDiff > 1; therefore current != nil
-            _ = root.advance(dir: dir.other, length: -parent.end) // only works if dir == .Right
-            isDeep = parent.deep(dir: dir)
-            current = parent[dir]?.node
+            parentNode = current! // current.rank - other.rank == curRankDiff > 1; therefore current != nil
+            _ = root.advance(dir: dir.other, length: -parentNode.end) // only works if dir == .Right
+            isDeep = parentNode.deep(dir: dir)
+            current = parentNode[dir]?.node
             curRankDiff -= isDeep ? 2 : 1
         } while curRankDiff > 1
         // current.rank - right.rank <= 1, but parent.rank - right.rank > 1, which means current.rank - right.rank> -1, so, current.rank - right.rank is one of {0, 1}
-        let isOtherDeep = parent.deep(dir: dir.other)
+        let isOtherDeep = parentNode.deep(dir: dir.other)
         root[dir]?.deep = curRankDiff > 0 // which means == 1
         root[dir.other] = current?.mkSubNode(deep: false)
         /*
@@ -475,9 +464,9 @@ struct Partition<V, P>: Sequence {
          * a) curRankDiff = 0; that means current == nil; both should be shallow, and that's what we get.
          * b) curRankDiff = 1; current is a leaf, it should be shallow, while root[dir] should be deep
          */
-        parent[dir] = root.mkSubNode(deep: false)
-        _ = tree.insertRebalance(startWith: parent, topChild: root, subDeep: isDeep, subOtherDeep: isOtherDeep, dir: dir, length: root.end) // if dir == .Right, real length doesn't matter, since dir == .Right always
-        return (tree.root!, tree.rank)
+        parentNode[dir] = root.mkSubNode(deep: false)
+        let rankRaised = tree.insertRebalance(startWith: parentNode, topChild: root, subDeep: isDeep, subOtherDeep: isOtherDeep, dir: dir, length: root.end).1 // if dir == .Right, real length doesn't matter, since dir == .Right always
+        return (tree.root!, initialRank + (rankRaised ? 1 : 0))
     }
     private mutating func joinNode (node: Node, other: inout Partition) { // node.end should be the desired length
         var size = 0
@@ -489,8 +478,10 @@ struct Partition<V, P>: Sequence {
         _ = node.advance(dir: .Left, length: size)
         node[.Left] = root?.mkSubNode(deep: false)
         node[.Right] = other.root?.mkSubNode(deep: false)
-        let (newRoot, rankRaise) = Partition.rebalanceHook(root: node, ranks: DirectionMap(dir: .Left, this: rank, other: other.rank), parent: parent)
-        self = Partition(root: newRoot, rank: rankRaise, parent: parent)
+        let thisRank = root?.totalLengthAndRank().1 ?? 0
+        let otherRank = other.root?.totalLengthAndRank().1 ?? 0
+        let newRoot = Partition.rebalanceHook(root: node, ranks: DirectionMap(dir: .Left, this: thisRank, other: otherRank), parent: parent).0
+        self = Partition(root: newRoot, parent: parent)
         other = Partition(parent: other.parent)
     }
     mutating func join(value: V, length: Int, other: inout Partition) -> Node {
@@ -510,23 +501,24 @@ struct Partition<V, P>: Sequence {
             node.detach(parent: parent)
         }
         var results = DirectionMap {node[$0]?.node}
-        var ranks = DirectionMap {node.deep(dir: $0) ? -2 : -1}
+        let (leftLength, leftRank) = results[.Left]?.totalLengthAndRank() ?? (0, 0)
+        var currentRank = leftRank + (node.deep(dir: .Left) ? 2 : 1)
+        var ranks = DirectionMap(dir: .Left, this: leftRank, other: currentRank - (node.deep(dir: .Right) ? 2 : 1))
         var current = node
-        var shift = node.end
         var childInfo = node.getChildInfo()
-        let oldRank = rank
-        let length = shift - (results[.Left]?.totalLength() ?? 0)
+        let length = node.end - leftLength
+        var shift = leftLength
         while let (parent, dir, isDeep) = childInfo {
             current = parent
+            currentRank += isDeep ? 2 : 1
             childInfo = current.getChildInfo()
-            for d in Direction.all {ranks[d] -= isDeep ? 2 : 1}
-            shift += current.advance(dir: dir, length: -shift)
+            shift += current.advance(dir: dir, length: -shift - length)
             let isOtherDeep = current.deep(dir: dir.other)
             current[dir] = results[dir.other]?.mkSubNode(deep: false)
-            (results[dir.other], ranks[dir.other]) = Partition.rebalanceHook(root: current, ranks: DirectionMap(dir: dir, this: ranks[dir.other], other: isOtherDeep ? -2 : -1), parent: self.parent)
+            (results[dir.other], ranks[dir.other]) = Partition.rebalanceHook(root: current, ranks: DirectionMap(dir: dir, this: ranks[dir.other], other: currentRank - (isOtherDeep ? 2 : 1)), parent: self.parent)
         }
         if current === root {self = Partition(parent: self.parent)}
-        return (Partition(root: results[.Left], rank: oldRank + ranks[.Left], parent: self.parent), NSMakeRange(shift - length, length), Partition(root: results[.Right], rank: oldRank + ranks[.Right], parent: self.parent))
+        return (Partition(root: results[.Left], parent: self.parent), NSMakeRange(shift, length), Partition(root: results[.Right], parent: self.parent))
     }
     mutating func retarget(newParent: Parent) {
         parent = newParent
