@@ -469,16 +469,11 @@ struct Partition<V, P>: Sequence {
         return (tree.root!, initialRank + (rankRaised ? 1 : 0))
     }
     private mutating func joinNode (node: Node, other: inout Partition) { // node.end should be the desired length
-        var size = 0
-        var current = root
-        while let c = current {
-            size += c.end
-            current = c[.Right]?.node
-        }
+        let (size, thisRank) = root?.totalLengthAndRank() ?? (0, 0)
         _ = node.advance(dir: .Left, length: size)
         node[.Left] = root?.mkSubNode(deep: false)
         node[.Right] = other.root?.mkSubNode(deep: false)
-        let thisRank = root?.totalLengthAndRank().1 ?? 0
+        node.detach(parent: parent)
         let otherRank = other.root?.totalLengthAndRank().1 ?? 0
         let newRoot = Partition.rebalanceHook(root: node, ranks: DirectionMap(dir: .Left, this: thisRank, other: otherRank), parent: parent).0
         self = Partition(root: newRoot, parent: parent)
