@@ -604,6 +604,6 @@ struct Partition<V, P>: Sequence {
                 (result, resultRank) = Partition.rebalanceHook(root: rightNode, ranks: ranks, parent: parent)
             }
         }
-        root = result
+        self = Partition(root: result, parent: parent)
     }
 }
