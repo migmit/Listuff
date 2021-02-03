@@ -399,13 +399,13 @@ func generateCmd() -> WAVLCommand {
     }
 }
 func generateCmds() -> [WAVLCommand] {
-    let length = Int.random(in: 0...1000)
+    let length = Int.random(in: 0...5000)
     return (0..<length).map{_ in generateCmd()}
 }
 
 class WAVLTests: XCTestCase {
     func testRandom() throws {
-        for _ in 1...1000 {
+        for _ in 1...500 {
             let cmds = generateCmds()
             try testCommands(cmds: cmds)
         }
