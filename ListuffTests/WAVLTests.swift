@@ -22,6 +22,7 @@ protocol Sequence {
     func getAllNodes() -> [Node]
     mutating func union(with: inout Self)
     mutating func split(node: Node) -> (Self, NSRange, Self)
+    mutating func moveSuffix(to: Node, from: Node, fromContainer: Self?)
 }
 
 extension Partition: Sequence where Parent == () {
@@ -82,6 +83,9 @@ extension Partition: Sequence where Parent == () {
             }
         }
         return getSubnodes(node: root)
+    }
+    mutating func moveSuffix(to: Node, from: Node, fromContainer: Partition<V, ()>?) {
+        moveSuffix(to: to, from: from)
     }
 }
 
@@ -198,6 +202,18 @@ final class SimpleSequence<V>: Sequence {
     func getAllNodes() -> [Node] {
         return nodes
     }
+    func moveSuffix(to: Node, from: Node, fromContainer: SimpleSequence<V>?) {
+        guard let toIdx = (nodes.firstIndex{$0.index == to.index}) else {return}
+        guard let fromIdx = ((fromContainer ?? self).nodes.firstIndex{$0.index == from.index}) else {return}
+        if let fromSeq = fromContainer {
+            nodes.removeSubrange(toIdx..<nodes.count)
+            if fromSeq.nodes.count > fromIdx + 1 {
+                nodes.append(contentsOf: fromSeq.nodes[fromIdx + 1 ..< fromSeq.nodes.count])
+            }
+        } else {
+            nodes.removeSubrange(toIdx+1 ... fromIdx)
+        }
+    }
 }
 
 enum WAVLAfterSplit {
@@ -213,6 +229,7 @@ enum WAVLCommand {
     case SetLength(node: Int, length: Int) // node module (number of active nodes + 1); node = 0 means no-op
     case FoldPart(start: Int, length: Int?)
     case Split(node: Int, action: WAVLAfterSplit)
+    case MoveSuffixSelf(node1: Int, node2: Int)
 }
 class WAVLTester<S: Sequence> where S.Value == Int {
     var tree: S
@@ -282,6 +299,23 @@ class WAVLTester<S: Sequence> where S.Value == Int {
             } else {
                 return nil
             }
+        case .MoveSuffixSelf(node1: let node1, node2: let node2):
+            let index1 = node1 % (1 + nodes.count)
+            let index2 = node2 % (1 + nodes.count)
+            let fixedIndex1 = index1 == 0 ? nil : index1 > 0 ? index1 - 1 : index1 + nodes.count
+            let fixedIndex2 = index2 == 0 ? nil : index2 > 0 ? index2 - 1 : index2 + nodes.count
+            if let i1 = fixedIndex1, let i2 = fixedIndex2, i1 != i2 {
+                let allNodes = tree.getAllNodes()
+                guard let idx1 = (allNodes.firstIndex{S.same(node1: $0, node2: nodes[i1])}) else {return nil}
+                guard let idx2 = (allNodes.firstIndex{S.same(node1: $0, node2: nodes[i2])}) else {return nil}
+                let (fidx1, fidx2) = idx1 < idx2 ? (idx1, idx2) : (idx2, idx1)
+                let toRemove = allNodes[fidx1+1...fidx2]
+                tree.moveSuffix(to: allNodes[fidx1], from: allNodes[fidx2], fromContainer: nil)
+                for n in toRemove {
+                    nodes.removeAll{S.same(node1: $0, node2: n)}
+                }
+            }
+            return nil
         }
     }
 }
@@ -333,7 +367,7 @@ func generatePos() -> Int {
     }
 }
 func generateCmd() -> WAVLCommand {
-    switch Int.random(in: 0...5) {
+    switch Int.random(in: 0...6) {
     case 0:
         return .Search(pos: generatePos())
     case 1:
@@ -350,7 +384,7 @@ func generateCmd() -> WAVLCommand {
         let start = generatePos()
         let length = Bool.random() ? generatePos() : nil
         return .FoldPart(start: start, length: length)
-    default:
+    case 5:
         let node = Int.random(in: 0...Int.max)
         let afterSplit: WAVLAfterSplit
         switch Int.random(in: 0...3) {
@@ -360,6 +394,8 @@ func generateCmd() -> WAVLCommand {
         default: afterSplit = .Reverse
         }
         return .Split(node: node, action: afterSplit)
+    default:
+        return .MoveSuffixSelf(node1: Int.random(in: Int.min...Int.max), node2: Int.random(in: Int.min...Int.max))
     }
 }
 func generateCmds() -> [WAVLCommand] {
@@ -369,7 +405,7 @@ func generateCmds() -> [WAVLCommand] {
 
 class WAVLTests: XCTestCase {
     func testRandom() throws {
-        for _ in 1...100 {
+        for _ in 1...1000 {
             let cmds = generateCmds()
             try testCommands(cmds: cmds)
         }

@@ -539,6 +539,7 @@ struct Partition<V, P>: Sequence {
             right = nil
             rightRank = fromRank
             while let (parentNode, dir, isDeep) = rightCandidate.getChildInfo() {
+                lengthAddition -= rightCandidate.end
                 rightCandidate = parentNode
                 rightRank += isDeep ? 2 : 1
                 if dir == .Left {
@@ -563,6 +564,10 @@ struct Partition<V, P>: Sequence {
             resultRank = toRank - (to.deep(dir: .Left) ? 2 : 1)
             right = to
             rightRank = fromRank
+            if let (thisParent, thisDir, _) = to.getChildInfo() {
+                thisParent[thisDir] = nil
+            }
+            to[.Left] = from[.Left]
             to[.Right] = from[.Right]
             if let (otherParent, otherDir, otherIsDeep) = from.getChildInfo() {
                 otherParent[otherDir] = to.mkSubNode(deep: otherIsDeep)
@@ -574,7 +579,7 @@ struct Partition<V, P>: Sequence {
         while left != nil || right != nil {
             if (right == nil || leftRank <= rightRank), let leftNode = left {
                 lengthAddition += leftNode.end
-                let ranks = DirectionMap(dir: .Left, this: leftRank - (leftNode.deep(dir: .Left) ? 2 : 1), other: resultRank)
+                let ranks = DirectionMap(dir: .Left, this: leftNode[.Left] == nil ? 0 : leftRank - (leftNode.deep(dir: .Left) ? 2 : 1), other: resultRank)
                 var leftCandidate = leftNode
                 left = nil
                 while let (parentNode, dir, isDeep) = leftCandidate.getChildInfo() {
@@ -589,7 +594,7 @@ struct Partition<V, P>: Sequence {
                 (result, resultRank) = Partition.rebalanceHook(root: leftNode, ranks: ranks, parent: parent)
             } else if let rightNode = right {
                 _ = rightNode.advance(dir: .Left, length: lengthAddition)
-                let ranks = DirectionMap(dir: .Right, this: rightRank - (rightNode.deep(dir: .Right) ? 2 : 1), other: resultRank)
+                let ranks = DirectionMap(dir: .Right, this: rightNode[.Right] == nil ? 0 : rightRank - (rightNode.deep(dir: .Right) ? 2 : 1), other: resultRank)
                 var rightCandidate = rightNode
                 right = nil
                 while let (parentNode, dir, isDeep) = rightCandidate.getChildInfo() {
@@ -599,11 +604,28 @@ struct Partition<V, P>: Sequence {
                         right = rightCandidate
                         break
                     }
+                    lengthAddition -= rightCandidate.end
                 }
                 rightNode[.Left] = result?.mkSubNode(deep: false)
                 (result, resultRank) = Partition.rebalanceHook(root: rightNode, ranks: ranks, parent: parent)
             }
         }
         self = Partition(root: result, parent: parent)
+    }
+    func debugPrintNode(nodeOpt: Node?, prefix: String) {
+        guard let node = nodeOpt else {
+            print(prefix)
+            return
+        }
+        if let leftNode = node[.Left] {
+            debugPrintNode(nodeOpt: leftNode.node, prefix: prefix + (leftNode.deep ? " ." : " "))
+        }
+        print("\(prefix)\(node.value) [\(node.end)]")
+        if let rightNode = node[.Right] {
+            debugPrintNode(nodeOpt: rightNode.node, prefix: prefix + (rightNode.deep ? " ." : " "))
+        }
+    }
+    func debugPrint() {
+        debugPrintNode(nodeOpt: root, prefix: "")
     }
 }
