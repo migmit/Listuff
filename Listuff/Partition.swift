@@ -519,4 +519,91 @@ struct Partition<V, P>: Sequence {
         parent = newParent
         root?.detach(parent: newParent)
     }
+    mutating func moveSuffix(to: Node, from: Node) { // if they are from the same partition, `from` should be after `to`
+        let toRank = to.totalLengthAndRank().1
+        let fromRank = from.totalLengthAndRank().1
+        var lengthAddition: Int
+        var left: Node?
+        var leftRank: Int
+        var result: Node?
+        var resultRank: Int
+        var right: Node?
+        var rightRank: Int
+        if toRank >= fromRank {
+            lengthAddition = 0
+            left = to
+            leftRank = toRank
+            result = from[.Right]?.node
+            resultRank = fromRank - (from.deep(dir: .Right) ? 2 : 1)
+            var rightCandidate = from
+            right = nil
+            rightRank = fromRank
+            while let (parentNode, dir, isDeep) = rightCandidate.getChildInfo() {
+                rightCandidate = parentNode
+                rightRank += isDeep ? 2 : 1
+                if dir == .Left {
+                    right = rightCandidate
+                    break
+                }
+            }
+        } else {
+            lengthAddition = to.end - from.end
+            var leftCandidate = to
+            left = nil
+            leftRank = toRank
+            while let (parentNode, dir, isDeep) = leftCandidate.getChildInfo() {
+                leftCandidate = parentNode
+                leftRank += isDeep ? 2 : 1
+                if dir == .Right {
+                    left = leftCandidate
+                    break
+                }
+            }
+            result = to[.Left]?.node
+            resultRank = toRank - (to.deep(dir: .Left) ? 2 : 1)
+            right = to
+            rightRank = fromRank
+            to[.Right] = from[.Right]
+            if let (otherParent, otherDir, otherIsDeep) = from.getChildInfo() {
+                otherParent[otherDir] = to.mkSubNode(deep: otherIsDeep)
+            } else {
+                to.detach(parent: parent)
+            }
+            _ = to.advance(dir: .Left, length: -lengthAddition)
+        }
+        while left != nil || right != nil {
+            if (right == nil || leftRank <= rightRank), let leftNode = left {
+                lengthAddition += leftNode.end
+                let ranks = DirectionMap(dir: .Left, this: leftRank - (leftNode.deep(dir: .Left) ? 2 : 1), other: resultRank)
+                var leftCandidate = leftNode
+                left = nil
+                while let (parentNode, dir, isDeep) = leftCandidate.getChildInfo() {
+                    leftCandidate = parentNode
+                    leftRank += isDeep ? 2 : 1
+                    if dir == .Right {
+                        left = leftCandidate
+                        break
+                    }
+                }
+                leftNode[.Right] = result?.mkSubNode(deep: false)
+                (result, resultRank) = Partition.rebalanceHook(root: leftNode, ranks: ranks, parent: parent)
+            } else if let rightNode = right {
+                _ = rightNode.advance(dir: .Left, length: lengthAddition)
+                let ranks = DirectionMap(dir: .Right, this: rightRank - (rightNode.deep(dir: .Right) ? 2 : 1), other: resultRank)
+                var rightCandidate = rightNode
+                right = nil
+                while let (parentNode, dir, isDeep) = rightCandidate.getChildInfo() {
+                    rightCandidate = parentNode
+                    rightRank += isDeep ? 2 : 1
+                    if dir == .Left {
+                        right = rightCandidate
+                        break
+                    }
+                }
+                rightNode[.Left] = result?.mkSubNode(deep: false)
+                (result, resultRank) = Partition.rebalanceHook(root: rightNode, ranks: ranks, parent: parent)
+            }
+        }
+        root = result
+    }
 }
