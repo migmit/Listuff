@@ -526,7 +526,7 @@ struct Partition<V, P>: Sequence {
         let startSide = toRank >= fromRank ? Direction.Right : Direction.Left
         var lengthAddition = toRank >= fromRank ? 0 : to.end - from.end
         var sides = DirectionMap(dir: startSide, this: nil, other: to)
-        var sideRanks: DirectionMap<Int> = DirectionMap(dir: .Left, this: toRank, other: fromRank)
+        var sideRanks = DirectionMap(dir: .Left, this: toRank, other: fromRank)
         var result = args[startSide][startSide]?.node
         var resultRank = sideRanks[startSide] - (args[startSide].deep(dir: startSide) ? 2 : 1)
         var candidate = args[startSide]
