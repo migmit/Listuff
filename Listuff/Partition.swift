@@ -520,50 +520,26 @@ struct Partition<V, P>: Sequence {
         root?.detach(parent: newParent)
     }
     mutating func moveSuffix(to: Node, from: Node) { // if they are from the same partition, `from` should be after `to`
+        let args = DirectionMap(dir: .Left, this: to, other: from)
         let toRank = to.totalLengthAndRank().1
         let fromRank = from.totalLengthAndRank().1
-        var lengthAddition: Int
-        var left: Node?
-        var leftRank: Int
-        var result: Node?
-        var resultRank: Int
-        var right: Node?
-        var rightRank: Int
-        if toRank >= fromRank {
-            lengthAddition = 0
-            left = to
-            leftRank = toRank
-            result = from[.Right]?.node
-            resultRank = fromRank - (from.deep(dir: .Right) ? 2 : 1)
-            var rightCandidate = from
-            right = nil
-            rightRank = fromRank
-            while let (parentNode, dir, isDeep) = rightCandidate.getChildInfo() {
-                lengthAddition -= rightCandidate.end
-                rightCandidate = parentNode
-                rightRank += isDeep ? 2 : 1
-                if dir == .Left {
-                    right = rightCandidate
-                    break
-                }
+        let startSide = toRank >= fromRank ? Direction.Right : Direction.Left
+        var lengthAddition = toRank >= fromRank ? 0 : to.end - from.end
+        var sides = DirectionMap(dir: startSide, this: nil, other: to)
+        var sideRanks: DirectionMap<Int> = DirectionMap(dir: .Left, this: toRank, other: fromRank)
+        var result = args[startSide][startSide]?.node
+        var resultRank = sideRanks[startSide] - (args[startSide].deep(dir: startSide) ? 2 : 1)
+        var candidate = args[startSide]
+        while let (parentNode, dir, isDeep) = candidate.getChildInfo() {
+            lengthAddition -= candidate.advance(dir: startSide, length: 0)
+            candidate = parentNode
+            sideRanks[startSide] += isDeep ? 2 : 1
+            if dir == startSide.other {
+                sides[startSide] = candidate
+                break
             }
-        } else {
-            lengthAddition = to.end - from.end
-            var leftCandidate = to
-            left = nil
-            leftRank = toRank
-            while let (parentNode, dir, isDeep) = leftCandidate.getChildInfo() {
-                leftCandidate = parentNode
-                leftRank += isDeep ? 2 : 1
-                if dir == .Right {
-                    left = leftCandidate
-                    break
-                }
-            }
-            result = to[.Left]?.node
-            resultRank = toRank - (to.deep(dir: .Left) ? 2 : 1)
-            right = to
-            rightRank = fromRank
+        }
+        if toRank < fromRank {
             if let (thisParent, thisDir, _) = to.getChildInfo() {
                 thisParent[thisDir] = nil
             }
@@ -576,39 +552,33 @@ struct Partition<V, P>: Sequence {
             }
             _ = to.advance(dir: .Left, length: -lengthAddition)
         }
-        while left != nil || right != nil {
-            if (right == nil || leftRank <= rightRank), let leftNode = left {
-                lengthAddition += leftNode.end
-                let ranks = DirectionMap(dir: .Left, this: leftNode[.Left] == nil ? 0 : leftRank - (leftNode.deep(dir: .Left) ? 2 : 1), other: resultRank)
-                var leftCandidate = leftNode
-                left = nil
-                while let (parentNode, dir, isDeep) = leftCandidate.getChildInfo() {
-                    leftCandidate = parentNode
-                    leftRank += isDeep ? 2 : 1
-                    if dir == .Right {
-                        left = leftCandidate
-                        break
-                    }
-                }
-                leftNode[.Right] = result?.mkSubNode(deep: false)
-                (result, resultRank) = Partition.rebalanceHook(root: leftNode, ranks: ranks, parent: parent)
-            } else if let rightNode = right {
-                _ = rightNode.advance(dir: .Left, length: lengthAddition)
-                let ranks = DirectionMap(dir: .Right, this: rightNode[.Right] == nil ? 0 : rightRank - (rightNode.deep(dir: .Right) ? 2 : 1), other: resultRank)
-                var rightCandidate = rightNode
-                right = nil
-                while let (parentNode, dir, isDeep) = rightCandidate.getChildInfo() {
-                    rightCandidate = parentNode
-                    rightRank += isDeep ? 2 : 1
-                    if dir == .Left {
-                        right = rightCandidate
-                        break
-                    }
-                    lengthAddition -= rightCandidate.end
-                }
-                rightNode[.Left] = result?.mkSubNode(deep: false)
-                (result, resultRank) = Partition.rebalanceHook(root: rightNode, ranks: ranks, parent: parent)
+        while true {
+            let loopSide: Direction
+            let loopNode: Node
+            if (sides[.Right] == nil || sideRanks[.Left] <= sideRanks[.Right]), let leftNode = sides[.Left] {
+                loopSide = .Left
+                loopNode = leftNode
+            } else if let rightNode = sides[.Right] {
+                loopSide = .Right
+                loopNode = rightNode
+            } else {
+                break
             }
+            lengthAddition += loopNode.advance(dir: loopSide.other, length: lengthAddition)
+            let ranks = DirectionMap(dir: loopSide, this: loopNode[loopSide] == nil ? 0 : sideRanks[loopSide] - (loopNode.deep(dir: loopSide) ? 2 : 1), other: resultRank)
+            sides[loopSide] = nil
+            var candidate = loopNode
+            while let (parentNode, dir, isDeep) = candidate.getChildInfo() {
+                candidate = parentNode
+                sideRanks[loopSide] += isDeep ? 2 : 1
+                if dir == loopSide.other {
+                    sides[loopSide] = candidate
+                    break
+                }
+                lengthAddition -= candidate.advance(dir: loopSide, length: 0)
+            }
+            loopNode[loopSide.other] = result?.mkSubNode(deep: false)
+            (result, resultRank) = Partition.rebalanceHook(root: loopNode, ranks: ranks, parent: parent)
         }
         self = Partition(root: result, parent: parent)
     }
