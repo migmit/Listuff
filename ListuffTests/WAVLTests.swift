@@ -206,7 +206,9 @@ final class SimpleSequence<V>: Sequence {
         guard let toIdx = (nodes.firstIndex{$0.index == to.index}) else {return}
         guard let fromIdx = ((fromContainer ?? self).nodes.firstIndex{$0.index == from.index}) else {return}
         if let fromSeq = fromContainer {
-            nodes.removeSubrange(toIdx..<nodes.count)
+            if nodes.count > toIdx + 1 {
+                nodes.removeSubrange(toIdx+1 ..< nodes.count)
+            }
             if fromSeq.nodes.count > fromIdx + 1 {
                 nodes.append(contentsOf: fromSeq.nodes[fromIdx + 1 ..< fromSeq.nodes.count])
             }
@@ -230,6 +232,7 @@ enum WAVLCommand {
     case FoldPart(start: Int, length: Int?)
     case Split(node: Int, action: WAVLAfterSplit)
     case MoveSuffixSelf(node1: Int, node2: Int)
+    case MoveSuffixOther(pivot: Int, node1: Int, node2: Int)
 }
 class WAVLTester<S: Sequence> where S.Value == Int {
     var tree: S
@@ -316,6 +319,34 @@ class WAVLTester<S: Sequence> where S.Value == Int {
                 }
             }
             return nil
+        case .MoveSuffixOther(pivot: let pivot, node1: let node1, node2: let node2):
+            let index = pivot % (1 + nodes.count)
+            if let pivotNode = (index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]) {
+                let (left, _, right) = tree.split(node: pivotNode)
+                var toRemove = [pivotNode]
+                let leftNodes = left.getAllNodes()
+                let rightNodes = right.getAllNodes()
+                let index1 = node1 % (1 + leftNodes.count)
+                let index2 = node2 % (1 + rightNodes.count)
+                if let fixedIndex1 = (index1 == 0 ? nil : index1 > 0 ? index1-1 : index1 + leftNodes.count),
+                   let fixedIndex2 = (index2 == 0 ? nil : index2 > 0 ? index2-1 : index2 + rightNodes.count) {
+                    let leftNode = leftNodes[fixedIndex1]
+                    let rightNode = rightNodes[fixedIndex2]
+                    if fixedIndex1 < leftNodes.count - 1 {
+                        toRemove.append(contentsOf: leftNodes[fixedIndex1+1 ..< leftNodes.count])
+                    }
+                    toRemove.append(contentsOf: rightNodes[0 ... fixedIndex2])
+                    tree = left
+                    tree.moveSuffix(to: leftNode, from: rightNode, fromContainer: right)
+                } else {
+                    tree = left
+                    toRemove.append(contentsOf: rightNodes)
+                }
+                for n in toRemove {
+                    nodes.removeAll{S.same(node1: $0, node2: n)}
+                }
+            }
+            return nil
         }
     }
 }
@@ -367,7 +398,7 @@ func generatePos() -> Int {
     }
 }
 func generateCmd() -> WAVLCommand {
-    switch Int.random(in: 0...6) {
+    switch Int.random(in: 0...7) {
     case 0:
         return .Search(pos: generatePos())
     case 1:
@@ -394,8 +425,10 @@ func generateCmd() -> WAVLCommand {
         default: afterSplit = .Reverse
         }
         return .Split(node: node, action: afterSplit)
-    default:
+    case 6:
         return .MoveSuffixSelf(node1: Int.random(in: Int.min...Int.max), node2: Int.random(in: Int.min...Int.max))
+    default:
+        return .MoveSuffixOther(pivot: Int.random(in: Int.min...Int.max), node1: Int.random(in: Int.min...Int.max), node2: Int.random(in: Int.min...Int.max))
     }
 }
 func generateCmds() -> [WAVLCommand] {
