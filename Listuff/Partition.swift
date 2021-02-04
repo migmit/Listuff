@@ -553,17 +553,9 @@ struct Partition<V, P>: Sequence {
             _ = to.advance(dir: .Left, length: -lengthAddition)
         }
         while true {
-            let loopSide: Direction
-            let loopNode: Node
-            if (sides[.Right] == nil || sideRanks[.Left] <= sideRanks[.Right]), let leftNode = sides[.Left] {
-                loopSide = .Left
-                loopNode = leftNode
-            } else if let rightNode = sides[.Right] {
-                loopSide = .Right
-                loopNode = rightNode
-            } else {
-                break
-            }
+            let preLoopSide = sideRanks[.Left] <= sideRanks[.Right] ? Direction.Left : Direction.Right
+            guard let loopNode = sides[preLoopSide] ?? sides[preLoopSide.other] else {break}
+            let loopSide = sides[preLoopSide] == nil ? preLoopSide.other : preLoopSide
             lengthAddition += loopNode.advance(dir: loopSide.other, length: lengthAddition)
             let ranks = DirectionMap(dir: loopSide, this: loopNode[loopSide] == nil ? 0 : sideRanks[loopSide] - (loopNode.deep(dir: loopSide) ? 2 : 1), other: resultRank)
             sides[loopSide] = nil
