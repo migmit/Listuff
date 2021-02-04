@@ -543,8 +543,9 @@ struct Partition<V, P>: Sequence {
             if let (thisParent, thisDir, _) = to.getChildInfo() {
                 thisParent[thisDir] = nil
             }
-            to[.Left] = from[.Left]
-            to[.Right] = from[.Right]
+            for d in Direction.all {
+                to[d] = from[d]
+            }
             if let (otherParent, otherDir, otherIsDeep) = from.getChildInfo() {
                 otherParent[otherDir] = to.mkSubNode(deep: otherIsDeep)
             } else {
