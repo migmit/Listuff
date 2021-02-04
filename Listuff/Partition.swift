@@ -521,12 +521,11 @@ struct Partition<V, P>: Sequence {
     }
     mutating func moveSuffix(to: Node, from: Node) { // if they are from the same partition, `from` should be after `to`
         let args = DirectionMap(dir: .Left, this: to, other: from)
-        let toRank = to.totalLengthAndRank().1
-        let fromRank = from.totalLengthAndRank().1
-        let startSide = toRank >= fromRank ? Direction.Right : Direction.Left
-        var lengthAddition = toRank >= fromRank ? 0 : to.end - from.end
+        var sideRanks = DirectionMap{args[$0].totalLengthAndRank().1}
+        let leftIsSmaller = sideRanks[.Left] < sideRanks[.Right]
+        let startSide = leftIsSmaller ? Direction.Left : Direction.Right
+        var lengthAddition = leftIsSmaller ? to.end - from.end : 0
         var sides = DirectionMap(dir: startSide, this: nil, other: to)
-        var sideRanks = DirectionMap(dir: .Left, this: toRank, other: fromRank)
         var result = args[startSide][startSide]?.node
         var resultRank = sideRanks[startSide] - (args[startSide].deep(dir: startSide) ? 2 : 1)
         var candidate = args[startSide]
@@ -539,7 +538,7 @@ struct Partition<V, P>: Sequence {
                 break
             }
         }
-        if toRank < fromRank {
+        if leftIsSmaller {
             if let (thisParent, thisDir, _) = to.getChildInfo() {
                 thisParent[thisDir] = nil
             }
