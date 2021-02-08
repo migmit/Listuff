@@ -613,6 +613,21 @@ struct Partition<V, P>: Sequence {
         )
         self = threeWayMerge.doMerge(parent: parent)
     }
+    mutating func replaceWithSuffix(from: Node) {
+        let rightRank = from.totalLengthAndRank().1
+        var threeWayMerge = ThreeWayMerge(
+            sides: DirectionMap{_ in nil},
+            sideRanks: DirectionMap(dir: .Left, this: 0, other: rightRank),
+            result: from[.Right]?.node,
+            resultRank: rightRank - (from.deep(dir: .Right) ? 2 : 1),
+            lengthAddition: 0
+        )
+        threeWayMerge.setSide(startSide: .Right, upFrom: from)
+        self = threeWayMerge.doMerge(parent: parent)
+    }
+    mutating func replaceContent(from: Partition) {
+        self = Partition(root: from.root, parent: parent)
+    }
     static func debugPrintNode(nodeOpt: Node?, prefix: String) {
         guard let node = nodeOpt else {
             print(prefix)

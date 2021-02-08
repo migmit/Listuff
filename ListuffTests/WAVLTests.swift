@@ -24,6 +24,7 @@ protocol Sequence {
     mutating func split(node: Node) -> (Self, NSRange, Self)
     mutating func moveSuffix(to: Node, from: Node, fromContainer: Self?)
     mutating func setAsSuffix(after: Node, suffix: Self)
+    mutating func replaceWithSuffix(from: Node, fromContainer: Self?)
 }
 
 extension Partition: Sequence where Parent == () {
@@ -87,6 +88,9 @@ extension Partition: Sequence where Parent == () {
     }
     mutating func moveSuffix(to: Node, from: Node, fromContainer: Partition<V, ()>?) {
         moveSuffix(to: to, from: from)
+    }
+    mutating func replaceWithSuffix(from: Node, fromContainer: Partition<V, ()>?) {
+        replaceWithSuffix(from: from)
     }
 }
 
@@ -224,6 +228,18 @@ final class SimpleSequence<V>: Sequence {
         }
         nodes.append(contentsOf: suffix.nodes)
     }
+    func replaceWithSuffix(from: Node, fromContainer: SimpleSequence<V>?) {
+        guard let fromIdx = ((fromContainer ?? self).nodes.firstIndex{$0.index == from.index}) else {return}
+        if let fromSeq = fromContainer {
+            if fromSeq.nodes.count > fromIdx + 1 {
+                nodes = Array(fromSeq.nodes[fromIdx + 1 ..< fromSeq.nodes.count])
+            } else {
+                nodes = []
+            }
+        } else {
+            nodes.removeSubrange(0 ... fromIdx)
+        }
+    }
 }
 
 enum WAVLAfterSplit {
@@ -242,6 +258,7 @@ enum WAVLCommand {
     case MoveSuffixSelf(node1: Int, node2: Int)
     case MoveSuffixOther(pivot: Int, node1: Int, node2: Int)
     case SplitAndSetAsSuffix(pivot: Int, after: Int)
+    case ReplaceWithSuffix(pivot: Int, from: Int)
 }
 class WAVLTester<S: Sequence> where S.Value == Int {
     var tree: S
@@ -379,6 +396,39 @@ class WAVLTester<S: Sequence> where S.Value == Int {
                 }
             }
             return nil
+        case .ReplaceWithSuffix(pivot: let pivot, from: let from):
+            let index = pivot % (1 + nodes.count)
+            var toRemove: [S.Node] = []
+            if let pivotNode = (index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]) {
+                let (left, _, right) = tree.split(node: pivotNode)
+                toRemove = [pivotNode]
+                let leftNodes = left.getAllNodes()
+                let rightNodes = right.getAllNodes()
+                let fromIndex = from % (1 + rightNodes.count)
+                if let fixedFromIndex = (fromIndex == 0 ? nil : fromIndex > 0 ? fromIndex-1 : fromIndex + rightNodes.count) {
+                    let rightNode = rightNodes[fixedFromIndex]
+                    toRemove.append(contentsOf: leftNodes)
+                    toRemove.append(contentsOf: rightNodes[0 ... fixedFromIndex])
+                    tree = left
+                    tree.replaceWithSuffix(from: rightNode, fromContainer: right)
+                } else {
+                    tree = left
+                    toRemove.append(contentsOf: rightNodes)
+                }
+            } else {
+                let fromIndex = from % (1 + nodes.count)
+                if let fixedFromIndex = fromIndex == 0 ? nil : fromIndex > 0 ? fromIndex - 1 : fromIndex + nodes.count {
+                    let fromNode = nodes[fixedFromIndex]
+                    let allNodes = tree.getAllNodes()
+                    guard let idx = (allNodes.firstIndex{S.same(node1: $0, node2: fromNode)}) else {return nil}
+                    toRemove = Array(allNodes[0...idx])
+                    tree.replaceWithSuffix(from: fromNode, fromContainer: nil)
+                }
+            }
+            for n in toRemove {
+                nodes.removeAll{S.same(node1: $0, node2: n)}
+            }
+            return nil
         }
     }
 }
@@ -430,7 +480,7 @@ func generatePos() -> Int {
     }
 }
 func generateCmd() -> WAVLCommand {
-    switch Int.random(in: 0...8) {
+    switch Int.random(in: 0...9) {
     case 0:
         return .Search(pos: generatePos())
     case 1:
@@ -461,8 +511,10 @@ func generateCmd() -> WAVLCommand {
         return .MoveSuffixSelf(node1: Int.random(in: Int.min...Int.max), node2: Int.random(in: Int.min...Int.max))
     case 7:
         return .MoveSuffixOther(pivot: Int.random(in: Int.min...Int.max), node1: Int.random(in: Int.min...Int.max), node2: Int.random(in: Int.min...Int.max))
-    default:
+    case 8:
         return .SplitAndSetAsSuffix(pivot: Int.random(in: Int.min...Int.max), after: Int.random(in: Int.min...Int.max))
+    default:
+        return .ReplaceWithSuffix(pivot: Int.random(in: Int.min...Int.max), from: Int.random(in: Int.min...Int.max))
     }
 }
 func generateCmds() -> [WAVLCommand] {
