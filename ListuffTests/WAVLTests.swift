@@ -23,6 +23,7 @@ protocol Sequence {
     mutating func union(with: inout Self)
     mutating func split(node: Node) -> (Self, NSRange, Self)
     mutating func moveSuffix(to: Node, from: Node, fromContainer: Self?)
+    mutating func setAsSuffix(after: Node, suffix: Self)
 }
 
 extension Partition: Sequence where Parent == () {
@@ -216,6 +217,13 @@ final class SimpleSequence<V>: Sequence {
             nodes.removeSubrange(toIdx+1 ... fromIdx)
         }
     }
+    func setAsSuffix(after: Node, suffix: SimpleSequence<V>) {
+        guard let idx = (nodes.firstIndex{$0.index == after.index}) else {return}
+        if nodes.count > idx + 1 {
+            nodes.removeSubrange(idx+1 ..< nodes.count)
+        }
+        nodes.append(contentsOf: suffix.nodes)
+    }
 }
 
 enum WAVLAfterSplit {
@@ -233,6 +241,7 @@ enum WAVLCommand {
     case Split(node: Int, action: WAVLAfterSplit)
     case MoveSuffixSelf(node1: Int, node2: Int)
     case MoveSuffixOther(pivot: Int, node1: Int, node2: Int)
+    case SplitAndSetAsSuffix(pivot: Int, after: Int)
 }
 class WAVLTester<S: Sequence> where S.Value == Int {
     var tree: S
@@ -347,6 +356,29 @@ class WAVLTester<S: Sequence> where S.Value == Int {
                 }
             }
             return nil
+        case .SplitAndSetAsSuffix(pivot: let pivot, after: let after):
+            let index = pivot % (1 + nodes.count)
+            if let pivotNode = (index == 0 ? nil : index > 0 ? nodes[index-1] : nodes[index + nodes.count]) {
+                let (left, _, right) = tree.split(node: pivotNode)
+                var toRemove = [pivotNode]
+                let leftNodes = left.getAllNodes()
+                let afterIndex = after % (1 + leftNodes.count)
+                if let fixedAfterIndex = (afterIndex == 0 ? nil : afterIndex > 0 ? afterIndex-1 : afterIndex + leftNodes.count) {
+                    let afterNode = leftNodes[fixedAfterIndex]
+                    if fixedAfterIndex < leftNodes.count - 1 {
+                        toRemove.append(contentsOf: leftNodes[fixedAfterIndex+1 ..< leftNodes.count])
+                    }
+                    tree = left
+                    tree.setAsSuffix(after: afterNode, suffix: right)
+                } else {
+                    tree = left
+                    toRemove.append(contentsOf: right.getAllNodes())
+                }
+                for n in toRemove {
+                    nodes.removeAll{S.same(node1: $0, node2: n)}
+                }
+            }
+            return nil
         }
     }
 }
@@ -398,7 +430,7 @@ func generatePos() -> Int {
     }
 }
 func generateCmd() -> WAVLCommand {
-    switch Int.random(in: 0...7) {
+    switch Int.random(in: 0...8) {
     case 0:
         return .Search(pos: generatePos())
     case 1:
@@ -427,8 +459,10 @@ func generateCmd() -> WAVLCommand {
         return .Split(node: node, action: afterSplit)
     case 6:
         return .MoveSuffixSelf(node1: Int.random(in: Int.min...Int.max), node2: Int.random(in: Int.min...Int.max))
-    default:
+    case 7:
         return .MoveSuffixOther(pivot: Int.random(in: Int.min...Int.max), node1: Int.random(in: Int.min...Int.max), node2: Int.random(in: Int.min...Int.max))
+    default:
+        return .SplitAndSetAsSuffix(pivot: Int.random(in: Int.min...Int.max), after: Int.random(in: Int.min...Int.max))
     }
 }
 func generateCmds() -> [WAVLCommand] {
@@ -438,6 +472,8 @@ func generateCmds() -> [WAVLCommand] {
 
 class WAVLTests: XCTestCase {
     func testRandom() throws {
+//        let cmds = generateCmds()
+//        try testCommands(cmds: cmds)
         var result: Error? = nil
         var hasResult = atomic_flag()
         DispatchQueue.concurrentPerform(iterations: 500) {_ in

@@ -519,26 +519,61 @@ struct Partition<V, P>: Sequence {
         parent = newParent
         root?.detach(parent: newParent)
     }
-    mutating func moveSuffix(to: Node, from: Node) { // if they are from the same partition, `from` should be after `to`
-        let args = DirectionMap(dir: .Left, this: to, other: from)
-        var sideRanks = DirectionMap{args[$0].totalLengthAndRank().1}
-        let leftIsSmaller = sideRanks[.Left] < sideRanks[.Right]
-        let startSide = leftIsSmaller ? Direction.Left : Direction.Right
-        var lengthAddition = leftIsSmaller ? to.end - from.end : 0
-        var sides = DirectionMap(dir: startSide, this: nil, other: to)
-        var result = args[startSide][startSide]?.node
-        var resultRank = sideRanks[startSide] - (args[startSide].deep(dir: startSide) ? 2 : 1)
-        var candidate = args[startSide]
-        while let (parentNode, dir, isDeep) = candidate.getChildInfo() {
-            lengthAddition -= candidate.advance(dir: startSide, length: 0)
-            candidate = parentNode
-            sideRanks[startSide] += isDeep ? 2 : 1
-            if dir == startSide.other {
-                sides[startSide] = candidate
-                break
+    private struct ThreeWayMerge {
+        var sides: DirectionMap<Node?>
+        var sideRanks: DirectionMap<Int>
+        var result: Node?
+        var resultRank: Int
+        var lengthAddition: Int
+        mutating func doMerge(parent: Parent) -> Partition {
+            while true {
+                let preLoopSide = sideRanks[.Left] <= sideRanks[.Right] ? Direction.Left : Direction.Right
+                guard let loopNode = sides[preLoopSide] ?? sides[preLoopSide.other] else {break}
+                let loopSide = sides[preLoopSide] == nil ? preLoopSide.other : preLoopSide
+                lengthAddition += loopNode.advance(dir: loopSide.other, length: lengthAddition)
+                let ranks = DirectionMap(dir: loopSide, this: loopNode[loopSide] == nil ? 0 : sideRanks[loopSide] - (loopNode.deep(dir: loopSide) ? 2 : 1), other: resultRank)
+                sides[loopSide] = nil
+                var candidate = loopNode
+                while let (parentNode, dir, isDeep) = candidate.getChildInfo() {
+                    candidate = parentNode
+                    sideRanks[loopSide] += isDeep ? 2 : 1
+                    if dir == loopSide.other {
+                        sides[loopSide] = candidate
+                        break
+                    }
+                    lengthAddition -= candidate.advance(dir: loopSide, length: 0)
+                }
+                loopNode[loopSide.other] = result?.mkSubNode(deep: false)
+                (result, resultRank) = Partition.rebalanceHook(root: loopNode, ranks: ranks, parent: parent)
+            }
+            return Partition(root: result, parent: parent)
+        }
+        mutating func setSide(startSide: Direction, upFrom: Node) {
+            var candidate = upFrom
+            while let (parentNode, dir, isDeep) = candidate.getChildInfo() {
+                lengthAddition -= candidate.advance(dir: startSide, length: 0)
+                candidate = parentNode
+                sideRanks[startSide] += isDeep ? 2 : 1
+                if dir == startSide.other {
+                    sides[startSide] = candidate
+                    return
+                }
             }
         }
-        if leftIsSmaller {
+    }
+    mutating func moveSuffix(to: Node, from: Node) { // if they are from the same partition, `from` should be after `to`
+        let args = DirectionMap(dir: .Left, this: to, other: from)
+        let sideRanks = DirectionMap{args[$0].totalLengthAndRank().1}
+        let startSide = sideRanks[.Left] < sideRanks[.Right] ? Direction.Left : Direction.Right
+        var threeWayMerge = ThreeWayMerge(
+            sides: DirectionMap(dir: startSide, this: nil, other: to),
+            sideRanks: sideRanks,
+            result: args[startSide][startSide]?.node,
+            resultRank: sideRanks[startSide] - (args[startSide].deep(dir: startSide) ? 2 : 1),
+            lengthAddition: startSide == .Left ? to.end - from.end : 0
+        )
+        threeWayMerge.setSide(startSide: startSide, upFrom: args[startSide])
+        if startSide == .Left {
             if let (thisParent, thisDir, _) = to.getChildInfo() {
                 thisParent[thisDir] = nil
             }
@@ -550,31 +585,35 @@ struct Partition<V, P>: Sequence {
             } else {
                 to.detach(parent: parent)
             }
-            _ = to.advance(dir: .Left, length: -lengthAddition)
+            _ = to.advance(dir: .Left, length: -threeWayMerge.lengthAddition)
         }
-        while true {
-            let preLoopSide = sideRanks[.Left] <= sideRanks[.Right] ? Direction.Left : Direction.Right
-            guard let loopNode = sides[preLoopSide] ?? sides[preLoopSide.other] else {break}
-            let loopSide = sides[preLoopSide] == nil ? preLoopSide.other : preLoopSide
-            lengthAddition += loopNode.advance(dir: loopSide.other, length: lengthAddition)
-            let ranks = DirectionMap(dir: loopSide, this: loopNode[loopSide] == nil ? 0 : sideRanks[loopSide] - (loopNode.deep(dir: loopSide) ? 2 : 1), other: resultRank)
-            sides[loopSide] = nil
-            var candidate = loopNode
-            while let (parentNode, dir, isDeep) = candidate.getChildInfo() {
-                candidate = parentNode
-                sideRanks[loopSide] += isDeep ? 2 : 1
-                if dir == loopSide.other {
-                    sides[loopSide] = candidate
-                    break
-                }
-                lengthAddition -= candidate.advance(dir: loopSide, length: 0)
-            }
-            loopNode[loopSide.other] = result?.mkSubNode(deep: false)
-            (result, resultRank) = Partition.rebalanceHook(root: loopNode, ranks: ranks, parent: parent)
-        }
-        self = Partition(root: result, parent: parent)
+        self = threeWayMerge.doMerge(parent: parent)
     }
-    func debugPrintNode(nodeOpt: Node?, prefix: String) {
+    mutating func setAsSuffix(after: Node, suffix: Partition) {
+        let rightNode: Node?
+        let rightRank: Int
+        if let r = suffix.root {
+            var candidate = r
+            while let child = candidate[.Left]?.node {
+                candidate = child
+            }
+            rightNode = candidate
+            rightRank = candidate[.Right] == nil ? 1 : 2
+        } else {
+            rightNode = nil
+            rightRank = 0
+        }
+        let afterRank = after.totalLengthAndRank().1
+        var threeWayMerge = ThreeWayMerge(
+            sides: DirectionMap(dir: .Left, this: after, other: rightNode),
+            sideRanks: DirectionMap(dir: .Left, this: afterRank, other: rightRank),
+            result: nil,
+            resultRank: 0,
+            lengthAddition: 0
+        )
+        self = threeWayMerge.doMerge(parent: parent)
+    }
+    static func debugPrintNode(nodeOpt: Node?, prefix: String) {
         guard let node = nodeOpt else {
             print(prefix)
             return
@@ -588,6 +627,6 @@ struct Partition<V, P>: Sequence {
         }
     }
     func debugPrint() {
-        debugPrintNode(nodeOpt: root, prefix: "")
+        Partition.debugPrintNode(nodeOpt: root, prefix: ">")
     }
 }
