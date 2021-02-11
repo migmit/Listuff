@@ -195,7 +195,6 @@ extension Structure.List: Layer {
             }
         }
     }
-    fileprivate typealias ListItemCollection = Partition<Structure.Item, Structure.WeakProxy<Structure.List>>
     fileprivate func appendPath(item: SubItem, path: LayerPath<Structure.List>?) -> TailCall<LayerPath<Structure.Document>> {
         let consPath = LayerPath<Structure.List>(item: item, tail: path)
         switch parent {
