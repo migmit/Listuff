@@ -240,7 +240,7 @@ struct Partition<V, P>: Sequence {
         }
         return current.value
     }
-    mutating func replace(node: Node, with: Node?) {
+    fileprivate mutating func replace(node: Node, with: Node?) {
         if let (parent, dir, isDeep) = node.getChildInfo() {
             parent[dir] = with?.mkSubNode(deep: isDeep)
         } else {
@@ -607,6 +607,16 @@ struct Partition<V, P>: Sequence {
         var threeWayMerge = ThreeWayMerge(
             sides: DirectionMap(dir: .Left, this: after, other: rightNode),
             sideRanks: DirectionMap(dir: .Left, this: afterRank, other: rightRank),
+            result: nil,
+            resultRank: 0,
+            lengthAddition: 0
+        )
+        self = threeWayMerge.doMerge(parent: parent)
+    }
+    mutating func cutOffSuffix(after: Node) {
+        var threeWayMerge = ThreeWayMerge(
+            sides: DirectionMap(dir: .Left, this: after, other: nil),
+            sideRanks: DirectionMap(dir: .Left, this: after.totalLengthAndRank().1, other: 0),
             result: nil,
             resultRank: 0,
             lengthAddition: 0

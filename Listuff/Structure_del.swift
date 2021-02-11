@@ -11,78 +11,38 @@ fileprivate protocol Layer: AnyObject {
     associatedtype Document: Layer
     associatedtype SubLayer: Layer
     associatedtype SubItem
-    associatedtype SubItemCollection
     func appendPath(item: SubItem, path: LayerPath<SubLayer>?) -> TailCall<LayerPath<Document>>
     static func itemsAreSame(item1: SubItem, item2: SubItem) -> Bool
     func sublayer(item: SubItem) -> SubLayer
-    func splitOff(item: SubItem) -> SubItemCollection
-    func appendSubitems(newItems: inout SubItemCollection)
-    func prependSubitems(newItems: inout SubItemCollection) -> SubLayer
-    func empty() -> TailCall<()>
-    func emptyLayer()
-    func allChildren() -> (SubLayer?, SubItemCollection)
+    func moveSuffix(after: SubItem, from: SubItem, fromLayer: Self)
+    func setAsSuffix(afterHead: SubItem, afterTail: LayerPath<SubLayer>?, fromLayer: Self) -> TailCall<()>
+    func replaceWithSuffix(fromHead: SubItem, fromTail: LayerPath<SubLayer>?, fromLayer: Self) -> TailCall<()>
+    func replaceContent(fromLayer: Self) -> TailCall<()>
 }
 extension Layer {
     func fullPath(item: SubItem) -> LayerPath<Document> {appendPath(item: item, path: nil).result}
-    func copyFrom(other: Self) -> TailCall<()> {
-        var (defaultSublayer, itms) = other.allChildren()
-        let subLayer = prependSubitems(newItems: &itms)
-        if let next = defaultSublayer {
-            return .step {subLayer.copyFrom(other: next)}
-        } else {
-            return .done(result: ())
-        }
-    }
-    func copyAfterPath(other: Self, path: LayerPath<Self>?) -> TailCall<()> {
-        guard let p = path else {return copyFrom(other: other)}
-        let nextLayer = other.sublayer(item: p.item)
-        var itms = other.splitOff(item: p.item)
-        let subLayer = prependSubitems(newItems: &itms)
-        return .step {subLayer.copyAfterPath(other: nextLayer, path: p.tail)}
-    }
-    func emptyAndCopyAfterPath(other: Self, path: LayerPath<Self>?) -> TailCall<()> {
-        guard other === self else {
-            empty().result // not doing emptyLayer in each copyAfterPath iteration, because the layer might stay the same, and we will undo our own work from the previous iteration
-            return copyAfterPath(other: other, path: path)
-        }
-        guard let p = path else {return .done(result: ())}
-        let nextLayer = sublayer(item: p.item)
-        var itms = splitOff(item: p.item)
-        emptyLayer()
-        let subLayer = prependSubitems(newItems: &itms)
-        return .step {subLayer.emptyAndCopyAfterPath(other: nextLayer, path: p.tail)}
-    }
-    func cutOffAfterPath(path: LayerPath<Self>?) -> TailCall<()> {
-        guard let p = path else {return .done(result: ())}
-        _ = splitOff(item: p.item)
-        let sub = sublayer(item: p.item)
-        return .step {sub.cutOffAfterPath(path: p.tail)}
-    }
-    func putAfterPath(path: LayerPath<Self>?, other: Self) -> TailCall<()> {
-        guard let p = path else {return copyFrom(other: other)}
-        var (defaultSublayer, itms) = other.allChildren()
-        let subLayer = sublayer(item: p.item)
-        _ = splitOff(item: p.item)
-        appendSubitems(newItems: &itms)
-        if let next = defaultSublayer {
-            return .step {subLayer.putAfterPath(path: p.tail, other: next)}
-        } else {
-            return subLayer.cutOffAfterPath(path: p.tail)
-        }
-    }
     func cutBetweenPaths(thisPath: LayerPath<Self>?, other: Self, otherPath: LayerPath<Self>?) -> TailCall<()> {
-        guard let path1 = thisPath else {
-            return emptyAndCopyAfterPath(other: other, path: otherPath)
+        if let path1 = thisPath {
+            if let path2 = otherPath {
+                let sub1 = sublayer(item: path1.item)
+                let sub2 = other.sublayer(item: path2.item)
+                if other !== self || !Self.itemsAreSame(item1: path1.item, item2: path2.item) {
+                    moveSuffix(after: path1.item, from: path2.item, fromLayer: other)
+                }
+                return .step {sub1.cutBetweenPaths(thisPath: path1.tail, other: sub2, otherPath: path2.tail)}
+            } else {
+                return setAsSuffix(afterHead: path1.item, afterTail: path1.tail, fromLayer: other)
+            }
+        } else {
+            if let path2 = otherPath {
+                return replaceWithSuffix(fromHead: path2.item, fromTail: path2.tail, fromLayer: other)
+            } else {
+                if (other === self) {
+                    return .done(result: ())
+                }
+                return replaceContent(fromLayer: other)
+            }
         }
-        guard let path2 = otherPath else {return putAfterPath(path: path1, other: other)}
-        let sub1 = sublayer(item: path1.item)
-        let sub2 = other.sublayer(item: path2.item)
-        if other !== self || !Self.itemsAreSame(item1: path1.item, item2: path2.item) {
-            var itms = other.splitOff(item: path2.item)
-            _ = splitOff(item: path1.item)
-            appendSubitems(newItems: &itms)
-        }
-        return .step {sub1.cutBetweenPaths(thisPath: path1.tail, other: sub2, otherPath: path2.tail)}
     }
 }
 
@@ -120,44 +80,48 @@ extension SectionLayer {
             return beforeItems
         }
     }
-    func splitOff(item: ConcreteItem?) -> Partition<ConcreteItem, WProxy> {
-        if let subitem = item {
-            let (before, _, after) = items.split(node: subitem.this!)
-            items = before
-            subitem.this = items.insert(value: subitem, length: 1, dir: .Left).0
-            return after
+    func moveSuffix(after: ConcreteItem?, from: ConcreteItem?, fromLayer: Self) {
+        if let afterItem = after {
+            if let fromItem = from {
+                items.moveSuffix(to: afterItem.this!, from: fromItem.this!)
+            } else {
+                items.setAsSuffix(after: afterItem.this!, suffix: fromLayer.items)
+            }
         } else {
-            let result = items
-            let proxy = WProxy()
-            proxy.value = self
-            items = Partition(parent: proxy)
-            return result
+            if let fromItem = from {
+                items.replaceWithSuffix(from: fromItem.this!)
+            } else {
+                items.replaceContent(from: fromLayer.items)
+            }
         }
     }
-    func appendSubitems(newItems: inout Partition<ConcreteItem, WProxy>) {
-        items.union(with: &newItems)
+    fileprivate func setAsSuffix(afterHead: ConcreteItem?, afterTail: LayerPath<ConcreteItem.Content>?, fromLayer: Self) -> TailCall<()> {
+        if let ah = afterHead {
+            items.setAsSuffix(after: ah.this!, suffix: fromLayer.items)
+        } else {
+            items.replaceContent(from: fromLayer.items)
+        }
+        if let at = afterTail {
+            return .step {self.sublayer(item: afterHead).setAsSuffix(afterHead: at.item, afterTail: at.tail, fromLayer: fromLayer.beforeItems)}
+        } else {
+            return self.sublayer(item: afterHead).replaceContent(fromLayer: fromLayer.beforeItems)
+        }
     }
-    func empty() -> TailCall<()> {
-        let proxy = WProxy()
-        proxy.value = self
-        items = Partition(parent: proxy)
-        return .step {self.beforeItems.empty()}
+    fileprivate func replaceWithSuffix(fromHead: ConcreteItem?, fromTail: LayerPath<ConcreteItem.Content>?, fromLayer: Self) -> TailCall<()> {
+        if let fh = fromHead {
+            items.replaceWithSuffix(from: fh.this!)
+        } else {
+            items.replaceContent(from: fromLayer.items)
+        }
+        if let ft = fromTail {
+            return .step {self.beforeItems.replaceWithSuffix(fromHead: ft.item, fromTail: ft.tail, fromLayer: self.sublayer(item: fromHead))}
+        } else {
+            return beforeItems.replaceContent(fromLayer: sublayer(item: fromHead))
+        }
     }
-    func emptyLayer() {
-        let proxy = WProxy()
-        proxy.value = self
-        items = Partition(parent: proxy)
-    }
-    func prependSubitems(newItems: inout Partition<ConcreteItem, WProxy>) -> ConcreteItem.Content {
-        newItems.union(with: &items)
-        items = newItems
-        let proxy = WProxy()
-        proxy.value = self
-        items.retarget(newParent: proxy)
-        return beforeItems
-    }
-    func allChildren() -> (ConcreteItem.Content?, Partition<ConcreteItem, WProxy>) {
-        return (beforeItems, items)
+    func replaceContent(fromLayer: Self) -> TailCall<()> {
+        items.replaceContent(from: fromLayer.items)
+        return .step {self.beforeItems.replaceContent(fromLayer: fromLayer.beforeItems)}
     }
 }
 
@@ -218,6 +182,18 @@ extension Structure.List: Layer {
     fileprivate enum SubItem {
         case regular(value: Structure.RegularItem)
         case numbered(list: Structure.NumberedList, value: Structure.NumberedItem)
+        func listItem() -> Structure.ListItem {
+            switch self {
+            case .regular(value: let value): return value
+            case .numbered(list: let list, value: _): return list
+            }
+        }
+        var sublist: Structure.List {
+            switch self {
+            case .regular(value: let value): return value.sublist
+            case .numbered(list: _, value: let value): return value.sublist
+            }
+        }
     }
     fileprivate typealias ListItemCollection = Partition<Structure.Item, Structure.WeakProxy<Structure.List>>
     fileprivate func appendPath(item: SubItem, path: LayerPath<Structure.List>?) -> TailCall<LayerPath<Structure.Document>> {
@@ -258,57 +234,83 @@ extension Structure.List: Layer {
         case .numbered(list: _, value: let numberedItem): return numberedItem.sublist
         }
     }
-    fileprivate func splitOff(item: SubItem) -> ListItemCollection {
-        switch(item) {
-        case .regular(value: let regularItem):
-            let (before, _, after) = items.split(node: regularItem.this!)
-            items = before
-            regularItem.this = items.insert(value: .regular(value: regularItem), length: 1, dir: .Left).0
-            return after
-        case .numbered(list: let numberedList, value: let numberedItem):
-            var (before, _, after) = items.split(node: numberedList.this!)
-            items = before
-            let (numBefore, _, numAfter) = numberedList.items.split(node: numberedItem.this!)
-            numberedList.items = numBefore
-            numberedItem.this = numberedList.items.insert(value: numberedItem, length: 1, dir: .Left).0
-            numberedList.this = items.insert(value: .numbered(value: numberedList), length: 1, dir: .Left).0
-            let newNumberedList = Structure.NumberedList()
-            newNumberedList.items = numAfter
-            let nlProxy = Structure.WeakProxy<Structure.NumberedList>()
-            nlProxy.value = newNumberedList
-            newNumberedList.items.retarget(newParent: nlProxy)
-            newNumberedList.this = after.insert(value: .numbered(value: newNumberedList), length: 1).0
-            return after
+    fileprivate func moveSuffix(after: SubItem, from: SubItem, fromLayer: Structure.List) {
+        if case .numbered(list: let afterList, value: let afterValue) = after, case .numbered(list: _, value: let fromValue) = from {
+            afterList.items.moveSuffix(to: afterValue.this!, from: fromValue.this!)
+        }
+        items.moveSuffix(to: after.listItem().this!, from: from.listItem().this!)
+    }
+    fileprivate func setAsSuffix(afterHead: SubItem, afterTail: LayerPath<Structure.List>?, fromLayer: Structure.List) -> TailCall<()> {
+        if case .numbered(list: let nlist, value: let nvalue) = afterHead, case .numbered(value: let fromNList) = fromLayer.items.sideValue(dir: .Left) {
+            nlist.items.setAsSuffix(after: nvalue.this!, suffix: fromNList.items)
+            items.moveSuffix(to: nlist.this!, from: fromNList.this!)
+        } else {
+            items.setAsSuffix(after: afterHead.listItem().this!, suffix: fromLayer.items)
+        }
+        return sublayer(item: afterHead).cutOffSuffix(afterPath: afterTail)
+    }
+    fileprivate func cutOffSuffix(afterPath: LayerPath<Structure.List>?) -> TailCall<()> {
+        if let ap = afterPath {
+            switch ap.item {
+            case .numbered(list: let nlist, value: let nvalue):
+                items.cutOffSuffix(after: nlist.this!)
+                nlist.items.cutOffSuffix(after: nvalue.this!)
+                return .step {nvalue.sublist.cutOffSuffix(afterPath: ap.tail)}
+            case .regular(value: let value):
+                items.cutOffSuffix(after: value.this!)
+                return .step {value.sublist.cutOffSuffix(afterPath: ap.tail)}
+            }
+        } else {
+            let listProxy = Structure.WeakProxy<Structure.List>()
+            listProxy.value = self
+            items = Partition(parent: listProxy)
+            return .done(result: ())
         }
     }
-    fileprivate func appendSubitems(newItems: inout ListItemCollection) {
-        if case .numbered(value: let otherNumbered) = newItems.sideValue(dir: .Left), case .numbered(value: let thisNumbered) = items.sideValue(dir: .Right) {
-            thisNumbered.items.union(with: &otherNumbered.items)
-            _ = newItems.remove(node: otherNumbered.this!)
+    fileprivate func replaceWithSuffix(fromHead: SubItem, fromTail: LayerPath<Structure.List>?, fromLayer: Structure.List) -> TailCall<()> {
+        var allItems = [(fromHead, fromLayer)]
+        var currentPath = fromTail
+        var lastLayer = fromHead.sublist
+        while let path = currentPath {
+            allItems.append((path.item, lastLayer))
+            lastLayer = path.item.sublist
+            currentPath = path.tail
         }
-        items.union(with: &newItems)
-    }
-    fileprivate func empty() -> TailCall<()> {
-        let listProxy = Structure.WeakProxy<Structure.List>()
-        listProxy.value = self
-        items = Partition(parent: listProxy)
+        items.replaceContent(from: lastLayer.items)
+        var lastItem = items.sideValue(dir: .Right).map {item -> SubItem in
+            switch item {
+            case .regular(value: let value): return .regular(value: value)
+            case .numbered(value: let nlist): return .numbered(list: nlist, value: nlist.items.sideValue(dir: .Right)!)
+            }
+        }
+        for (item, layer) in allItems.reversed() {
+            if case .numbered(list: let lastnlist, value: let lastnvalue) = lastItem, case .numbered(list: let nlist, value: let nvalue) = item {
+                let lastNumberedItem = nlist.items.sideValue(dir: .Right)!
+                if lastNumberedItem !== nvalue {
+                    lastItem = .numbered(list: lastnlist, value: lastNumberedItem)
+                }
+                lastnlist.items.moveSuffix(to: lastnvalue.this!, from: nvalue.this!)
+            }
+            let lastLayerItem = layer.items.sideValue(dir: .Right)
+            if let li = lastItem {
+                items.moveSuffix(to: li.listItem().this!, from: item.listItem().this!)
+            } else {
+                items.replaceWithSuffix(from: item.listItem().this!)
+            }
+            if lastLayerItem?.impl !== item.listItem() {
+                lastItem = lastLayerItem.map {item -> SubItem in
+                    switch item {
+                    case .regular(value: let value): return .regular(value: value)
+                    case .numbered(value: let nlist): return .numbered(list: nlist, value: nlist.items.sideValue(dir: .Right)!)
+                    }
+                } ?? lastItem
+            }
+        }
         return .done(result: ())
     }
-    fileprivate func emptyLayer() {
-        let listProxy = Structure.WeakProxy<Structure.List>()
-        listProxy.value = self
-        items = Partition(parent: listProxy)
-    }
-    fileprivate func prependSubitems(newItems: inout ListItemCollection) -> Structure<DT>.List {
-        let listProxy = Structure.WeakProxy<Structure.List>()
-        listProxy.value = self
-        newItems.retarget(newParent: listProxy)
-        newItems.union(with: &items)
-        items = newItems
-        return self
-    }
-    fileprivate func allChildren() -> (Structure.List?, ListItemCollection) {
-        return (nil, items)
+    fileprivate func replaceContent(fromLayer: Structure.List) -> TailCall<()> {
+        items.replaceContent(from: fromLayer.items)
+        return .done(result: ())
     }
 }
 
